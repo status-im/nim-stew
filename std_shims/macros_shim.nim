@@ -114,6 +114,10 @@ iterator recordFields*(typeImpl: NimNode): FieldDescription =
 
       if traversalStack.len == 0: break
 
+proc skipPragma*(n: NimNode): NimNode =
+  if n.kind == nnkPragmaExpr: n[0]
+  else: n
+
 # FIXED NewLit
 
 proc newLitFixed*(c: char): NimNode {.compileTime.} =
