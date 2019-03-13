@@ -47,7 +47,7 @@ iterator recordFields*(typeImpl: NimNode): FieldDescription =
       traversalStack.add (childNode, 0, currentCaseField, currentCaseBranch)
 
     while true:
-      assert traversalStack.len > 0
+      doAssert traversalStack.len > 0
 
       var stackTop = traversalStack[^1]
       let recList = stackTop.currentNode
@@ -68,12 +68,12 @@ iterator recordFields*(typeImpl: NimNode): FieldDescription =
           of nnkElse:
             recuseInto branch[0]
           else:
-            assert false
+            doAssert false
 
         continue
 
       of nnkRecCase:
-        assert n.len > 0
+        doAssert n.len > 0
         for i in countdown(n.len - 1, 1):
           let branch = n[i]
           case branch.kind
@@ -82,7 +82,7 @@ iterator recordFields*(typeImpl: NimNode): FieldDescription =
           of nnkElse:
             recuseInto branch[0], n[0], branch
           else:
-            assert false
+            doAssert false
 
         recuseInto newTree(nnkRecCase, n[0])
         continue
@@ -110,7 +110,7 @@ iterator recordFields*(typeImpl: NimNode): FieldDescription =
         discard
 
       else:
-        assert false
+        doAssert false
 
       if traversalStack.len == 0: break
 
