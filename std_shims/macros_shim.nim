@@ -42,8 +42,8 @@ iterator recordFields*(typeImpl: NimNode): FieldDescription =
     ]
 
     template recuseInto(childNode: NimNode,
-                      currentCaseField: NimNode = nil,
-                      currentCaseBranch: NimNode = nil) =
+                        currentCaseField: NimNode = nil,
+                        currentCaseBranch: NimNode = nil) =
       traversalStack.add (childNode, 0, currentCaseField, currentCaseBranch)
 
     while true:
@@ -84,7 +84,7 @@ iterator recordFields*(typeImpl: NimNode): FieldDescription =
           else:
             doAssert false
 
-        recuseInto newTree(nnkRecCase, n[0])
+        recuseInto newTree(nnkRecCase, n[0]), n[0]
         continue
 
       of nnkIdentDefs:
