@@ -227,8 +227,9 @@ proc newLitFixed*(arg: tuple): NimNode {.compileTime.} =
     result.add nnkExprColonExpr.newTree(newIdentNode(a), newLitFixed(b))
 
 iterator typedParams*(n: NimNode, skip = 0): (NimNode, NimNode) =
-  for i in (1 + skip) ..< n.params.len:
-    let paramNodes = n.params[i]
+  let params = n[3]
+  for i in (1 + skip) ..< params.len:
+    let paramNodes = params[i]
     let paramType = paramNodes[^2]
 
     for j in 0 ..< paramNodes.len - 2:
