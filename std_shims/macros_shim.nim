@@ -18,9 +18,9 @@ const
 
 proc findPragma*(pragmas: NimNode, pragmaSym: NimNode): NimNode =
   for p in pragmas:
-    if p.kind == nnkSym and p == pragmaSym:
+    if p.kind in {nnkSym, nnkIdent} and eqIdent(p, pragmaSym):
       return p
-    if p.kind in nnkPragmaCallKinds and p.len > 0 and p[0].kind == nnkSym and p[0] == pragmaSym:
+    if p.kind in nnkPragmaCallKinds and p.len > 0 and eqIdent(p[0], pragmaSym):
       return p
 
 iterator recordFields*(typeImpl: NimNode): FieldDescription =
