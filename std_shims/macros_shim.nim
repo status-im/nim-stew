@@ -23,6 +23,10 @@ proc findPragma*(pragmas: NimNode, pragmaSym: NimNode): NimNode =
     if p.kind in nnkPragmaCallKinds and p.len > 0 and eqIdent(p[0], pragmaSym):
       return p
 
+template readPragma*(field: FieldDescription, pragmaName: static string): NimNode =
+  let p = field.pragmas.findPragma bindSym(pragmaName)
+  if p != nil and p.len == 2: p[1] else: p
+
 iterator recordFields*(typeImpl: NimNode): FieldDescription =
   # TODO: This doesn't support inheritance yet
   let
@@ -113,6 +117,9 @@ iterator recordFields*(typeImpl: NimNode): FieldDescription =
         doAssert false
 
       if traversalStack.len == 0: break
+
+macro field*(obj: typed, fieldName: static string): untyped =
+  newDotExpr(obj, ident fieldName)
 
 proc skipPragma*(n: NimNode): NimNode =
   if n.kind == nnkPragmaExpr: n[0]
