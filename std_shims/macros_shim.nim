@@ -24,7 +24,7 @@ proc findPragma*(pragmas: NimNode, pragmaSym: NimNode): NimNode =
       return p
 
 template readPragma*(field: FieldDescription, pragmaName: static string): NimNode =
-  let p = field.pragmas.findPragma bindSym(pragmaName)
+  let p = findPragma(field.pragmas, bindSym(pragmaName))
   if p != nil and p.len == 2: p[1] else: p
 
 iterator recordFields*(typeImpl: NimNode): FieldDescription =
