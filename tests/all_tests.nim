@@ -10,4 +10,6 @@
 import
   ranges/all,
 
-  test_byteutils
+  test_bitops2,
+  test_byteutils,
+  test_endians2
