@@ -17,9 +17,14 @@
 # Keeping the above in mind, it's generally safer to use `array[N, byte]` to
 # hold values of specific endianess and read them out with `fromBytes` when the
 # integer interpretation of the bytes is needed.
-#
-# Though it doesn't quite make sense, we include byte swappers for single bytes
-# for generic convenience.
+
+type
+  SomeEndianInt* = uint8|uint16|uint32|uint64
+    ## types that we support endian conversions for - uint8 is there for
+    ## for syntactic / generic convenience. Other candidates:
+    ## * int/uint - uncertain size, thus less suitable for binary interop
+    ## * intX - over and underflow protection in nim might easily cause issues -
+    ##          need to consider before adding here
 
 when defined(gcc) or defined(llvm_gcc) or defined(clang):
   func swapBytesBuiltin(x: uint8): uint8 = x
@@ -66,7 +71,7 @@ func swapBytesNim(x: uint64): uint64 =
   ((v and 0x00ff00ff00ff00ff'u64) shl 8) or
     ((v and 0xff00ff00ff00ff00'u64) shr 8)
 
-func swapBytes*(x: SomeUnsignedInt): SomeUnsignedInt {.inline.} =
+func swapBytes*[T: SomeEndianInt](x: T): T {.inline.} =
   ## Reverse the bytes within an integer, such that the most significant byte
   ## changes place with the least significant one, etc
   ##
@@ -80,7 +85,7 @@ func swapBytes*(x: SomeUnsignedInt): SomeUnsignedInt {.inline.} =
     else:
       swapBytesNim(x)
 
-func toBytes*(x: uint8|uint16|uint32|uint64, endian: Endianness = system.cpuEndian):
+func toBytes*(x: SomeEndianInt, endian: Endianness = system.cpuEndian):
     array[sizeof(x), byte] {.noinit, inline.} =
   ## Convert integer to its corresponding byte sequence using the chosen
   ## endianness. By default, native endianess is used which is not portable!
@@ -92,18 +97,18 @@ func toBytes*(x: uint8|uint16|uint32|uint64, endian: Endianness = system.cpuEndi
   for i in 0..<sizeof(result):
     result[i] = byte((v shr (i * 8)) and 0xff)
 
-func toBytesLE*(x: uint8|uint16|uint32|uint64):
+func toBytesLE*(x: SomeEndianInt):
     array[sizeof(x), byte] {.inline.} =
   ## Convert a native endian integer to a little endian byte sequence
   toBytes(x, littleEndian)
 
-func toBytesBE*(x: uint8|uint16|uint32|uint64):
+func toBytesBE*(x: SomeEndianInt):
     array[sizeof(x), byte] {.inline.} =
   ## Convert a native endian integer to a native endian byte sequence
   toBytes(x, bigEndian)
 
 func fromBytes*(
-    T: typedesc[uint8|uint16|uint32|uint64],
+    T: typedesc[SomeEndianInt],
     x: array[sizeof(T), byte],
     endian: Endianness = system.cpuEndian): T {.inline.} =
   ## Convert a byte sequence to a native endian integer. By default, native
@@ -115,7 +120,7 @@ func fromBytes*(
     result = swapBytes(result)
 
 func fromBytes*(
-    T: type,
+    T: typedesc[SomeEndianInt],
     x: openArray[byte],
     endian: Endianness = system.cpuEndian): T {.inline.} =
   ## Read bytes and convert to an integer according to the given endianess. At
@@ -128,7 +133,7 @@ func fromBytes*(
   fromBytes(T, tmp, endian)
 
 func fromBytesBE*(
-    T: typedesc[uint8|uint16|uint32|uint64],
+    T: typedesc[SomeEndianInt],
     x: array[sizeof(T), byte]): T {.inline.} =
   ## Read big endian bytes and convert to an integer. By default, native
   ## endianess is used which is not
@@ -136,46 +141,46 @@ func fromBytesBE*(
   fromBytes(T, x, bigEndian)
 
 func fromBytesBE*(
-    T: typedesc[uint8|uint16|uint32|uint64],
+    T: typedesc[SomeEndianInt],
     x: openArray[byte]): T {.inline.} =
   ## Read big endian bytes and convert to an integer. At runtime, v must contain
   ## at least sizeof(T) bytes. By default, native endianess is used which is not
   ## portable!
   fromBytes(T, x, bigEndian)
 
-func toBE*(x: SomeUnsignedInt): SomeUnsignedInt {.inline.} =
+func toBE*[T: SomeEndianInt](x: T): T {.inline.} =
   ## Convert a native endian value to big endian. Consider toBytesBE instead
   ## which may prevent some confusion.
   if cpuEndian == bigEndian: x
   else: x.swapBytes
 
-func fromBE*(x: SomeUnsignedInt): SomeUnsignedInt {.inline.} =
+func fromBE*[T: SomeEndianInt](x: T): T {.inline.} =
   ## Read a big endian value and return the corresponding native endian
   # there's no difference between this and toBE, except when reading the code
   toBE(x)
 
 func fromBytesLE*(
-    T: typedesc[uint8|uint16|uint32|uint64],
+    T: typedesc[SomeEndianInt],
     x: array[sizeof(T), byte]): T {.inline.} =
   ## Read little endian bytes and convert to an integer. By default, native
   ## endianess is used which is not portable!
   fromBytes(T, x, littleEndian)
 
 func fromBytesLE*(
-    T: typedesc[uint8|uint16|uint32|uint64],
+    T: typedesc[SomeEndianInt],
     x: openArray[byte]): T {.inline.} =
   ## Read little endian bytes and convert to an integer. At runtime, v must
   ## contain at least sizeof(T) bytes. By default, native endianess is used
   ## which is not portable!
   fromBytes(T, x, littleEndian)
 
-func toLE*(x: SomeUnsignedInt): SomeUnsignedInt {.inline.} =
+func toLE*[T: SomeEndianInt](x: T): T {.inline.} =
   ## Convert a native endian value to little endian. Consider toBytesLE instead
   ## which may prevent some confusion.
   if cpuEndian == littleEndian: x
   else: x.swapBytes
 
-func fromLE*(x: SomeUnsignedInt): SomeUnsignedInt {.inline.} =
+func fromLE*[T: SomeEndianInt](x: T): T {.inline.} =
   ## Read a little endian value and return the corresponding native endian
   # there's no difference between this and toLE, except when reading the code
   toLE(x)

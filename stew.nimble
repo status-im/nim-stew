@@ -10,12 +10,5 @@ skipDirs      = @["tests"]
 requires "nim >= 0.19.0"
 
 task test, "Run all tests":
-<<<<<<< HEAD
   exec "nim c -r --threads:off tests/all_tests"
   exec "nim c -r --threads:on tests/all_tests"
-
-=======
-  --run
-  --threads:on
-  setCommand "c", "tests/all_tests"
->>>>>>> refactor bitops2, add endians2
