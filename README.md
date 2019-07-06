@@ -22,7 +22,7 @@ broken out into separate repositories.
 follow the following layout - if you've used C++'s `boost`, you'll feel right at
 home:
 
-```
+```bash
 # Single-module libraries
 stew/small.nim # small libraries that fits in one module
 
@@ -34,7 +34,7 @@ stew/libname/stuff.nim # Detail import file
 # support for multiple nim versions - code in here typically has been taken
 # from nim `devel` branch and `name` will reexport the corresponding std lib
 # module
-# stew/shims/macros.nim - module that reexports `macros.nim` adding code from newer nim versions
+stew/shims/macros.nim # module that reexports `macros.nim` adding code from newer nim versions
 
 # Tests are in the tests folder (duh!)
 # To execute, run either `all_tests.nim` or specific `test_xxx.nim` files:
@@ -48,6 +48,17 @@ for different Nim versions, such that code using `stew` works well with multiple
 versions of Nim. If `stew` is not working with the Nim version you're using, we
 welcome patches.
 
+You can create multiple versions of your code using the following pattern:
+
+```nim
+when (NimMajor,NimMinor,NimPatch) >= (0,19,9):
+  discard
+elif (NimMajor,NimMinor,NimPatch) >= (0,19,0):
+  discard
+else
+  {.fatal: "unsupported nim version"}
+```
+
 ## Notable libraries
 
 Libraries are documented either in-module or on a separate README in their
@@ -55,6 +66,7 @@ respective folders
 
 - `bitops2` - an updated version of `bitops.nim`, filling in gaps in original code
 - `byteutils` - utilities that make working with the Nim `byte` type convenient
+- `ranges` - utility functions for working with parts and blobs of memory
 - `shims` - backports of nim `devel` code to the stable version that Status is using
 
 ## Using stew in your project
@@ -63,6 +75,13 @@ We do not recommend using this library as a normal `nimble` dependency - there
 are no versioned releases and we will not maintain API/ABI stability. Instead,
 make sure you pin your dependency to a specific git hash (for example using a
 submodule) or copy the file to your project instead.
+
+Typically, you will import either a top-level library or drill down into its
+submodules:
+```nim
+import stew/bitops2
+import stew/ranges/ptr_arith
+```
 
 :warning: No API/ABI stability - pick a commit and stick with it :warning:
 
