@@ -1,10 +1,17 @@
 # stew - status e-something w-something
 
+[![Build Status (Travis)](https://img.shields.io/travis/status-im/nim-stew/master.svg?label=Linux%20/%20macOS "Linux/macOS build status (Travis)")](https://travis-ci.org/status-im/nim-stew)
+[![Windows build status (Appveyor)](https://img.shields.io/appveyor/ci/nimbus/nim-stew/master.svg?label=Windows "Windows build status (Appveyor)")](https://ci.appveyor.com/project/nimbus/nim-stew)
+[![License: Apache](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+![Stability: experimental](https://img.shields.io/badge/stability-experimental-orange.svg)
+
 `stew` is collection of utilities, std library extensions and budding libraries
 that are frequently used at Status, but are too small to deserve their own
 git repository.
 
-We use `stew` as a staging ground for code that has yet to be battle-tested.
+We also use `stew` as a staging ground for code that has yet to be
+battle-tested.
 
 Some of these libraries may eventually be proposed for inclusion in Nim or
 broken out into separate repositories.
@@ -46,7 +53,8 @@ welcome patches.
 Libraries are documented either in-module or on a separate README in their
 respective folders
 
-- `bitops2` - an updated version of `bitops.nim`, filling in gaps in original code\
+- `bitops2` - an updated version of `bitops.nim`, filling in gaps in original code
+- `byteutils` - utilities that make working with the Nim `byte` type convenient
 - `shims` - backports of nim `devel` code to the stable version that Status is using
 
 ## Using stew in your project
