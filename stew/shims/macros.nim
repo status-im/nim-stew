@@ -1,5 +1,5 @@
 import
-  macros
+  std/macros
 
 export
   macros

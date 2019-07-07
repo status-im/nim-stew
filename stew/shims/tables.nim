@@ -1,4 +1,4 @@
-import tables, objects
+import std/tables, ../objects
 
 template init*[A, B](T: type Table[A, B]): auto = initTable[A, B]()
 

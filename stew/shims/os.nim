@@ -1,4 +1,4 @@
-import os
+import std/os
 export os
 
 when defined(windows):

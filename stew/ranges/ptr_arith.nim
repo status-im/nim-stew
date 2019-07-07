@@ -23,5 +23,3 @@ elif (NimMajor,NimMinor,NimPatch) >= (0,19,0):
 
   template makeOpenArray*[T](p: ptr T, len: int): auto =
     toOpenArray(cast[ptr array[0, T]](p)[], 0, len - 1)
-else:
-  {.fatal: "Unsupported nim version".}
