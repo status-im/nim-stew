@@ -125,6 +125,17 @@ proc skipPragma*(n: NimNode): NimNode =
   if n.kind == nnkPragmaExpr: n[0]
   else: n
 
+macro hasCustomPragmaFixed*(T: type, field: static string, pragma: typed{nkSym}): untyped =
+  let
+    Tresolved = getType(T)[1]
+    Timpl = getImpl(Tresolved)
+
+  for f in recordFields(Timpl):
+    if eqIdent(f.name, field):
+      return newLit(f.pragmas.findPragma(pragma) != nil)
+
+  error "The type " & $Tresolved & " doesn't have a field named " & field
+
 # FIXED NewLit
 
 proc newLitFixed*(c: char): NimNode {.compileTime.} =
