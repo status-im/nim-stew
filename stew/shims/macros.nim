@@ -253,3 +253,14 @@ iterator typedParams*(n: NimNode, skip = 0): (NimNode, NimNode) =
     for j in 0 ..< paramNodes.len - 2:
       yield (paramNodes[j], paramType)
 
+macro unpackArgs*(callee: typed, args: untyped): untyped =
+  result = newCall(callee)
+  for arg in args:
+    let arg = if arg.kind == nnkHiddenStdConv: arg[1]
+              else: arg
+    if arg.kind == nnkArgList:
+      for subarg in arg:
+        result.add subarg
+    else:
+      result.add arg
+
