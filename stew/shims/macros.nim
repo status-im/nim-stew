@@ -264,3 +264,13 @@ macro unpackArgs*(callee: typed, args: untyped): untyped =
     else:
       result.add arg
 
+template genCode*(body: untyped) =
+  iterator generator: NimNode = body
+
+  macro payload: untyped =
+    result = newStmtList()
+    for node in generator():
+      result.add node
+
+  payload()
+
