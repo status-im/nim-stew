@@ -25,6 +25,8 @@ const
 template bitsof*(T: typedesc[SomeInteger]): int = 8 * sizeof(T)
 template bitsof*(x: SomeInteger): int = 8 * sizeof(x)
 
+type BitIndexable = SomeUnsignedInt
+
 # #### Pure Nim version ####
 
 func nextPow2Nim(x: SomeUnsignedInt): SomeUnsignedInt =
@@ -394,3 +396,147 @@ func rotateRight*(v: SomeUnsignedInt, amount: SomeInteger):
   const mask = bitsof(v) - 1
   let amount = int(amount and mask)
   (v shr amount) or (v shl ( (-amount) and mask))
+
+template mostSignificantBit(T: type): auto =
+  const res = 1 shl (sizeof(T) * 8 - 1)
+  T(res)
+
+template getBit*(x: BitIndexable, bit: Natural): bool =
+  ## reads a bit from `x`, assuming 0 to be the position of the
+  ## least significant bit
+  type T = type(x)
+  (x and T(0b1 shl bit)) != 0
+
+template getBitLE*(x: BitIndexable, bit: Natural): bool =
+  getBit(x, bit)
+
+template getBitBE*(x: BitIndexable, bit: Natural): bool =
+  ## Reads a bit from `x`, assuming 0 to be the position of
+  ## the most significant bit.
+  ##
+  ## This indexing may be natural when you are considering the
+  ## string representation of a bit field. For example, 72 can
+  ## be written in binary as 0b01001000. The first bit here is
+  ## zero, while the second bit is one.
+  ##
+  ## Since the string representation will depend on the size of
+  ## the operand, using `getBitBE` with the same numeric value
+  ## and a bit position may produce different results depending
+  ## on the machine type used to store the value. For this reason,
+  ## this indexing scheme is considered more error-prone and
+  ## `getBitLE` is considering the default indexing scheme.
+  (x and mostSignificantBit(x.type) shr bit) != 0
+
+proc setBit*(x: var BitIndexable, bit: Natural, val: bool) =
+  ## writes a bit in `x`, assuming 0 to be the position of the
+  ## least significant bit
+  type T = type(x)
+  let mask = T(0b1 shl bit)
+  if val:
+    x = x or mask
+  else:
+    x = x and not mask
+
+proc setBitLE*(x: var BitIndexable, bit: Natural, val: bool) =
+  setBit(x, bit, val)
+
+proc setBitBE*(x: var BitIndexable, bit: Natural, val: bool) =
+  ## writes a bit in `x`, assuming 0 to be the position of the
+  ## most significant bit
+  let mask = mostSignificantBit(x.type) shr bit
+  if val:
+    x = x or mask
+  else:
+    x = x and not mask
+
+proc raiseBit*(x: var BitIndexable, bit: Natural) =
+  ## raises bit in `x`, assuming 0 to be the position of the
+  ## least significant bit
+  type T = type(x)
+  let mask = T(0b1 shl bit)
+  x = x or mask
+
+proc raiseBitLE*(x: var BitIndexable, bit: Natural) =
+  raiseBit(x, bit)
+
+proc raiseBitBE*(x: var BitIndexable, bit: Natural) =
+  ## raises a bit in `x`, assuming 0 to be the position of the
+  ## most significant bit
+  type T = type(x)
+  let mask = mostSignificantBit(x.type) shr bit
+  x = x or mask
+
+proc lowerBit*(x: var BitIndexable, bit: Natural) =
+  ## raises bit in a byte, assuming 0 to be the position of the
+  ## least significant bit
+  type T = type(x)
+  let mask = T(0b1 shl bit)
+  x = x and not mask
+
+proc lowerBitLE*(x: var BitIndexable, bit: Natural) =
+  lowerBit(x, bit)
+
+proc lowerBitBE*(x: var BitIndexable, bit: Natural) =
+  ## raises a bit in `x`, assuming 0 to be the position of the
+  ## most significant bit
+  type T = type(x)
+  let mask = mostSignificantBit(x.type) shr bit
+  x = x and not mask
+
+template byteIndex(pos: Natural): int =
+  pos shr 3 # same as pos div 8
+
+template bitIndex(pos: Natural): int =
+  pos and 0b111 # same as pos mod 8
+
+proc getBit*(bytes: openarray[byte], pos: Natural): bool {.inline.} =
+  getBit(bytes[byteIndex pos], bitIndex pos)
+
+proc getBitBE*(bytes: openarray[byte], pos: Natural): bool {.inline.} =
+  getBitBE(bytes[byteIndex pos], bitIndex pos)
+
+template getBitLE*(bytes: openarray[byte], pos: Natural): bool =
+  getBit(bytes, pos)
+
+proc setBit*(bytes: var openarray[byte], pos: Natural, value: bool) {.inline.} =
+  setBit(bytes[byteIndex pos], bitIndex pos, value)
+
+proc setBitBE*(bytes: var openarray[byte], pos: Natural, value: bool) {.inline.} =
+  setBitBE(bytes[byteIndex pos], bitIndex pos, value)
+
+template getBitLE*(bytes: var openarray[byte], pos: Natural, value: bool) =
+  setBitLE(bytes, pos)
+
+proc lowerBit*(bytes: var openarray[byte], pos: Natural) {.inline.} =
+  lowerBit(bytes[byteIndex pos], bitIndex pos)
+
+proc lowerBitBE*(bytes: var openarray[byte], pos: Natural) {.inline.} =
+  lowerBitBE(bytes[byteIndex pos], bitIndex pos)
+
+template lowerBitLE*(bytes: var openarray[byte], pos: Natural) =
+  lowerBit(bytes, pos)
+
+proc raiseBit*(bytes: var openarray[byte], pos: Natural) {.inline.} =
+  raiseBit(bytes[byteIndex pos], bitIndex pos)
+
+proc raiseBitBE*(bytes: var openarray[byte], pos: Natural) {.inline.} =
+  raiseBitBE(bytes[byteIndex pos], bitIndex pos)
+
+template raiseBitLE*(bytes: var openarray[byte], pos: Natural) =
+  raiseBit(bytes, pos)
+
+when isMainModule:
+  template test() =
+    doAssert countOnes(0b01000100'u8) == 2
+    doAssert parity(0b00000001'u8) == 1
+    doAssert firstOne(0b00000010'u8) == 2
+    doAssert firstOne(0'u8) == 0
+    doAssert log2trunc(0b01000000'u8) == 6
+    doAssert leadingZeros(0b00100000'u8) == 2
+    doAssert trailingZeros(0b00100000'u8) == 5
+    doAssert leadingZeros(0'u8) == 8
+    doAssert trailingZeros(0'u8) == 8
+
+  test()
+  static: test()
+

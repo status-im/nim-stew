@@ -1,11 +1,53 @@
 import
   random, unittest,
-  ../../stew/ranges/bitranges
+  ../../stew/ranges/bitranges, ../../stew/bitseqs
 
 proc randomBytes(n: int): seq[byte] =
   result = newSeq[byte](n)
   for i in 0 ..< result.len:
     result[i] = byte(rand(256))
+
+suite "bit sequences":
+  test "growing and indexing":
+    var b0 = BitSeq.init(0)
+    check b0.len == 0
+
+    var b10 = BitSeq.init(10)
+    check b10.len == 10
+
+    var b100 = BitSeq.init(100)
+    check b100.len == 100
+
+    var bytes = randomBytes(50)
+
+    var bitArr: BitArray[50]
+
+    for i in 0 ..< bytes.len:
+      let bit = bytes[i] < 128
+
+      b0.add bit
+
+      if i < b10.len:
+        b10[i] = bit
+      else:
+        b10.add bit
+
+      b100[i] = bit
+      bitArr[i] = bit
+
+      check:
+        b0.len == i + 1
+        b10.len == max(i + 1, 10)
+        b100.len == 100
+
+    for i in 0 ..< bytes.len:
+      let bit = bytes[i] < 128
+
+      check:
+        b0[i] == bit
+        b10[i] == bit
+        b100[i] == bit
+        bitArr[i] == bit
 
 suite "bit ranges":
 
