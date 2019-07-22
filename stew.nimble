@@ -12,4 +12,3 @@ requires "nim >= 0.19.0"
 task test, "Run all tests":
   exec "nim c -r --threads:off tests/all_tests"
   exec "nim c -r --threads:on tests/all_tests"
-
