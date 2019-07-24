@@ -136,6 +136,18 @@ macro hasCustomPragmaFixed*(T: type, field: static string, pragma: typed{nkSym})
 
   error "The type " & $Tresolved & " doesn't have a field named " & field
 
+proc humaneTypeName*(typedescNode: NimNode): string =
+  var t = getType(typedescNode)[1]
+  if t.kind != nnkBracketExpr:
+    let tImpl = t.getImpl
+    if tImpl != nil and tImpl.kind notin {nnkEmpty, nnkNilLit}:
+      t = tImpl
+
+  repr(t)
+
+macro inspectType*(T: typed): untyped =
+  echo "Inspect type: ", humaneTypeName(T)
+
 # FIXED NewLit
 
 proc newLitFixed*(c: char): NimNode {.compileTime.} =
