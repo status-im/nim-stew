@@ -8,7 +8,7 @@ type
   BitArray*[bits: static int] = object
     bytes*: array[(bits + 7) div 8, byte]
 
-proc len*(s: BitSeq): int =
+func len*(s: BitSeq): int =
   let
     bytesCount = s.Bytes.len
     lastByte = s.Bytes[bytesCount - 1]
@@ -16,10 +16,13 @@ proc len*(s: BitSeq): int =
 
   Bytes(s).len * 8 - (8 - markerPos)
 
+template len*(a: BitArray): int =
+  a.bits
+
 template bytes*(s: BitSeq): untyped =
   Bytes(s)
 
-proc add*(s: var BitSeq, value: bool) =
+func add*(s: var BitSeq, value: bool) =
   let
     lastBytePos = s.Bytes.len - 1
     lastByte = s.Bytes[lastBytePos]
@@ -34,27 +37,27 @@ proc add*(s: var BitSeq, value: bool) =
     s.Bytes[lastBytePos].setBit 7, value
     s.Bytes.add byte(1)
 
-proc `[]`*(s: BitSeq, pos: Natural): bool {.inline.} =
+func `[]`*(s: BitSeq, pos: Natural): bool {.inline.} =
   doAssert pos < s.len
   s.Bytes.getBit pos
 
-proc `[]=`*(s: var BitSeq, pos: Natural, value: bool) {.inline.} =
+func `[]=`*(s: var BitSeq, pos: Natural, value: bool) {.inline.} =
   doAssert pos < s.len
   s.Bytes.setBit pos, value
 
-proc raiseBit*(s: var BitSeq, pos: Natural) {.inline.} =
+func raiseBit*(s: var BitSeq, pos: Natural) {.inline.} =
   doAssert pos < s.len
   raiseBit s.Bytes, pos
 
-proc lowerBit*(s: var BitSeq, pos: Natural) {.inline.} =
+func lowerBit*(s: var BitSeq, pos: Natural) {.inline.} =
   doAssert pos < s.len
   lowerBit s.Bytes, pos
 
-proc init*(T: type BitSeq, len: int): T =
+func init*(T: type BitSeq, len: int): T =
   result = BitSeq newSeq[byte](1 + len div 8)
   Bytes(result).raiseBit len
 
-proc init*(T: type BitArray): T =
+func init*(T: type BitArray): T =
   # The default zero-initializatio is fine
   discard
 
@@ -74,7 +77,7 @@ template lowerBit*(a: var BitArray, pos: Natural) =
 # At the moment, it doesn't work quite well because Nim selects
 # the generic cmp[T] from the system module instead of choosing
 # the openarray overload
-proc compareArrays[T](a, b: openarray[T]): int =
+func compareArrays[T](a, b: openarray[T]): int =
   result = cmp(a.len, b.len)
   if result != 0: return
 
@@ -87,4 +90,11 @@ template cmp*(a, b: BitSeq): int =
 
 template `==`*(a, b: BitSeq): bool =
   cmp(a, b) == 0
+
+func `$`*(a: BitSeq): string =
+  let length = a.len
+  result = newStringOfCap(2 + length)
+  result.add "0b"
+  for i in 0 ..< length:
+    result.add if a[i]: '1' else: '0'
 
