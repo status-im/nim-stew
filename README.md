@@ -16,6 +16,17 @@ battle-tested.
 Some of these libraries may eventually be proposed for inclusion in Nim or
 broken out into separate repositories.
 
+## Notable libraries
+
+Libraries are documented either in-module or on a separate README in their
+respective folders
+
+- `bitops2` - an updated version of `bitops.nim`, filling in gaps in original code
+- `byteutils` - utilities that make working with the Nim `byte` type convenient
+- `endians2` - utilities for converting to and from little / big endian integers
+- `ranges` - utility functions for working with parts and blobs of memory
+- `shims` - backports of nim `devel` code to the stable version that Status is using
+
 ## Layout
 
 `stew` modules are made to be fairly independent of each other, but generally
@@ -58,16 +69,6 @@ elif (NimMajor,NimMinor,NimPatch) >= (0,19,0):
 else
   {.fatal: "unsupported nim version"}
 ```
-
-## Notable libraries
-
-Libraries are documented either in-module or on a separate README in their
-respective folders
-
-- `bitops2` - an updated version of `bitops.nim`, filling in gaps in original code
-- `byteutils` - utilities that make working with the Nim `byte` type convenient
-- `ranges` - utility functions for working with parts and blobs of memory
-- `shims` - backports of nim `devel` code to the stable version that Status is using
 
 ## Using stew in your project
 
