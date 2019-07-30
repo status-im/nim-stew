@@ -131,7 +131,10 @@ macro hasCustomPragmaFixed*(T: type, field: static string, pragma: typed{nkSym})
     Timpl = getImpl(Tresolved)
 
   for f in recordFields(Timpl):
-    if eqIdent(f.name, field):
+    var fieldName = f.name
+    # TODO: Fix this in eqIdent
+    if fieldName.kind == nnkAccQuoted: fieldName = fieldName[0]
+    if eqIdent(fieldName, field):
       return newLit(f.pragmas.findPragma(pragma) != nil)
 
   error "The type " & $Tresolved & " doesn't have a field named " & field
