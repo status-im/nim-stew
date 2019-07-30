@@ -98,3 +98,22 @@ func `$`*(a: BitSeq): string =
   for i in 0 ..< length:
     result.add if a[i]: '1' else: '0'
 
+func combine*(tgt: var BitSeq, src: BitSeq) =
+  doAssert tgt.len == src.len
+  for i in 0 ..< tgt.bytes.len:
+    tgt.bytes[i] = tgt.bytes[i] or src.bytes[i]
+
+func overlaps*(a, b: BitSeq): bool =
+  doAssert a.len == b.len
+  for i in 0..< a.bytes.len:
+    if (a.bytes[i] and b.bytes[i]) > 0'u8:
+      return true
+
+func isSubsetOf*(a, b: BitSeq): bool =
+  let alen = a.len
+  doAssert b.len == alen
+  for i in 0 ..< alen:
+    if a[i] and not b[i]:
+      return false
+  true
+

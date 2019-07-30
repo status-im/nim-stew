@@ -9,7 +9,8 @@
 
 import
   ranges/all,
-
   test_bitops2,
   test_byteutils,
-  test_endians2
+  test_endians2,
+  test_bitseqs
+
