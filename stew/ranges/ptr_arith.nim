@@ -1,5 +1,10 @@
 proc baseAddr*[T](x: openarray[T]): pointer = cast[pointer](x)
 
+# Please note that we use templates here on purpose.
+# As much as I believe in the power of optimizing compilers, it turned
+# out that the use of forced inlining with templates still creates a
+# significant difference in the release builds of nim-faststreams
+
 template shift*(p: pointer, delta: int): pointer =
   cast[pointer](cast[int](p) + delta)
 
