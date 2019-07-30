@@ -40,7 +40,9 @@
 type
   StackArray*[T] = object
     bufferLen: int32
-    buffer: ptr UncheckedArray[T]
+    # TODO For some reason, this needs to be public with Nim 0.19.6
+    # in order to compile the test suite of nim-stew:
+    buffer*: ptr UncheckedArray[T]
 
 when defined(windows):
   proc alloca(n: int): pointer {.importc, header: "<malloc.h>".}
