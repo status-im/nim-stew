@@ -346,6 +346,11 @@ func log2trunc*(x: SomeUnsignedInt): int {.inline.} =
       else:
         log2truncNim(x)
 
+template bitWidth*(x: SomeUnsignedInt): int =
+  ## Returns the number of bits needed to write down the
+  ## number `x` in binary. If `x` is zero, the result is 0.
+  log2trunc(x) + 1
+
 func leadingZeros*(x: SomeInteger): int {.inline.} =
   ## Returns the number of leading zero bits in integer.
   ## If `x` is zero, result is bitsof(x)
