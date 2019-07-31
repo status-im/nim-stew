@@ -410,7 +410,7 @@ template getBit*(x: BitIndexable, bit: Natural): bool =
   ## reads a bit from `x`, assuming 0 to be the position of the
   ## least significant bit
   type T = type(x)
-  (x and T(0b1 shl bit)) != 0
+  ((x shr bit) and T(1)) != 0
 
 template getBitLE*(x: BitIndexable, bit: Natural): bool =
   getBit(x, bit)
@@ -432,7 +432,7 @@ template getBitBE*(x: BitIndexable, bit: Natural): bool =
   ## `getBitLE` is considering the default indexing scheme.
   (x and mostSignificantBit(x.type) shr bit) != 0
 
-proc setBit*(x: var BitIndexable, bit: Natural, val: bool) =
+func setBit*(x: var BitIndexable, bit: Natural, val: bool) {.inline.} =
   ## writes a bit in `x`, assuming 0 to be the position of the
   ## least significant bit
   type T = type(x)
@@ -442,10 +442,10 @@ proc setBit*(x: var BitIndexable, bit: Natural, val: bool) =
   else:
     x = x and not mask
 
-proc setBitLE*(x: var BitIndexable, bit: Natural, val: bool) =
+func setBitLE*(x: var BitIndexable, bit: Natural, val: bool) {.inline.} =
   setBit(x, bit, val)
 
-proc setBitBE*(x: var BitIndexable, bit: Natural, val: bool) =
+func setBitBE*(x: var BitIndexable, bit: Natural, val: bool) {.inline.} =
   ## writes a bit in `x`, assuming 0 to be the position of the
   ## most significant bit
   let mask = mostSignificantBit(x.type) shr bit
@@ -454,34 +454,34 @@ proc setBitBE*(x: var BitIndexable, bit: Natural, val: bool) =
   else:
     x = x and not mask
 
-proc raiseBit*(x: var BitIndexable, bit: Natural) =
+func raiseBit*(x: var BitIndexable, bit: Natural) {.inline.} =
   ## raises bit in `x`, assuming 0 to be the position of the
   ## least significant bit
   type T = type(x)
   let mask = T(0b1 shl bit)
   x = x or mask
 
-proc raiseBitLE*(x: var BitIndexable, bit: Natural) =
+func raiseBitLE*(x: var BitIndexable, bit: Natural) {.inline.} =
   raiseBit(x, bit)
 
-proc raiseBitBE*(x: var BitIndexable, bit: Natural) =
+func raiseBitBE*(x: var BitIndexable, bit: Natural) {.inline.} =
   ## raises a bit in `x`, assuming 0 to be the position of the
   ## most significant bit
   type T = type(x)
   let mask = mostSignificantBit(x.type) shr bit
   x = x or mask
 
-proc lowerBit*(x: var BitIndexable, bit: Natural) =
+func lowerBit*(x: var BitIndexable, bit: Natural) {.inline.} =
   ## raises bit in a byte, assuming 0 to be the position of the
   ## least significant bit
   type T = type(x)
   let mask = T(0b1 shl bit)
   x = x and not mask
 
-proc lowerBitLE*(x: var BitIndexable, bit: Natural) =
+func lowerBitLE*(x: var BitIndexable, bit: Natural) {.inline.} =
   lowerBit(x, bit)
 
-proc lowerBitBE*(x: var BitIndexable, bit: Natural) =
+func lowerBitBE*(x: var BitIndexable, bit: Natural) {.inline.} =
   ## raises a bit in `x`, assuming 0 to be the position of the
   ## most significant bit
   type T = type(x)
@@ -494,54 +494,39 @@ template byteIndex(pos: Natural): int =
 template bitIndex(pos: Natural): int =
   pos and 0b111 # same as pos mod 8
 
-proc getBit*(bytes: openarray[byte], pos: Natural): bool {.inline.} =
+func getBit*(bytes: openarray[byte], pos: Natural): bool {.inline.} =
   getBit(bytes[byteIndex pos], bitIndex pos)
 
-proc getBitBE*(bytes: openarray[byte], pos: Natural): bool {.inline.} =
+func getBitBE*(bytes: openarray[byte], pos: Natural): bool {.inline.} =
   getBitBE(bytes[byteIndex pos], bitIndex pos)
 
 template getBitLE*(bytes: openarray[byte], pos: Natural): bool =
   getBit(bytes, pos)
 
-proc setBit*(bytes: var openarray[byte], pos: Natural, value: bool) {.inline.} =
+func setBit*(bytes: var openarray[byte], pos: Natural, value: bool) {.inline.} =
   setBit(bytes[byteIndex pos], bitIndex pos, value)
 
-proc setBitBE*(bytes: var openarray[byte], pos: Natural, value: bool) {.inline.} =
+func setBitBE*(bytes: var openarray[byte], pos: Natural, value: bool) {.inline.} =
   setBitBE(bytes[byteIndex pos], bitIndex pos, value)
 
 template getBitLE*(bytes: var openarray[byte], pos: Natural, value: bool) =
   setBitLE(bytes, pos)
 
-proc lowerBit*(bytes: var openarray[byte], pos: Natural) {.inline.} =
+func lowerBit*(bytes: var openarray[byte], pos: Natural) {.inline.} =
   lowerBit(bytes[byteIndex pos], bitIndex pos)
 
-proc lowerBitBE*(bytes: var openarray[byte], pos: Natural) {.inline.} =
+func lowerBitBE*(bytes: var openarray[byte], pos: Natural) {.inline.} =
   lowerBitBE(bytes[byteIndex pos], bitIndex pos)
 
 template lowerBitLE*(bytes: var openarray[byte], pos: Natural) =
   lowerBit(bytes, pos)
 
-proc raiseBit*(bytes: var openarray[byte], pos: Natural) {.inline.} =
+func raiseBit*(bytes: var openarray[byte], pos: Natural) {.inline.} =
   raiseBit(bytes[byteIndex pos], bitIndex pos)
 
-proc raiseBitBE*(bytes: var openarray[byte], pos: Natural) {.inline.} =
+func raiseBitBE*(bytes: var openarray[byte], pos: Natural) {.inline.} =
   raiseBitBE(bytes[byteIndex pos], bitIndex pos)
 
 template raiseBitLE*(bytes: var openarray[byte], pos: Natural) =
   raiseBit(bytes, pos)
-
-when isMainModule:
-  template test() =
-    doAssert countOnes(0b01000100'u8) == 2
-    doAssert parity(0b00000001'u8) == 1
-    doAssert firstOne(0b00000010'u8) == 2
-    doAssert firstOne(0'u8) == 0
-    doAssert log2trunc(0b01000000'u8) == 6
-    doAssert leadingZeros(0b00100000'u8) == 2
-    doAssert trailingZeros(0b00100000'u8) == 5
-    doAssert leadingZeros(0'u8) == 8
-    doAssert trailingZeros(0'u8) == 8
-
-  test()
-  static: test()
 

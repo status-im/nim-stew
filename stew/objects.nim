@@ -17,9 +17,6 @@ template init*(lvalue: var auto, a1, a2, a3: auto) =
 when not declared(default):
   proc default*(T: type): T = discard
 
-template countof*[R, T](v: array[R, T]): int =
-  sizeof(v) div sizeof(T)
-
 proc toArray*[T](N: static int, data: openarray[T]): array[N, T] =
   doAssert data.len == N
   copyMem(addr result[0], unsafeAddr data[0], N)
