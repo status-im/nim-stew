@@ -289,3 +289,7 @@ template genCode*(body: untyped) =
 
   payload()
 
+template genExpr*(body: untyped) =
+  macro payload: untyped = body
+  payload()
+
