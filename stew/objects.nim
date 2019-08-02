@@ -21,3 +21,6 @@ proc toArray*[T](N: static int, data: openarray[T]): array[N, T] =
   doAssert data.len == N
   copyMem(addr result[0], unsafeAddr data[0], N)
 
+template anonConst*(val: untyped): untyped =
+  const c = val
+  c
