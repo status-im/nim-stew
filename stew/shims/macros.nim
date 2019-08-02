@@ -23,14 +23,25 @@ proc findPragma*(pragmas: NimNode, pragmaSym: NimNode): NimNode =
     if p.kind in nnkPragmaCallKinds and p.len > 0 and eqIdent(p[0], pragmaSym):
       return p
 
+func isTuple*(t: NimNode): bool =
+  # TODO: improve?
+  t.kind == nnkBracketExpr and t[0].kind == nnkSym and t[0].repr == "tuple"
+
 template readPragma*(field: FieldDescription, pragmaName: static string): NimNode =
   let p = findPragma(field.pragmas, bindSym(pragmaName))
   if p != nil and p.len == 2: p[1] else: p
 
+
 iterator recordFields*(typeImpl: NimNode): FieldDescription =
   # TODO: This doesn't support inheritance yet
-  let
-    objectType = typeImpl[2]
+  var recList: NimNode
+  var idx: int
+  if typeImpl.isTuple:
+    # we make the loop recognize sym
+    recList = typeImpl
+    idx = 1
+  else:
+    let objectType = typeImpl[2]
     recList = objectType[2]
 
   type
@@ -42,7 +53,7 @@ iterator recordFields*(typeImpl: NimNode): FieldDescription =
 
   if recList.len > 0:
     var traversalStack: seq[RecursionStackItem] = @[
-      (recList, 0, NimNode(nil), NimNode(nil))
+      (recList, idx, NimNode(nil), NimNode(nil))
     ]
 
     template recuseInto(childNode: NimNode,
@@ -113,6 +124,10 @@ iterator recordFields*(typeImpl: NimNode): FieldDescription =
       of nnkNilLit, nnkDiscardStmt, nnkCommentStmt, nnkEmpty:
         discard
 
+      of nnkSym:
+        # tuple
+        var field = FieldDescription(typ: n, name: ident("Field" & $(idx - 1)))
+        yield field
       else:
         doAssert false
 
@@ -128,6 +143,9 @@ proc skipPragma*(n: NimNode): NimNode =
 macro hasCustomPragmaFixed*(T: type, field: static string, pragma: typed{nkSym}): untyped =
   let
     Tresolved = getType(T)[1]
+  if Tresolved.isTuple:
+    return newLit(false)
+  let
     Timpl = getImpl(Tresolved)
 
   for f in recordFields(Timpl):
