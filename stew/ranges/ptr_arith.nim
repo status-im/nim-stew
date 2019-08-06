@@ -14,6 +14,9 @@ template distance*(a, b: pointer): int =
 template shift*[T](p: ptr T, delta: int): ptr T =
   cast[ptr T](shift(cast[pointer](p), delta * sizeof(T)))
 
+proc `<`*(a, b: pointer): bool =
+  cast[uint](a) < cast[uint](b)
+
 when (NimMajor,NimMinor,NimPatch) >= (0,19,9):
   template makeOpenArray*[T](p: ptr T, len: int): auto =
     toOpenArray(cast[ptr UncheckedArray[T]](p), 0, len - 1)

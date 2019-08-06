@@ -126,6 +126,12 @@ func fromBytes*(
   ## Read bytes and convert to an integer according to the given endianess. At
   ## runtime, v must contain at least sizeof(T) bytes. By default, native
   ## endianess is used which is not portable!
+  ##
+  ## REVIEW COMMENT (zah)
+  ## This API is very strange. Why can't I pass an open array of 3 bytes
+  ## to be interpreted as a LE number? Also, why is `endian` left as a
+  ## run-time parameter (with such short functions, it could easily be static).
+
   const ts = sizeof(T) # Nim bug: can't use sizeof directly
   var tmp: array[ts, byte]
   for i in 0..<tmp.len: # Loop since vm can't copymem
