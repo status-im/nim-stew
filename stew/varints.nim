@@ -147,9 +147,7 @@ func readVarint*[Stream](input: var Stream,
   ##
   ## * `ValueError`
   ##   The stream contained an invalid varint value.
-  var
-    parser: VarintParser[type(outVal), flavour]
-    pos = input.pos
+  var parser: VarintParser[type(outVal), flavour]
 
   while not input.eof:
     case parser.feedByte(input.read)

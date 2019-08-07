@@ -245,3 +245,8 @@ func isSubsetOf*(a, b: BitSeq): bool =
       return false
   true
 
+proc isZeros*(x: BitSeq): bool =
+  for w in words(x):
+    if w != 0: return false
+  return true
+
