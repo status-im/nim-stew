@@ -24,7 +24,6 @@ proc findPragma*(pragmas: NimNode, pragmaSym: NimNode): NimNode =
       return p
 
 func isTuple*(t: NimNode): bool =
-  # TODO: improve?
   t.kind == nnkBracketExpr and t[0].kind == nnkSym and t[0].repr == "tuple"
 
 template readPragma*(field: FieldDescription, pragmaName: static string): NimNode =
@@ -32,17 +31,15 @@ template readPragma*(field: FieldDescription, pragmaName: static string): NimNod
   if p != nil and p.len == 2: p[1] else: p
 
 
-iterator recordFields*(typeImpl: NimNode): FieldDescription =
+proc recordFields*(typeImpl: NimNode): seq[FieldDescription] =
   # TODO: This doesn't support inheritance yet
-  var recList: NimNode
-  var idx: int
   if typeImpl.isTuple:
-    # we make the loop recognize sym
-    recList = typeImpl
-    idx = 1
-  else:
-    let objectType = typeImpl[2]
-    recList = objectType[2]
+    for i in 1 ..< typeImpl.len:
+      result.add FieldDescription(typ: typeImpl[i], name: ident("Field" & $(i - 1)))
+    return
+
+  let objectType = typeImpl[2]
+  let recList = objectType[2]
 
   type
     RecursionStackItem = tuple
@@ -53,7 +50,7 @@ iterator recordFields*(typeImpl: NimNode): FieldDescription =
 
   if recList.len > 0:
     var traversalStack: seq[RecursionStackItem] = @[
-      (recList, idx, NimNode(nil), NimNode(nil))
+      (recList, 0, NimNode(nil), NimNode(nil))
     ]
 
     template recuseInto(childNode: NimNode,
@@ -119,15 +116,11 @@ iterator recordFields*(typeImpl: NimNode): FieldDescription =
             field.isPublic = true
             field.name = field.name[1]
 
-          yield field
+          result.add field
 
       of nnkNilLit, nnkDiscardStmt, nnkCommentStmt, nnkEmpty:
         discard
 
-      of nnkSym:
-        # tuple
-        var field = FieldDescription(typ: n, name: ident("Field" & $(idx - 1)))
-        yield field
       else:
         doAssert false
 
@@ -141,14 +134,11 @@ proc skipPragma*(n: NimNode): NimNode =
   else: n
 
 macro hasCustomPragmaFixed*(T: type, field: static string, pragma: typed{nkSym}): untyped =
-  let
-    Tresolved = getType(T)[1]
-  if Tresolved.isTuple:
+  let Tresolved = getType(T)[1]
+  if isTuple(Tresolved):
     return newLit(false)
-  let
-    Timpl = getImpl(Tresolved)
 
-  for f in recordFields(Timpl):
+  for f in recordFields(Tresolved.getImpl):
     var fieldName = f.name
     # TODO: Fix this in eqIdent
     if fieldName.kind == nnkAccQuoted: fieldName = fieldName[0]
