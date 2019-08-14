@@ -24,12 +24,14 @@ proc findPragma*(pragmas: NimNode, pragmaSym: NimNode): NimNode =
       return p
 
 func isTuple*(t: NimNode): bool =
-  t.kind == nnkBracketExpr and t[0].kind == nnkSym and t[0].repr == "tuple"
+  t.kind == nnkBracketExpr and t[0].kind == nnkSym and eqIdent(t[0], "tuple")
+
+macro isTuple*(T: type): untyped =
+  newLit(isTuple(getType(T)[1]))
 
 template readPragma*(field: FieldDescription, pragmaName: static string): NimNode =
   let p = findPragma(field.pragmas, bindSym(pragmaName))
   if p != nil and p.len == 2: p[1] else: p
-
 
 proc recordFields*(typeImpl: NimNode): seq[FieldDescription] =
   # TODO: This doesn't support inheritance yet
