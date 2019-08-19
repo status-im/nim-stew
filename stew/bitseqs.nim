@@ -82,7 +82,7 @@ template loopOverWords(lhs, rhs: BitSeq,
     var lhsWord: WordType
     when hasRhs:
       var rhsWord: WordType
-    var firstByteOfLastWord, lastByteOfLastWord, markerPos: int
+    var firstByteOfLastWord, lastByteOfLastWord: int
 
     # TODO: Returing a `var` value from an iterator is always safe due to
     # the way inlining works, but currently the compiler reports an error
@@ -103,15 +103,14 @@ template loopOverWords(lhs, rhs: BitSeq,
     if lastWordSize == 0:
       firstByteOfLastWord = bytesCount - sizeof(WordType)
       lastByteOfLastWord  = bytesCount - 1
-      initBitsVars()
-      markerPos = sizeof(WordType) * 8 - 1
       dec fullWordsCount
     else:
       firstByteOfLastWord = bytesCount - lastWordSize
       lastByteOfLastWord  = bytesCount - 1
-      initBitsVars()
-      markerPos = log2trunc(lhsWord)
-      when hasRhs: doAssert log2trunc(rhsWord) == markerPos
+
+    initBitsVars()
+    let markerPos = log2trunc(lhsWord)
+    when hasRhs: doAssert log2trunc(rhsWord) == markerPos
 
     lhsWord.lowerBit markerPos
     when hasRhs: rhsWord.lowerBit markerPos

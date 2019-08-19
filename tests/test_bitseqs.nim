@@ -57,14 +57,18 @@ suite "Bit fields":
             check b[j] == (j == 1)
 
   test "overlaps":
-    for bitCount in [63, 62]:
+    for bitCount in [1, 62, 63, 64, 91, 127, 128, 129]:
       checkpoint &"trying bit count {bitCount}"
       var
         a = BitSeq.init(bitCount)
         b = BitSeq.init(bitCount)
-      a.raiseBit(4)
-      b.raiseBit(5)
+
+      for pos in [4, 8, 9, 12, 29, 32, 63, 64, 67]:
+        if pos + 2 < bitCount:
+          a.raiseBit(pos)
+          b.raiseBit(pos + 2)
 
       check:
         not a.overlaps(b)
         not b.overlaps(a)
+
