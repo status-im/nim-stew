@@ -56,3 +56,15 @@ suite "Bit fields":
             check a[j] == (j == 0)
             check b[j] == (j == 1)
 
+  test "overlaps":
+    for bitCount in [63, 62]:
+      checkpoint &"trying bit count {bitCount}"
+      var
+        a = BitSeq.init(bitCount)
+        b = BitSeq.init(bitCount)
+      a.raiseBit(4)
+      b.raiseBit(5)
+
+      check:
+        not a.overlaps(b)
+        not b.overlaps(a)
