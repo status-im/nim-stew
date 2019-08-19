@@ -96,7 +96,7 @@ template loopOverWords(lhs, rhs: BitSeq,
     template lastWordBytes(bitseq): auto =
       Bytes(bitseq).toOpenArray(firstByteOfLastWord, lastByteOfLastWord)
 
-    template initBitsVars =
+    template initLastWords =
       lhsWord = loadLEBytes(WordType, lastWordBytes(lhs))
       when hasRhs: rhsWord = loadLEBytes(WordType, lastWordBytes(rhs))
 
@@ -108,7 +108,7 @@ template loopOverWords(lhs, rhs: BitSeq,
       firstByteOfLastWord = bytesCount - lastWordSize
       lastByteOfLastWord  = bytesCount - 1
 
-    initBitsVars()
+    initLastWords()
     let markerPos = log2trunc(lhsWord)
     when hasRhs: doAssert log2trunc(rhsWord) == markerPos
 
