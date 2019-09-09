@@ -58,6 +58,17 @@ type
     when defined(debug):
       state: VarintState
 
+  VarintBuffer* = object
+    bytes*: array[10, byte]
+    totalBytesWritten*: int
+
+func append*(buf: var VarintBuffer, b: byte) =
+  buf.bytes[buf.totalBytesWritten] = b
+  inc buf.totalBytesWritten
+
+template writtenBytes*(buf: VarintBuffer): auto =
+  buf.bytes.toOpenArray(0, buf.totalBytesWritten - 1)
+
 func maxBits(T: type VarintParser): uint8 {.compileTime.} =
   when T.flavour == ProtoBuf:
     uint8(sizeof(T.IntType) * 8)
@@ -198,4 +209,13 @@ func vsizeof*(x: SomeInteger): int {.inline.} =
   ## Returns number of bytes required to encode integer ``x`` as varint.
   if x == 0: 1
   else: (log2trunc(x) + 1 + 7 - 1) div 7
+
+template varintBytes*(x: SomeInteger,
+                      flavour: static VarintFlavour = ProtoBuf): untyped =
+  var buf: VarintBuffer
+  buf.appendVarint(x, flavour)
+  # TODO: toOpenArray doesn't work here for some reason, so we must
+  # use the less optimal approach of allocating a sequence copy.
+  # buf.bytes.toOpenArray(0, buf.totalBytesWritten - 1)
+  buf.bytes[0 .. buf.totalBytesWritten - 1]
 

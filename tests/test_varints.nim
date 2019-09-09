@@ -25,21 +25,9 @@ const edgeValues = {
   0xFFFF_FFFF_FFFF_FFFF'u64 : "ffffffffffffffffff01"
 }
 
-type
-  PseudoStream = object
-    bytes: array[12, byte]
-    bytesWritten: int
-
-func append(s: var PseudoStream, b: byte) =
-  s.bytes[s.bytesWritten] = b
-  inc s.bytesWritten
-
-template writtenData(s: PseudoStream): auto =
-  s.bytes.toOpenArray(0, s.bytesWritten - 1)
-
 suite "varints":
   template roundtipTest(val) =
-    var s {.inject.}: PseudoStream
+    var s {.inject.}: VarintBuffer
     s.appendVarint val
 
     var roundtripVal: uint64
@@ -47,7 +35,7 @@ suite "varints":
 
     check:
       val == roundtripVal
-      bytesRead == s.bytesWritten
+      bytesRead == s.totalBytesWritten
       bytesRead == vsizeof(val)
 
   test "[ProtoBuf] Success edge cases test":
@@ -55,12 +43,13 @@ suite "varints":
       let (val, hex) = pair
       roundtipTest val
       check:
-        s.bytesWritten == hex.len div 2
-        toHex(s.writtenData) == hex
+        s.totalBytesWritten == hex.len div 2
+        toHex(s.writtenBytes) == hex
+        toHex(val.varintBytes) == hex
 
   test "[ProtoBuf] random values":
-      for i in 0..10000:
-        let val = rand(0'u64 .. 0xFFFF_FFFF_FFFF_FFFE'u64)
-        roundtipTest val
+    for i in 0..10000:
+      let val = rand(0'u64 .. 0xFFFF_FFFF_FFFF_FFFE'u64)
+      roundtipTest val
 
   # TODO Migrate the rest of the LibP2P test cases
