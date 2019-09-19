@@ -40,7 +40,7 @@ proc recordFields*(typeImpl: NimNode): seq[FieldDescription] =
       result.add FieldDescription(typ: typeImpl[i], name: ident("Field" & $(i - 1)))
     return
 
-  let objectType = typeImpl[2]
+  let objectType = typeImpl
   let recList = objectType[2]
 
   type
@@ -140,7 +140,7 @@ macro hasCustomPragmaFixed*(T: type, field: static string, pragma: typed{nkSym})
   if isTuple(Tresolved):
     return newLit(false)
 
-  for f in recordFields(Tresolved.getImpl):
+  for f in recordFields(Tresolved.getTypeImpl):
     var fieldName = f.name
     # TODO: Fix this in eqIdent
     if fieldName.kind == nnkAccQuoted: fieldName = fieldName[0]
@@ -302,4 +302,3 @@ template genCode*(body: untyped) =
 template genExpr*(body: untyped) =
   macro payload: untyped = body
   payload()
-
