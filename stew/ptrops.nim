@@ -29,7 +29,6 @@ template offset*(p: MemAddress, bytes: int): MemAddress =
   # Actual behavior is wrapping, but this may be revised in the future to enable
   # better optimizations
   {.checks: off.}
-  mixin offset
   MemAddress(uint(p) + cast[uint](bytes))
 
 template offset*(p: pointer, bytes: int): pointer =
@@ -37,7 +36,7 @@ template offset*(p: pointer, bytes: int): pointer =
   ## overflow.
   # Actual behavior is wrapping, but this may be revised in the future to enable
   # better optimizations
-  mixin offset, toMemAddress, toPointer
+  mixin toMemAddress, offset, toPointer
   p.toMemAddress().offset(bytes).toPointer()
 
 template offset*[T](p: ptr T, count: int): ptr T =
@@ -47,7 +46,7 @@ template offset*[T](p: ptr T, count: int): ptr T =
   # better optimizations.
   # We turn off checking here - too large counts is UB
   {.checks: off.}
-  mixin offset, toMemAddress, toPtr
+  mixin toMemAddress, offset, toPtr
   let bytes = count * sizeof(T)
   p.toMemAddress().offset(bytes).toPtr(type p[])
 
@@ -57,14 +56,14 @@ template distance*(a, b: MemAddress): int =
 template distance*(a, b: pointer): int =
   # Number of bytes between a and b - undefined behavior when difference exceeds
   # what can be represented in an int
+  mixin toMemAddress
   a.toMemAddress().distance(b.toMemAddress())
 
 template distance*[T](a, b: ptr T): int =
   # Number of elements between a and b - undefined behavior when difference
   # exceeds what can be represented in an int
   {.checks: off.}
-  mixin distance, toMemAddress, toPointer
-
+  mixin toMemAddress, distance
   a.toMemAddress().distance(b.toMemAddress()) div sizeof(T)
 
 proc `<`*(a, b: MemAddress): bool =
