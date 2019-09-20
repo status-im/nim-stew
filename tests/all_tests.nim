@@ -1,5 +1,5 @@
 # stew
-# Copyright 2018 Status Research & Development GmbH
+# Copyright 2018-2019 Status Research & Development GmbH
 # Licensed under either of
 #
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
@@ -10,7 +10,8 @@
 import
   ranges/all,
   test_bitops2,
+  test_bitseqs,
   test_byteutils,
   test_endians2,
-  test_bitseqs
-
+  test_ptrops,
+  test_varints

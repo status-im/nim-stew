@@ -1,3 +1,6 @@
+import ../ptrops
+export ptrops
+
 proc baseAddr*[T](x: openarray[T]): pointer = cast[pointer](x)
 
 # Please note that we use templates here on purpose.
@@ -5,17 +8,11 @@ proc baseAddr*[T](x: openarray[T]): pointer = cast[pointer](x)
 # out that the use of forced inlining with templates still creates a
 # significant difference in the release builds of nim-faststreams
 
-template shift*(p: pointer, delta: int): pointer =
-  cast[pointer](cast[int](p) + delta)
+template shift*(p: pointer, delta: int): pointer {.deprecated: "use ptrops".} =
+  p.offset(delta)
 
-template distance*(a, b: pointer): int =
-  cast[int](b) - cast[int](a)
-
-template shift*[T](p: ptr T, delta: int): ptr T =
-  cast[ptr T](shift(cast[pointer](p), delta * sizeof(T)))
-
-proc `<`*(a, b: pointer): bool =
-  cast[uint](a) < cast[uint](b)
+template shift*[T](p: ptr T, delta: int): ptr T {.deprecated: "use ptrops".} =
+  p.offset(delta)
 
 when (NimMajor,NimMinor,NimPatch) >= (0,19,9):
   template makeOpenArray*[T](p: ptr T, len: int): auto =
