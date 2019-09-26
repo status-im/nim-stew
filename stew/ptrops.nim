@@ -11,60 +11,44 @@
 # been offset is unsafe and many of the operations herein have undefined
 # and platform-specific behavior in corner cases.
 
-# Due to poor codegen and subsequent lack of inlining, many of these operations
+# Due to poor codegen and subsequent lack of inlining, these operations
 # are templates even where they could be func.
 
-# ByteAddress in std lib is signed - this leads to issues with overflow checking
-# when address is on boundary.
-type
-  MemAddress* = distinct uint
-
-template toMemAddress*(p: pointer): MemAddress = cast[MemAddress](p)
-template toPointer*(p: MemAddress): pointer = cast[pointer](p)
-template toPtr*(p: MemAddress, T: type): ptr T = cast[ptr T](p)
-
-template offset*(p: MemAddress, bytes: int): MemAddress =
-  ## Offset a memory address by a number of bytes. Behavior is undefined on
-  ## overflow.
-  # Actual behavior is wrapping, but this may be revised in the future to enable
-  # better optimizations
-  {.checks: off.}
-  MemAddress(uint(p) + cast[uint](bytes))
+# Note that `ByteAddress` in stdlib is implemented as a signed integer and
+# might lead to overflow on arithmetic - avoid
 
 template offset*(p: pointer, bytes: int): pointer =
   ## Offset a memory address by a number of bytes. Behavior is undefined on
   ## overflow.
   # Actual behavior is wrapping, but this may be revised in the future to enable
   # better optimizations
-  mixin toMemAddress, offset, toPointer
-  p.toMemAddress().offset(bytes).toPointer()
+
+  # We assume two's complement wrapping behaviour for `uint`
+  cast[pointer](cast[uint](p) + cast[uint](bytes))
 
 template offset*[T](p: ptr T, count: int): ptr T =
   ## Offset a pointer to T by count elements. Behavior is undefined on
   ## overflow.
+
   # Actual behavior is wrapping, but this may be revised in the future to enable
   # better optimizations.
+
   # We turn off checking here - too large counts is UB
   {.checks: off.}
-  mixin toMemAddress, offset, toPtr
+  mixin offset
   let bytes = count * sizeof(T)
-  p.toMemAddress().offset(bytes).toPtr(type p[])
-
-template distance*(a, b: MemAddress): int =
-  cast[int](cast[uint](b) - cast[uint](a))
+  cast[ptr T](cast[pointer](p).offset(bytes))
 
 template distance*(a, b: pointer): int =
-  # Number of bytes between a and b - undefined behavior when difference exceeds
-  # what can be represented in an int
-  mixin toMemAddress
-  a.toMemAddress().distance(b.toMemAddress())
+  ## Number of bytes between a and b - undefined behavior when difference
+  ## exceeds what can be represented in an int
+
+  # We assume two's complement wrapping behaviour for `uint`
+  cast[int](cast[uint](b) - cast[uint](a))
 
 template distance*[T](a, b: ptr T): int =
   # Number of elements between a and b - undefined behavior when difference
   # exceeds what can be represented in an int
   {.checks: off.}
   mixin toMemAddress, distance
-  a.toMemAddress().distance(b.toMemAddress()) div sizeof(T)
-
-proc `<`*(a, b: MemAddress): bool =
-  cast[uint](a) < cast[uint](b)
+  cast[pointer](a).distance(cast[pointer](b)) div sizeof(T)
