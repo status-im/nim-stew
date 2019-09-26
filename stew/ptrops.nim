@@ -35,9 +35,8 @@ template offset*[T](p: ptr T, count: int): ptr T =
 
   # We turn off checking here - too large counts is UB
   {.checks: off.}
-  mixin offset
   let bytes = count * sizeof(T)
-  cast[ptr T](cast[pointer](p).offset(bytes))
+  cast[ptr T](offset(cast[pointer](p), bytes))
 
 template distance*(a, b: pointer): int =
   ## Number of bytes between a and b - undefined behavior when difference
@@ -50,5 +49,4 @@ template distance*[T](a, b: ptr T): int =
   # Number of elements between a and b - undefined behavior when difference
   # exceeds what can be represented in an int
   {.checks: off.}
-  mixin toMemAddress, distance
-  cast[pointer](a).distance(cast[pointer](b)) div sizeof(T)
+  distance(cast[pointer](a), cast[pointer](b)) div sizeof(T)
