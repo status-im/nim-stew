@@ -24,3 +24,10 @@ proc toArray*[T](N: static int, data: openarray[T]): array[N, T] =
 template anonConst*(val: untyped): untyped =
   const c = val
   c
+
+when not compiles(len((1, 2))):
+  import typetraits
+
+  func len*(x: tuple): int =
+    arity(type(x))
+
