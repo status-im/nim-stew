@@ -6,7 +6,11 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import  unittest,
-        ../stew/byteutils
+        ../stew/[byteutils, io]
+
+proc compilationTest {.exportc: "compilationTest".} =
+  var bytes = @[1.byte, 2, 3, 4]
+  writeFile("test", bytes)
 
 suite "Byte utils":
   let simpleBArray = [0x12.byte, 0x34, 0x56, 0x78]
