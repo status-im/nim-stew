@@ -11,11 +11,11 @@
 #
 # Although it would be possible to enforce correctness with endians in the type
 # (`BigEndian[uin64]`) this seems like overkill. That said, some
-# static analysis tools allow you to annotate fields with endianess - perhaps
+# static analysis tools allow you to annotate fields with endianness - perhaps
 # an idea for the future, akin to `TaintedString`?
 #
 # Keeping the above in mind, it's generally safer to use `array[N, byte]` to
-# hold values of specific endianess and read them out with `fromBytes` when the
+# hold values of specific endianness and read them out with `fromBytes` when the
 # integer interpretation of the bytes is needed.
 
 type
@@ -88,7 +88,7 @@ func swapBytes*[T: SomeEndianInt](x: T): T {.inline.} =
 func toBytes*(x: SomeEndianInt, endian: Endianness = system.cpuEndian):
     array[sizeof(x), byte] {.noinit, inline.} =
   ## Convert integer to its corresponding byte sequence using the chosen
-  ## endianness. By default, native endianess is used which is not portable!
+  ## endianness. By default, native endianness is used which is not portable!
   let v =
     if endian == system.cpuEndian: x
     else: swapBytes(x)
@@ -112,7 +112,7 @@ func fromBytes*(
     x: array[sizeof(T), byte],
     endian: Endianness = system.cpuEndian): T {.inline.} =
   ## Convert a byte sequence to a native endian integer. By default, native
-  ## endianess is used which is not portable!
+  ## endianness is used which is not portable!
   for i in 0..<sizeof(result): # No copymem in vm
     result = result or T(x[i]) shl (i * 8)
 
@@ -123,9 +123,9 @@ func fromBytes*(
     T: typedesc[SomeEndianInt],
     x: openArray[byte],
     endian: Endianness = system.cpuEndian): T {.inline.} =
-  ## Read bytes and convert to an integer according to the given endianess. At
+  ## Read bytes and convert to an integer according to the given endianness. At
   ## runtime, v must contain at least sizeof(T) bytes. By default, native
-  ## endianess is used which is not portable!
+  ## endianness is used which is not portable!
   ##
   ## REVIEW COMMENT (zah)
   ## This API is very strange. Why can't I pass an open array of 3 bytes
@@ -142,16 +142,15 @@ func fromBytesBE*(
     T: typedesc[SomeEndianInt],
     x: array[sizeof(T), byte]): T {.inline.} =
   ## Read big endian bytes and convert to an integer. By default, native
-  ## endianess is used which is not
-  ## portable!
+  ## endianness is used which is not portable!
   fromBytes(T, x, bigEndian)
 
 func fromBytesBE*(
     T: typedesc[SomeEndianInt],
     x: openArray[byte]): T {.inline.} =
   ## Read big endian bytes and convert to an integer. At runtime, v must contain
-  ## at least sizeof(T) bytes. By default, native endianess is used which is not
-  ## portable!
+  ## at least sizeof(T) bytes. By default, native endianness is used which is
+  ## not portable!
   fromBytes(T, x, bigEndian)
 
 func toBE*[T: SomeEndianInt](x: T): T {.inline.} =
@@ -169,14 +168,14 @@ func fromBytesLE*(
     T: typedesc[SomeEndianInt],
     x: array[sizeof(T), byte]): T {.inline.} =
   ## Read little endian bytes and convert to an integer. By default, native
-  ## endianess is used which is not portable!
+  ## endianness is used which is not portable!
   fromBytes(T, x, littleEndian)
 
 func fromBytesLE*(
     T: typedesc[SomeEndianInt],
     x: openArray[byte]): T {.inline.} =
   ## Read little endian bytes and convert to an integer. At runtime, v must
-  ## contain at least sizeof(T) bytes. By default, native endianess is used
+  ## contain at least sizeof(T) bytes. By default, native endianness is used
   ## which is not portable!
   fromBytes(T, x, littleEndian)
 
