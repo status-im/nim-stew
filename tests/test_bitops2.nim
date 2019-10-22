@@ -15,6 +15,7 @@ template test() =
   doAssert firstOne(0b00010010'u8) == 2
   doAssert firstOne(0b11111111'u8) == 1
   doAssert firstOne(0b100000000000000000000000000000000'u64) == 33
+  doAssert firstOne(0b00000010_00000000_00000000_00000000_00000000_00000000_00000000_00000000'u64) == 8*7 + 2
 
   doAssert leadingZeros(0b00000000'u8) == 8
   doAssert leadingZeros(0b00000001'u8) == 7
