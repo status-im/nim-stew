@@ -8,6 +8,7 @@ type
   FieldDescription* = object
     name*: NimNode
     isPublic*: bool
+    isDiscriminator*: bool
     typ*: NimNode
     pragmas*: NimNode
     caseField*: NimNode
@@ -34,12 +35,12 @@ template readPragma*(field: FieldDescription, pragmaName: static string): NimNod
   if p != nil and p.len == 2: p[1] else: p
 
 proc recordFields*(typeImpl: NimNode): seq[FieldDescription] =
-  # TODO: This doesn't support inheritance yet
   if typeImpl.isTuple:
     for i in 1 ..< typeImpl.len:
       result.add FieldDescription(typ: typeImpl[i], name: ident("Field" & $(i - 1)))
     return
 
+  # TODO: This doesn't support inheritance yet
   let objectType = typeImpl[2]
   let recList = objectType[2]
 
@@ -98,7 +99,9 @@ proc recordFields*(typeImpl: NimNode): seq[FieldDescription] =
           else:
             doAssert false
 
-        recuseInto newTree(nnkRecCase, n[0]), n[0]
+        recuseInto newTree(nnkRecCase, n[0]),
+                   stackTop.parentCaseField,
+                   stackTop.parentCaseBranch
         continue
 
       of nnkIdentDefs:
@@ -109,6 +112,7 @@ proc recordFields*(typeImpl: NimNode): seq[FieldDescription] =
           field.typ = fieldType
           field.caseField = stackTop.parentCaseField
           field.caseBranch = stackTop.parentCaseBranch
+          field.isDiscriminator = recList.kind == nnkRecCase
 
           if field.name.kind == nnkPragmaExpr:
             field.pragmas = field.name[1]
