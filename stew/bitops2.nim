@@ -61,7 +61,13 @@ func firstOneNim(x: uint64): int =
   ## Returns the 1-based index of the least significant set bit of x, or if x is zero, returns zero.
   # https://graphics.stanford.edu/%7Eseander/bithacks.html#ZerosOnRightMultLookup
 
-  if uint32(x) == 0:
+  template convert[T](x: uint64): T =
+    when nimvm:
+      T(x and high(T))
+    else:
+      cast[T](x)
+
+  if convert[uint32](x) == 0:
     32 + firstOneNim(uint32(x shr 32'u32))
   else:
     firstOneNim(uint32(x))
