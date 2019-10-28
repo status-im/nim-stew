@@ -168,81 +168,101 @@ macro inspectType*(T: typed): untyped =
 # FIXED NewLit
 
 proc newLitFixed*(c: char): NimNode {.compileTime.} =
-  ## produces a new character literal node.
+  ## Produces a new character literal node.
   result = newNimNode(nnkCharLit)
   result.intVal = ord(c)
 
 proc newLitFixed*(i: int): NimNode {.compileTime.} =
-  ## produces a new integer literal node.
+  ## Produces a new integer literal node.
   result = newNimNode(nnkIntLit)
   result.intVal = i
 
 proc newLitFixed*(i: int8): NimNode {.compileTime.} =
-  ## produces a new integer literal node.
+  ## Produces a new integer literal node.
   result = newNimNode(nnkInt8Lit)
   result.intVal = i
 
 proc newLitFixed*(i: int16): NimNode {.compileTime.} =
-  ## produces a new integer literal node.
+  ## Produces a new integer literal node.
   result = newNimNode(nnkInt16Lit)
   result.intVal = i
 
 proc newLitFixed*(i: int32): NimNode {.compileTime.} =
-  ## produces a new integer literal node.
+  ## Produces a new integer literal node.
   result = newNimNode(nnkInt32Lit)
   result.intVal = i
 
 proc newLitFixed*(i: int64): NimNode {.compileTime.} =
-  ## produces a new integer literal node.
+  ## Produces a new integer literal node.
   result = newNimNode(nnkInt64Lit)
   result.intVal = i
 
 proc newLitFixed*(i: uint): NimNode {.compileTime.} =
-  ## produces a new unsigned integer literal node.
+  ## Produces a new unsigned integer literal node.
   result = newNimNode(nnkUIntLit)
   result.intVal = BiggestInt(i)
 
 proc newLitFixed*(i: uint8): NimNode {.compileTime.} =
-  ## produces a new unsigned integer literal node.
+  ## Produces a new unsigned integer literal node.
   result = newNimNode(nnkUInt8Lit)
   result.intVal = BiggestInt(i)
 
 proc newLitFixed*(i: uint16): NimNode {.compileTime.} =
-  ## produces a new unsigned integer literal node.
+  ## Produces a new unsigned integer literal node.
   result = newNimNode(nnkUInt16Lit)
   result.intVal = BiggestInt(i)
 
 proc newLitFixed*(i: uint32): NimNode {.compileTime.} =
-  ## produces a new unsigned integer literal node.
+  ## Produces a new unsigned integer literal node.
   result = newNimNode(nnkUInt32Lit)
   result.intVal = BiggestInt(i)
 
 proc newLitFixed*(i: uint64): NimNode {.compileTime.} =
-  ## produces a new unsigned integer literal node.
+  ## Produces a new unsigned integer literal node.
   result = newNimNode(nnkUInt64Lit)
   result.intVal = BiggestInt(i)
 
 proc newLitFixed*(b: bool): NimNode {.compileTime.} =
-  ## produces a new boolean literal node.
+  ## Produces a new boolean literal node.
   result = if b: bindSym"true" else: bindSym"false"
 
+proc newLitFixed*(s: string): NimNode {.compileTime.} =
+  ## Produces a new string literal node.
+  result = newNimNode(nnkStrLit)
+  result.strVal = s
+
+when false:
+  # the float type is not really a distinct type as described in https://github.com/nim-lang/Nim/issues/5875
+  proc newLitFixed*(f: float): NimNode {.compileTime.} =
+    ## Produces a new float literal node.
+    result = newNimNode(nnkFloatLit)
+    result.floatVal = f
+
 proc newLitFixed*(f: float32): NimNode {.compileTime.} =
-  ## produces a new float literal node.
+  ## Produces a new float literal node.
   result = newNimNode(nnkFloat32Lit)
   result.floatVal = f
 
 proc newLitFixed*(f: float64): NimNode {.compileTime.} =
-  ## produces a new float literal node.
+  ## Produces a new float literal node.
   result = newNimNode(nnkFloat64Lit)
   result.floatVal = f
 
-proc newLitFixed*(s: string): NimNode {.compileTime.} =
-  ## produces a new string literal node.
-  result = newNimNode(nnkStrLit)
-  result.strVal = s
+when declared(float128):
+  proc newLitFixed*(f: float128): NimNode {.compileTime.} =
+    ## Produces a new float literal node.
+    result = newNimNode(nnkFloat128Lit)
+    result.floatVal = f
+
+proc newLitFixed*(arg: enum): NimNode {.compileTime.} =
+  result = newCall(
+    arg.type.getTypeInst[1],
+    newLitFixed(int(arg))
+  )
 
 proc newLitFixed*[N,T](arg: array[N,T]): NimNode {.compileTime.}
 proc newLitFixed*[T](arg: seq[T]): NimNode {.compileTime.}
+proc newLitFixed*[T](s: set[T]): NimNode {.compileTime.}
 proc newLitFixed*(arg: tuple): NimNode {.compileTime.}
 
 proc newLitFixed*(arg: object): NimNode {.compileTime.} =
@@ -250,23 +270,34 @@ proc newLitFixed*(arg: object): NimNode {.compileTime.} =
   for a, b in arg.fieldPairs:
     result.add nnkExprColonExpr.newTree( newIdentNode(a), newLitFixed(b) )
 
+proc newLitFixed*(arg: ref object): NimNode {.compileTime.} =
+  ## produces a new ref type literal node.
+  result = nnkObjConstr.newTree(arg.type.getTypeInst[1])
+  for a, b in fieldPairs(arg[]):
+    result.add nnkExprColonExpr.newTree(newIdentNode(a), newLitFixed(b))
+
 proc newLitFixed*[N,T](arg: array[N,T]): NimNode {.compileTime.} =
   result = nnkBracket.newTree
   for x in arg:
     result.add newLitFixed(x)
 
 proc newLitFixed*[T](arg: seq[T]): NimNode {.compileTime.} =
-  var bracket = nnkBracket.newTree
+  let bracket = nnkBracket.newTree
   for x in arg:
     bracket.add newLitFixed(x)
-
-  result = nnkCall.newTree(
-    nnkBracketExpr.newTree(
-      nnkAccQuoted.newTree( bindSym"@" ),
-      getTypeInst( bindSym"T" )
-    ),
+  result = nnkPrefix.newTree(
+    bindSym"@",
     bracket
   )
+  if arg.len == 0:
+    # add type cast for empty seq
+    var typ = getTypeInst(typeof(arg))[1]
+    result = newCall(typ,result)
+
+proc newLitFixed*[T](s: set[T]): NimNode {.compileTime.} =
+  result = nnkCurly.newTree
+  for x in s:
+    result.add newLitFixed(x)
 
 proc newLitFixed*(arg: tuple): NimNode {.compileTime.} =
   result = nnkPar.newTree
