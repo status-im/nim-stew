@@ -35,6 +35,9 @@ template readPragma*(field: FieldDescription, pragmaName: static string): NimNod
   if p != nil and p.len == 2: p[1] else: p
 
 proc recordFields*(typeImpl: NimNode): seq[FieldDescription] =
+  echo "TYPE IMPL"
+  echo typeImpl.treeRepr
+
   if typeImpl.isTuple:
     for i in 1 ..< typeImpl.len:
       result.add FieldDescription(typ: typeImpl[i], name: ident("Field" & $(i - 1)))
@@ -42,7 +45,12 @@ proc recordFields*(typeImpl: NimNode): seq[FieldDescription] =
 
   # TODO: This doesn't support inheritance yet
   let objectType = typeImpl[2]
-  let recList = objectType[2]
+  var recList = objectType[2]
+  if recList.kind == nnkSym:
+    echo recList.treeRepr
+    recList = getImpl(recList)
+    echo "RESOLVED"
+    echo recList.treeRepr
 
   type
     RecursionStackItem = tuple
@@ -67,6 +75,11 @@ proc recordFields*(typeImpl: NimNode): seq[FieldDescription] =
       var stackTop = traversalStack[^1]
       let recList = stackTop.currentNode
       let idx = stackTop.currentChildItem
+      if recList.kind == nnkSym:
+        echo "HRMM"
+        echo recList.treeRepr
+        echo getImpl(recList).treeRepr
+        echo typeImpl.treeRepr
       let n = recList[idx]
       inc traversalStack[^1].currentChildItem
 
@@ -139,10 +152,41 @@ proc skipPragma*(n: NimNode): NimNode =
   if n.kind == nnkPragmaExpr: n[0]
   else: n
 
-macro hasCustomPragmaFixed*(T: type, field: static string, pragma: typed{nkSym}): untyped =
-  let Tresolved = getType(T)[1]
+macro hasCustomPragmaFixed*(T: type, T2: typed, field: static string, pragma: typed{nkSym}): untyped =
+  echo "T"
+  echo T.treeRepr
+  
+  echo "T2"
+  echo T2.treeRepr
+
+  let ttt = getType(T)
+  echo "ttt"
+  echo ttt.treeRepr
+
+  let t2t = getType(T2)
+  echo "t2t"
+  echo t2t.treeRepr
+
+  let t2ti = getTypeImpl(T2)
+  echo "t2ti"
+  echo t2ti.treeRepr
+  echo t2ti[1].getImpl.treeRepr
+
+  var Tresolved = getType(T)[1]
   if isTuple(Tresolved):
     return newLit(false)
+
+ 
+  if Tresolved.kind == nnkBracketExpr:
+    Tresolved = Tresolved[1]
+
+  echo "Tresolved"
+  echo Tresolved.treeRepr
+
+  let impl = Tresolved.getImpl
+  echo "impl"
+  echo impl.treeRepr
+  echo Tresolved.getTypeImpl.treeRepr
 
   for f in recordFields(Tresolved.getImpl):
     var fieldName = f.name
