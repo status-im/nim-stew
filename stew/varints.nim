@@ -173,7 +173,6 @@ func readVarint*[Stream](input: var Stream,
 
 func appendVarintImpl[Stream](s: var Stream, x: SomeUnsignedInt) {.inline.} =
   mixin append
-  type UInt = type(x)
 
   if x <= 0x7F:
     s.append byte(x and 0xFF)

@@ -49,7 +49,10 @@ suite "varints":
 
   test "[ProtoBuf] random values":
     for i in 0..10000:
-      let val = rand(0'u64 .. 0xFFFF_FFFF_FFFF_FFFE'u64)
-      roundtipTest val
+      # TODO nim 1.0 random casts limits to int, so anything bigger will crash
+      #      * sigh *
+      let
+        v1 = rand(0'u64 .. cast[uint64](int.high))
+      roundtipTest v1
 
   # TODO Migrate the rest of the LibP2P test cases
