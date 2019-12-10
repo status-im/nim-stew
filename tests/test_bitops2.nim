@@ -50,6 +50,42 @@ template test() =
   doAssert trailingZeros(0b10000000'u32) == 7
   doAssert trailingZeros(0b10000000'u64) == 7
 
+  var bit: uint8
+  setBit(bit, 0)
+  setBit(bit, 7)
+  doAssert bit == 0b10000001'u8
+
+  clearBit(bit, 0)
+  doAssert bit == 0b10000000'u8
+
+  setBitBE(bit, 1)
+  doAssert bit == 0b11000000'u8
+
+  clearBitBE(bit, 1)
+  doAssert bit == 0b10000000'u8
+
+  toggleBit(bit, 7)
+  toggleBit(bit, 6)
+  doAssert bit == 0b01000000'u8
+
+  changeBit(bit, 5, true)
+  changeBit(bit, 6, false)
+  doAssert bit == 0b00100000'u8
+
+  changeBit(bit, 5, true)
+  changeBit(bit, 6, false)
+  doAssert bit == 0b00100000'u8 # no change!
+
+  changeBitBE(bit, 1, true)
+  changeBitBE(bit, 2, false)
+  doAssert bit == 0b01000000'u8
+
+  var bit64: uint64
+  setBit(bit64, 63)
+
+  # T(1 shl 63) raises!
+  doAssert bit64 == 0b10000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000'u64
+
 static: test()
 
 suite "bitops2":
