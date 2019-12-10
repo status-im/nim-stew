@@ -76,10 +76,10 @@ func hexToPaddedByteArray*[N: static[int]](hexStr: string): array[N, byte] =
     shift = 4
 
   doAssert hexStr.len - p <= maxStrSize
-  
+
   if sz < maxStrSize:
     # include extra byte if odd length
-    bIdx = result.len - (sz + 1) div 2   
+    bIdx = result.len - (sz + 1) div 2
     # start with shl of 4 if length is even
     shift = 4 - sz mod 2 * 4
 
@@ -123,3 +123,9 @@ func toHex*[N: static[int]](ba: array[N, byte]): string {.inline.} =
   ## Output is in lowercase
   ## No "endianness" reordering is done.
   toHexAux(ba)
+
+func toBytes*(s: string): seq[byte] =
+  ## Convert a string to the corresponding byte sequence - since strings in
+  ## nim essentially are byte sequences without any particular encoding, this
+  ## is almost a noop
+  cast[seq[byte]](s)
