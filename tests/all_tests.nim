@@ -14,4 +14,7 @@ import
   test_byteutils,
   test_endians2,
   test_ptrops,
-  test_varints
+  test_varints,
+  test_base32,
+  test_base58,
+  test_base64
