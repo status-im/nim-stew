@@ -129,3 +129,12 @@ func toBytes*(s: string): seq[byte] =
   ## nim essentially are byte sequences without any particular encoding, this
   ## is almost a noop
   cast[seq[byte]](s)
+
+func `<`*(a, b: openArray[byte]): bool =
+  ## Lexicographical compare of two byte arrays
+  let minlen = min(a.len, b.len)
+
+  for i in 0..<minlen:
+    if a[i] != b[i]: return a[i] < b[i]
+
+  a.len < b.len

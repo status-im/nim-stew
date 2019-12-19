@@ -59,3 +59,25 @@ suite "Byte utils":
     block:
       expect AssertionError:
         let a = hexToPaddedByteArray[2]("0x12345")
+
+  test "lessThan":
+    let
+      a = [0'u8, 1, 2]
+      b = [2'u8, 1, 0]
+      c = [0'u8, 1, 2, 3]
+      d = [0'u8, 1, 3, 3]
+
+    check:
+      not (a < a)
+
+      a < b
+      not (b < a)
+
+      c < b
+      not (b < c)
+
+      a < c
+      not (c < a)
+
+      c < d
+      not (d < c)
