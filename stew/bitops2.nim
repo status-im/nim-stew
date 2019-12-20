@@ -20,7 +20,6 @@
 
 const
   useBuiltins = not defined(noIntrinsicsBitOpts)
-  arch64 = sizeof(int) == 8
 
 template bitsof*(T: typedesc[SomeInteger]): int = 8 * sizeof(T)
 template bitsof*(x: SomeInteger): int = 8 * sizeof(x)
@@ -174,6 +173,7 @@ when (defined(gcc) or defined(llvm_gcc) or defined(clang)) and useBuiltins:
   func log2truncBuiltin(v: uint64): int = 63 - builtin_clzll(v)
 
 elif defined(icc) and useBuiltins:
+  const arch64 = sizeof(int) == 8
 
   # Counts the number of one bits (population count) in a 16-, 32-, or 64-byte unsigned integer.
   func builtin_popcnt16(a2: uint16): uint16 {.importc: "__popcnt16" header: "<intrin.h>".}
@@ -185,7 +185,7 @@ elif defined(icc) and useBuiltins:
   # Search the mask data from least significant bit (LSB) to the most significant bit (MSB) for a set bit (1).
   func bitScanForward(index: ptr culong, mask: culong): cuchar {.importc: "_BitScanForward", header: "<intrin.h>".}
 
-  when defined(arch64):
+  when arch64:
     func builtin_popcnt64(a2: uint64): uint64 {.importc: "__popcnt64" header: "<intrin.h>".}
     func bitScanReverse64(index: ptr culong, mask: uint64): cuchar {.importc: "_BitScanReverse64", header: "<intrin.h>".}
     func bitScanForward64(index: ptr culong, mask: uint64): cuchar {.importc: "_BitScanForward64", header: "<intrin.h>".}
@@ -203,7 +203,7 @@ elif defined(icc) and useBuiltins:
   func countOnesBuiltin(v: uint8|uint16): int = builtin_popcnt16(v.uint16).int
   func countOnesBuiltin(v: uint32): int = builtin_popcnt32(v).int
   func countOnesBuiltin(v: uint64): int =
-    when defined(arch64):
+    when arch64:
       builtin_popcnt64(v).int
     else:
       builtin_popcnt32((v and 0xFFFFFFFF'u64).uint32).int +
@@ -213,7 +213,7 @@ elif defined(icc) and useBuiltins:
     1 + checkedScan(bitScanForward, v.culong, -1)
 
   func firstOneBuiltin(v: uint64): int =
-    when defined(arch64):
+    when arch64:
       1 + checkedScan(bitScanForward64, v.culong, -1)
     else:
       firstOneNim(v)
@@ -222,12 +222,13 @@ elif defined(icc) and useBuiltins:
     bitScan(bitScanReverse, v.culong)
 
   func log2truncBuiltin(v: uint64): int =
-    when defined(arch64):
+    when arch64:
       bitScan(bitScanReverse64, v.culong)
     else:
       log2truncNim(v)
 
 elif defined(vcc) and useBuiltins:
+  const arch64 = sizeof(int) == 8
 
   # Intel compiler intrinsics: http://fulla.fnal.gov/intel/compiler_c/main_cls/intref_cls/common/intref_allia_misc.htm
   # see also: https://software.intel.com/en-us/node/523362
@@ -240,7 +241,7 @@ elif defined(vcc) and useBuiltins:
   # Returns the number of leading 0-bits in x, starting at the most significant bit position. If x is 0, the result is undefined.
   func bitScanReverse(p: ptr uint32, b: uint32): cuchar {.importc: "_BitScanReverse", header: "<immintrin.h>".}
 
-  when defined(arch64):
+  when arch64:
     func builtin_popcnt64(x: uint64): cint {.importc: "_popcnt64" header: "<immintrin.h>".}
     func bitScanForward64(p: ptr uint32, b: uint64): cuchar {.importc: "_BitScanForward64", header: "<immintrin.h>".}
     func bitScanReverse64(p: ptr uint32, b: uint64): cuchar {.importc: "_BitScanReverse64", header: "<immintrin.h>".}
@@ -257,7 +258,7 @@ elif defined(vcc) and useBuiltins:
 
   func countOnesBuiltin(v: uint8|uint16|uint32): int = builtin_popcnt32(v.uint32).int
   func countOnesBuiltin(v: uint64): int =
-    when defined(arch64):
+    when arch64:
       builtin_popcnt64(v).int
     else:
       builtin_popcnt32((v and 0xFFFFFFFF'u64).uint32).int +
@@ -267,7 +268,7 @@ elif defined(vcc) and useBuiltins:
     1 + checkedScan(bitScanForward, v.culong, -1)
 
   func firstOneBuiltin(v: uint64): int =
-    when defined(arch64):
+    when arch64:
       1 + checkedScan(bitScanForward64, v.culong, -1)
     else:
       firstOneNim(v)
@@ -276,7 +277,7 @@ elif defined(vcc) and useBuiltins:
     bitScan(bitScanReverse, v.culong)
 
   func log2truncBuiltin(v: uint64): int =
-    when defined(arch64):
+    when arch64:
       bitScan(bitScanReverse64, v.culong)
     else:
       log2truncNim(v)
@@ -438,61 +439,67 @@ template getBitBE*(x: BitIndexable, bit: Natural): bool =
   ## `getBitLE` is considering the default indexing scheme.
   (x and mostSignificantBit(x.type) shr bit) != 0
 
-func setBit*(x: var BitIndexable, bit: Natural, val: bool) {.inline.} =
-  ## writes a bit in `x`, assuming 0 to be the position of the
+func changeBit*(x: var BitIndexable, bit: Natural, val: bool) {.inline.} =
+  ## changes a bit in `x` to val, assuming 0 to be the position of the
   ## least significant bit
   type T = type(x)
-  let mask = T(0b1 shl bit)
-  if val:
-    x = x or mask
-  else:
-    x = x and not mask
+  x = (x and not (T(1) shl bit)) or (T(val) shl bit)
 
-func setBitLE*(x: var BitIndexable, bit: Natural, val: bool) {.inline.} =
+template changeBitLE*(x: var BitIndexable, bit: Natural, val: bool) =
   setBit(x, bit, val)
 
-func setBitBE*(x: var BitIndexable, bit: Natural, val: bool) {.inline.} =
-  ## writes a bit in `x`, assuming 0 to be the position of the
+func changeBitBE*(x: var BitIndexable, bit: Natural, val: bool) {.inline.} =
+  ## changes a bit in `x` to val, assuming 0 to be the position of the
   ## most significant bit
-  let mask = mostSignificantBit(x.type) shr bit
-  if val:
-    x = x or mask
-  else:
-    x = x and not mask
+  changeBit(x, bitsof(x) - 1 - bit, val)
 
-func raiseBit*(x: var BitIndexable, bit: Natural) {.inline.} =
-  ## raises bit in `x`, assuming 0 to be the position of the
+func setBit*(x: var BitIndexable, bit: Natural) {.inline.} =
+  ## sets bit in `x`, assuming 0 to be the position of the
   ## least significant bit
   type T = type(x)
-  let mask = T(0b1 shl bit)
+  let mask = T(1) shl bit
   x = x or mask
 
-func raiseBitLE*(x: var BitIndexable, bit: Natural) {.inline.} =
-  raiseBit(x, bit)
+template setBitLE*(x: var BitIndexable, bit: Natural) =
+  setBit(x, bit)
 
-func raiseBitBE*(x: var BitIndexable, bit: Natural) {.inline.} =
-  ## raises a bit in `x`, assuming 0 to be the position of the
+func setBitBE*(x: var BitIndexable, bit: Natural) {.inline.} =
+  ## sets a bit in `x`, assuming 0 to be the position of the
   ## most significant bit
-  type T = type(x)
   let mask = mostSignificantBit(x.type) shr bit
   x = x or mask
 
-func lowerBit*(x: var BitIndexable, bit: Natural) {.inline.} =
+func clearBit*(x: var BitIndexable, bit: Natural) {.inline.} =
   ## raises bit in a byte, assuming 0 to be the position of the
   ## least significant bit
   type T = type(x)
-  let mask = T(0b1 shl bit)
+  let mask = T(1) shl bit
   x = x and not mask
 
-func lowerBitLE*(x: var BitIndexable, bit: Natural) {.inline.} =
-  lowerBit(x, bit)
+template clearBitLE*(x: var BitIndexable, bit: Natural) =
+  clearBit(x, bit)
 
-func lowerBitBE*(x: var BitIndexable, bit: Natural) {.inline.} =
+func clearBitBE*(x: var BitIndexable, bit: Natural) {.inline.} =
   ## raises a bit in `x`, assuming 0 to be the position of the
   ## most significant bit
-  type T = type(x)
   let mask = mostSignificantBit(x.type) shr bit
   x = x and not mask
+
+func toggleBit*(x: var BitIndexable, bit: Natural) {.inline.} =
+  ## toggles (inverts) bit in `x`, assuming 0 to be the position of the
+  ## least significant bit
+  type T = type(x)
+  let mask = T(1) shl bit
+  x = x xor mask
+
+template toggleBitLE*(x: var BitIndexable, bit: Natural) =
+  toggleBit(x, bit)
+
+func toggleBitBE*(x: var BitIndexable, bit: Natural) {.inline.} =
+  ## toggles (inverts) a bit in `x`, assuming 0 to be the position of the
+  ## most significant bit
+  let mask = mostSignificantBit(x.type) shr bit
+  x = x xor mask
 
 template byteIndex(pos: Natural): int =
   pos shr 3 # same as pos div 8
@@ -503,36 +510,86 @@ template bitIndex(pos: Natural): int =
 func getBit*(bytes: openarray[byte], pos: Natural): bool {.inline.} =
   getBit(bytes[byteIndex pos], bitIndex pos)
 
-func getBitBE*(bytes: openarray[byte], pos: Natural): bool {.inline.} =
-  getBitBE(bytes[byteIndex pos], bitIndex pos)
-
 template getBitLE*(bytes: openarray[byte], pos: Natural): bool =
   getBit(bytes, pos)
 
-func setBit*(bytes: var openarray[byte], pos: Natural, value: bool) {.inline.} =
-  setBit(bytes[byteIndex pos], bitIndex pos, value)
+func getBitBE*(bytes: openarray[byte], pos: Natural): bool {.inline.} =
+  getBitBE(bytes[byteIndex pos], bitIndex pos)
 
-func setBitBE*(bytes: var openarray[byte], pos: Natural, value: bool) {.inline.} =
-  setBitBE(bytes[byteIndex pos], bitIndex pos, value)
+func changeBit*(bytes: var openarray[byte], pos: Natural, value: bool) {.inline.} =
+  changeBit(bytes[byteIndex pos], bitIndex pos, value)
 
-template getBitLE*(bytes: var openarray[byte], pos: Natural, value: bool) =
+template changeBitLE*(bytes: var openarray[byte], pos: Natural, value: bool) =
+  changeBit(bytes, pos, value)
+
+func changeBitBE*(bytes: var openarray[byte], pos: Natural, value: bool) {.inline.} =
+  changeBitBE(bytes[byteIndex pos], bitIndex pos, value)
+
+func setBit*(bytes: var openarray[byte], pos: Natural) {.inline.} =
+  setBit(bytes[byteIndex pos], bitIndex pos)
+
+template setBitLE*(bytes: var openarray[byte], pos: Natural) =
+  setBit(bytes, pos)
+
+func setBitBE*(bytes: var openarray[byte], pos: Natural) {.inline.} =
+  setBitBE(bytes[byteIndex pos], bitIndex pos)
+
+func clearBit*(bytes: var openarray[byte], pos: Natural) {.inline.} =
+  clearBit(bytes[byteIndex pos], bitIndex pos)
+
+template clearBitLE*(bytes: var openarray[byte], pos: Natural) =
+  clearBit(bytes, pos)
+
+func clearBitBE*(bytes: var openarray[byte], pos: Natural) {.inline.} =
+  clearBitBE(bytes[byteIndex pos], bitIndex pos)
+
+func toggleBit*(bytes: var openarray[byte], pos: Natural) {.inline.} =
+  toggleBit(bytes[byteIndex pos], bitIndex pos)
+
+template toggleBitLE*(bytes: var openarray[byte], pos: Natural) =
+  toggleBit(bytes, pos)
+
+func toggleBitBE*(bytes: var openarray[byte], pos: Natural) {.inline.} =
+  toggleBitBE(bytes[byteIndex pos], bitIndex pos)
+
+template setBit*(x: var BitIndexable, bit: Natural, val: bool) {.deprecated: "changeBit".} =
+  changeBit(x, bit, val)
+template setBitLE*(x: var BitIndexable, bit: Natural, val: bool) {.deprecated: "changeBitLE".} =
+  changeBitLE(x, bit, val)
+template setBitBE*(x: var BitIndexable, bit: Natural, val: bool) {.deprecated: "changeBitBE".} =
+  changeBitBE(x, bit, val)
+
+template raiseBit*(x: var BitIndexable, bit: Natural) {.deprecated: "setBit".} =
+  setBit(x, bit)
+template raiseBitLE*(x: var BitIndexable, bit: Natural) {.deprecated: "setBitLE".} =
+  setBitLE(x, bit)
+template raiseBitBE*(x: var BitIndexable, bit: Natural) {.deprecated: "setBitBE".} =
+  setBitBE(x, bit)
+
+func lowerBit*(x: var BitIndexable, bit: Natural) {.inline, deprecated: "clearBit".} =
+  clearBit(x, bit)
+template lowerBitLE*(x: var BitIndexable, bit: Natural) {.deprecated: "clearBitLE".} =
+  clearBit(x, bit)
+template lowerBitBE*(x: var BitIndexable, bit: Natural) {.deprecated: "clearBitBE".} =
+  clearBitBE(x, bit)
+
+template setBit*(bytes: var openarray[byte], pos: Natural, val: bool) {.deprecated: "changeBit".} =
+  changeBit(bytes, pos, val)
+template setBitLE*(bytes: var openarray[byte], pos: Natural, val: bool) {.deprecated: "changeBitLE".} =
+  changeBitLE(bytes, pos, val)
+template setBitBE*(bytes: var openarray[byte], pos: Natural, val: bool) {.deprecated: "changeBitBE".} =
+  changeBitBE(bytes, pos, val)
+
+template raiseBit*(bytes: var openarray[byte], pos: Natural) {.deprecated: "setBit".} =
+  setBit(bytes, pos)
+template raiseBitLE*(bytes: var openarray[byte], pos: Natural) {.deprecated: "setBitLE".} =
   setBitLE(bytes, pos)
+template raiseBitBE*(bytes: var openarray[byte], pos: Natural) {.deprecated: "setBitBE".} =
+  setBitBE(bytes, pos)
 
-func lowerBit*(bytes: var openarray[byte], pos: Natural) {.inline.} =
-  lowerBit(bytes[byteIndex pos], bitIndex pos)
-
-func lowerBitBE*(bytes: var openarray[byte], pos: Natural) {.inline.} =
-  lowerBitBE(bytes[byteIndex pos], bitIndex pos)
-
-template lowerBitLE*(bytes: var openarray[byte], pos: Natural) =
-  lowerBit(bytes, pos)
-
-func raiseBit*(bytes: var openarray[byte], pos: Natural) {.inline.} =
-  raiseBit(bytes[byteIndex pos], bitIndex pos)
-
-func raiseBitBE*(bytes: var openarray[byte], pos: Natural) {.inline.} =
-  raiseBitBE(bytes[byteIndex pos], bitIndex pos)
-
-template raiseBitLE*(bytes: var openarray[byte], pos: Natural) =
-  raiseBit(bytes, pos)
-
+template lowerBit*(bytes: var openarray[byte], pos: Natural) {.deprecated: "clearBit".} =
+  clearBit(bytes, pos)
+template lowerBitLE*(bytes: var openarray[byte], pos: Natural) {.deprecated: "clearBitLE".} =
+  clearBitLE(bytes, pos)
+template lowerBitBE*(bytes: var openarray[byte], pos: Natural) {.deprecated: "clearBitBE".} =
+  clearBitBE(bytes, pos)
