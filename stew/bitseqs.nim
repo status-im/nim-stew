@@ -1,5 +1,5 @@
 import
-  bitops2, endians2, ranges/ptr_arith
+  bitops2, ptrops
 
 type
   Bytes = seq[byte]
@@ -44,10 +44,10 @@ func add*(s: var BitSeq, value: bool) =
     # There is at least one leading zero, so we have enough
     # room to store the new bit
     let markerPos = log2trunc(lastByte)
-    s.Bytes[lastBytePos].setBit markerPos, value
-    s.Bytes[lastBytePos].raiseBit markerPos + 1
+    s.Bytes[lastBytePos].changeBit markerPos, value
+    s.Bytes[lastBytePos].setBit markerPos + 1
   else:
-    s.Bytes[lastBytePos].setBit 7, value
+    s.Bytes[lastBytePos].changeBit 7, value
     s.Bytes.add byte(1)
 
 func loadLEBytes(WordType: type, bytes: openarray[byte]): WordType =
@@ -112,8 +112,8 @@ template loopOverWords(lhs, rhs: BitSeq,
     let markerPos = log2trunc(lhsWord)
     when hasRhs: doAssert log2trunc(rhsWord) == markerPos
 
-    lhsWord.lowerBit markerPos
-    when hasRhs: rhsWord.lowerBit markerPos
+    lhsWord.clearBit markerPos
+    when hasRhs: rhsWord.clearBit markerPos
 
     body
 
@@ -131,7 +131,7 @@ template loopOverWords(lhs, rhs: BitSeq,
         storeLEBytes(rhsEndResult, lastWordBytes(rhs))
 
   var lhsCurrAddr = cast[ptr WordType](unsafeAddr Bytes(lhs)[0])
-  let lhsEndAddr = shift(lhsCurrAddr, fullWordsCount)
+  let lhsEndAddr = offset(lhsCurrAddr, fullWordsCount)
   when hasRhs:
     var rhsCurrAddr = cast[ptr WordType](unsafeAddr Bytes(rhs)[0])
 
@@ -142,8 +142,8 @@ template loopOverWords(lhs, rhs: BitSeq,
 
     body
 
-    lhsCurrAddr = shift(lhsCurrAddr, 1)
-    when hasRhs: rhsCurrAddr = shift(rhsCurrAddr, 1)
+    lhsCurrAddr = offset(lhsCurrAddr, 1)
+    when hasRhs: rhsCurrAddr = offset(rhsCurrAddr, 1)
 
 iterator words*(x: var BitSeq): var uint =
   loopOverWords(x, x, true, false, uint, word, wordB):
@@ -171,19 +171,19 @@ func `[]`*(s: BitSeq, pos: Natural): bool {.inline.} =
 
 func `[]=`*(s: var BitSeq, pos: Natural, value: bool) {.inline.} =
   doAssert pos < s.len
-  s.Bytes.setBit pos, value
+  s.Bytes.changeBit pos, value
 
-func raiseBit*(s: var BitSeq, pos: Natural) {.inline.} =
+func setBit*(s: var BitSeq, pos: Natural) {.inline.} =
   doAssert pos < s.len
-  raiseBit s.Bytes, pos
+  setBit s.Bytes, pos
 
-func lowerBit*(s: var BitSeq, pos: Natural) {.inline.} =
+func clearBit*(s: var BitSeq, pos: Natural) {.inline.} =
   doAssert pos < s.len
-  lowerBit s.Bytes, pos
+  clearBit s.Bytes, pos
 
 func init*(T: type BitSeq, len: int): T =
   result = BitSeq newSeq[byte](1 + len div 8)
-  Bytes(result).raiseBit len
+  Bytes(result).setBit len
 
 func init*(T: type BitArray): T =
   # The default zero-initializatio is fine
@@ -193,13 +193,13 @@ template `[]`*(a: BitArray, pos: Natural): bool =
   getBit a.bytes, pos
 
 template `[]=`*(a: var BitArray, pos: Natural, value: bool) =
-  setBit a.bytes, pos, value
+  changeBit a.bytes, pos, value
 
-template raiseBit*(a: var BitArray, pos: Natural) =
-  raiseBit a.bytes, pos
+template setBit*(a: var BitArray, pos: Natural) =
+  setBit a.bytes, pos
 
-template lowerBit*(a: var BitArray, pos: Natural) =
-  lowerBit a.bytes, pos
+template clearBit*(a: var BitArray, pos: Natural) =
+  clearBit a.bytes, pos
 
 # TODO: Submit this to the standard library as `cmp`
 # At the moment, it doesn't work quite well because Nim selects
@@ -249,3 +249,14 @@ proc isZeros*(x: BitSeq): bool =
     if w != 0: return false
   return true
 
+template raiseBit*(s: var BitSeq, pos: Natural) {.deprecated: "setBit".} =
+  setBit(s, pos)
+
+template lowerBit*(s: var BitSeq, pos: Natural) {.deprecated: "clearBit".} =
+  clearBit(s, pos)
+
+template raiseBit*(a: var BitArray, pos: Natural) {.deprecated: "setBit".} =
+  setBit(a, pos)
+
+template lowerBit*(a: var BitArray, pos: Natural) {.deprecated: "lowerBit".} =
+  clearBit(a, pos)

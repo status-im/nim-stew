@@ -84,12 +84,12 @@ suite "Typed ranges":
     var c = toRange(@[7,8,9])
     var d = toRange(@[1,2,3,4,5,6,7,8,9])
     var e = toRange(@[1,2,3,4,5,6,7,8,9])
-    var x = toSet([a, b, c, a, b])
+    var x = toHashSet([a, b, c, a, b])
     check x.len == 3
     check a in x
 
     var z = toRange(@[7,8,9])
-    var y = toSet([z, b, c])
+    var y = toHashSet([z, b, c])
     check z in y
     check z in x
 

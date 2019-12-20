@@ -1,18 +1,18 @@
-import ./ptr_arith, typetraits, hashes
+import ../ptrops, typetraits, hashes
 
 const rangesGCHoldEnabled = not defined(rangesDisableGCHold)
 const unsafeAPIEnabled* = defined(rangesEnableUnsafeAPI)
 
 type
   # A view into immutable array
-  Range* {.shallow.} [T] = object
+  Range*[T] {.shallow.} = object
     when rangesGCHoldEnabled:
       gcHold: seq[T]
     start: ptr T
     mLen: int
 
   # A view into mutable array
-  MutRange* {.shallow.} [T] = distinct Range[T]
+  MutRange*[T] {.shallow.} = distinct Range[T]
 
   ByteRange* = Range[byte]
   MutByteRange* = MutRange[byte]
@@ -75,14 +75,14 @@ proc low*(r: Range): int {.inline.} = 0
 
 proc elemAt[T](r: MutRange[T], idx: int): var T {.inline.} =
   doAssert(idx < r.len)
-  Range[T](r).start.shift(idx)[]
+  Range[T](r).start.offset(idx)[]
 
 proc `[]=`*[T](r: MutRange[T], idx: int, v: T) {.inline.} = r.elemAt(idx) = v
 proc `[]`*[T](r: MutRange[T], i: int): var T = r.elemAt(i)
 
 proc `[]`*[T](r: Range[T], idx: int): T {.inline.} =
   doAssert(idx < r.len)
-  r.start.shift(idx)[]
+  r.start.offset(idx)[]
 
 proc `==`*[T](a, b: Range[T]): bool =
   if a.len != b.len: return false
@@ -94,7 +94,7 @@ iterator ptrs[T](r: Range[T]): (int, ptr T) =
   let e = r.len
   while i != e:
     yield (i, p)
-    p = p.shift(1)
+    p = p.offset(1)
     inc i
 
 iterator items*[T](r: Range[T]): T =
@@ -130,7 +130,7 @@ proc sliceNormalized[T](r: Range[T], ibegin, iend: int): Range[T] =
 
   when rangesGCHoldEnabled:
     shallowCopy(result.gcHold, r.gcHold)
-  result.start = r.start.shift(ibegin)
+  result.start = r.start.offset(ibegin)
   result.mLen = iend - ibegin + 1
 
 proc slice*[T](r: Range[T], ibegin = 0, iend = -1): Range[T] =
@@ -173,7 +173,7 @@ proc `[]=`*[T, U, V](r: MutRange[T], s: HSlice[U, V], v: Range[T]) {.inline.} =
   r[s] = toOpenArray(v)
 
 proc baseAddr*[T](r: Range[T]): ptr T {.inline.} = r.start
-proc gcHolder*[T](r: Range[T]): ptr T {.inline.} = 
+proc gcHolder*[T](r: Range[T]): ptr T {.inline.} =
   ## This procedure is used only for shallow test, do not use it
   ## in production.
   when rangesGCHoldEnabled:
@@ -222,7 +222,7 @@ template advanceImpl(a, b: untyped): bool =
       if a.mLen - b < 0:
         res = false
       else:
-        a.start = a.start.shift(b)
+        a.start = a.start.offset(b)
         a.mLen -= b
         res = true
   res
