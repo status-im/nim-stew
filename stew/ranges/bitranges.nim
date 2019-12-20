@@ -1,5 +1,5 @@
 import
-  ../bitops2, typedranges, ptr_arith
+  ../bitops2, typedranges
 
 type
   BitRange* = object
@@ -82,7 +82,7 @@ proc `==`*(a, b: BitRange): bool =
 proc `[]=`*(r: var BitRange, idx: Natural, val: bool) {.inline.} =
   doAssert idx < r.len
   let absIdx = r.start + idx
-  setBitBE(r.data.toOpenArray, absIdx, val)
+  changeBitBE(r.data.toOpenArray, absIdx, val)
 
 proc pushFront*(x: var BitRange, val: bool) =
   doAssert x.start > 0
@@ -104,8 +104,8 @@ proc `&`*(a, b: BitRange): BitRange =
   var bytes = newSeq[byte](totalLen.neededBytes)
   result = bits(bytes, 0, totalLen)
 
-  for i in 0 ..< a.len: result.data.toOpenArray.setBitBE(i, a[i])
-  for i in 0 ..< b.len: result.data.toOpenArray.setBitBE(i + a.len, b[i])
+  for i in 0 ..< a.len: result.data.toOpenArray.changeBitBE(i, a[i])
+  for i in 0 ..< b.len: result.data.toOpenArray.changeBitBE(i + a.len, b[i])
 
 proc `$`*(r: BitRange): string =
   result = newStringOfCap(r.len)
@@ -125,7 +125,7 @@ proc parse*(T: type BitRange, s: string): BitRange =
   for i, c in s:
     case c
     of '0': discard
-    of '1': raiseBitBE(bytes, i)
+    of '1': setBitBE(bytes, i)
     else: doAssert false
   result = bits(bytes, 0, s.len)
 

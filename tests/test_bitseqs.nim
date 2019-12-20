@@ -1,6 +1,6 @@
 import
   unittest, strformat,
-  ../stew/[bitseqs, bitops2]
+  ../stew/[bitseqs]
 
 suite "Bit fields":
   test "roundtrips":
@@ -11,13 +11,13 @@ suite "Bit fields":
     check:
       not a[0]
 
-    a.raiseBit 1
+    a.setBit 1
 
     check:
       not a[0]
       a[1]
 
-    b.raiseBit 2
+    b.setBit 2
 
     a.combine(b)
 
@@ -65,8 +65,8 @@ suite "Bit fields":
 
       for pos in [4, 8, 9, 12, 29, 32, 63, 64, 67]:
         if pos + 2 < bitCount:
-          a.raiseBit(pos)
-          b.raiseBit(pos + 2)
+          a.setBit(pos)
+          b.setBit(pos + 2)
 
       check:
         not a.overlaps(b)

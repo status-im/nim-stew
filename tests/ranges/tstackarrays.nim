@@ -1,6 +1,7 @@
 import
   unittest, math,
-  ../../stew/ranges/[stackarrays, ptr_arith]
+  ../../stew/ptrops,
+  ../../stew/ranges/[stackarrays]
 
 suite "Stack arrays":
   test "Basic operations work as expected":
@@ -21,11 +22,11 @@ suite "Stack arrays":
       sum(arr.toOpenArray) == 19
       arr[5] == 10
       arr[^1] == 6
-      cast[ptr int](shift(addr arr[0], 5))[] == 10
+      cast[ptr int](offset(addr arr[0], 5))[] == 10
 
   test "Allocating with a negative size throws a RangeError":
     expect RangeError:
-      var arr = allocStackArray(string, -1)
+      discard allocStackArray(string, -1)
 
   test "The array access is bounds-checked":
     var arr = allocStackArray(string, 3)
