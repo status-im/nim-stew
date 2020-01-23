@@ -9,12 +9,13 @@
 
 import
   ranges/all,
+  test_base32,
+  test_base58,
+  test_base64,
   test_bitops2,
   test_bitseqs,
   test_byteutils,
   test_endians2,
   test_ptrops,
-  test_varints,
-  test_base32,
-  test_base58,
-  test_base64
+  test_result,
+  test_varints
