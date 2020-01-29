@@ -24,13 +24,16 @@ type
   BitArray*[bits: static int] = object
     bytes*: array[(bits + 7) div 8, byte]
 
-func len*(s: BitSeq): int =
+func bitsLen*(bytes: openarray[byte]): int =
   let
-    bytesCount = s.Bytes.len
-    lastByte = s.Bytes[bytesCount - 1]
+    bytesCount = bytes.len
+    lastByte = bytes[bytesCount - 1]
     markerPos = log2trunc(lastByte)
 
-  Bytes(s).len * 8 - (8 - markerPos)
+  bytesCount * 8 - (8 - markerPos)
+
+template len*(s: BitSeq): int =
+  bitsLen(Bytes s)
 
 template len*(a: BitArray): int =
   a.bits
