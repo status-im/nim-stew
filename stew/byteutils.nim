@@ -22,6 +22,20 @@ func `&`*[N1, N2: static[int], T](
   result[0 ..< N1] = a
   result[N1 ..< result.len] = b
 
+template `^^`(s, i: untyped): untyped =
+  (when i is BackwardsIndex: s.len - int(i) else: int(i))
+
+func `[]=`*[T, U, V](r: var openArray[T], s: HSlice[U, V], v: openArray[T]) =
+  ## openArray slice assignment:
+  ## v[0..<2] = [0, 1]
+  let a = r ^^ s.a
+  let b = r ^^ s.b
+  let L = b - a + 1
+  if L == v.len:
+    for i in 0..<L: r[i + a] = v[i]
+  else:
+    raise newException(RangeError, "different lengths for slice assignment")
+
 ########################################################################################################
 #####################################   Hex utilities   ################################################
 
