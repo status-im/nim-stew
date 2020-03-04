@@ -127,8 +127,12 @@ func toHex*[N: static[int]](ba: array[N, byte]): string {.inline.} =
 func toBytes*(s: string): seq[byte] =
   ## Convert a string to the corresponding byte sequence - since strings in
   ## nim essentially are byte sequences without any particular encoding, this
-  ## is almost a noop
-  cast[seq[byte]](s)
+  ## simply copies the bytes without a null terminator
+  @(s.toOpenArrayByte(0, s.high))
+
+func fromBytes*(T: type string, v: openArray[byte]): string =
+  result = newString(v.len)
+  copyMem(addr result[0], unsafeAddr v[0], v.len)
 
 func `<`*(a, b: openArray[byte]): bool =
   ## Lexicographical compare of two byte arrays

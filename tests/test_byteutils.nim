@@ -81,3 +81,9 @@ suite "Byte utils":
 
       c < d
       not (d < c)
+
+  test "strings":
+    check:
+      "a".toBytes() == @[byte(ord('a'))]
+      string.fromBytes([byte(ord('a'))]) == "a"
+      cast[ptr UncheckedArray[byte]](cstring(string.fromBytes([byte(ord('a'))])))[1] == byte(0)
