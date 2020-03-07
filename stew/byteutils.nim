@@ -145,8 +145,9 @@ func toBytes*(s: string): seq[byte] =
   @(s.toOpenArrayByte(0, s.high))
 
 func fromBytes*(T: type string, v: openArray[byte]): string =
-  result = newString(v.len)
-  copyMem(addr result[0], unsafeAddr v[0], v.len)
+  if v.len > 0:
+    result = newString(v.len)
+    copyMem(addr result[0], unsafeAddr v[0], v.len)
 
 func `<`*(a, b: openArray[byte]): bool =
   ## Lexicographical compare of two byte arrays

@@ -88,6 +88,9 @@ suite "Byte utils":
       string.fromBytes([byte(ord('a'))]) == "a"
       cast[ptr UncheckedArray[byte]](cstring(string.fromBytes([byte(ord('a'))])))[1] == byte(0)
 
+      "".toBytes().len() == 0
+      string.fromBytes([]) == ""
+
   test "slices":
     var a: array[4, byte]
     a[0..<2] = [2'u8, 3]
