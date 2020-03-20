@@ -88,7 +88,7 @@ doAssert e.isErr
 doAssert e.error.msg == "test"
 
 try:
-  discard e[]
+  discard e.tryGet
   doAssert false, "should have raised"
 except ValueError as e:
   doAssert e.msg == "test"
@@ -108,6 +108,18 @@ doAssert $rOk == "Ok(42)"
 doAssert rOk.mapConvert(int64)[] == int64(42)
 doAssert rOk.mapCast(int8)[] == int8(42)
 doAssert rOk.mapConvert(uint64)[] == uint64(42)
+
+try:
+  discard rErr.get()
+  doAssert false
+except Defect: # TODO catching defects is undefined behaviour, use external test suite?
+  discard
+
+try:
+  discard rOk.error()
+  doAssert false
+except Defect: # TODO catching defects is undefined behaviour, use external test suite?
+  discard
 
 # TODO there's a bunch of operators that one could lift through magic - this
 #      is mainly an example
@@ -187,7 +199,7 @@ type
 func testToString(): int =
   try:
     var r = Result[int, AnEnum2].err(anEnum2A)
-    r[]
+    r.tryGet
   except ResultError[AnEnum2]:
     42
 
