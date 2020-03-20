@@ -8,7 +8,7 @@
 
 type
   ResultError*[E] = object of ValueError
-    ## Error raised when trying to access value of result when error is set
+    ## Error raised when using `tryGet` value of result when error is set
     ## Note: If error is of exception type, it will be raised instead!
     error*: E
 
@@ -154,11 +154,6 @@ type
     ##   can deal with this?
     ## * Nim templates allow us to fail fast without extra effort, meaning the
     ##   other side of `and`/`or` isn't evaluated unless necessary - nice!
-    ## * In Nim, we have exceptions - when using this library, we'll raise the
-    ##   standard crop of Nim errors when trying to access the error of a value
-    ##   and vice versa - this fits better with Nim but costs space and
-    ##   performance - need to think about this - rust will simply panic, and
-    ##   everyone seems more or less happy with that..
     ## * Rust uses From traits to deal with result translation as the result
     ##   travels up the call stack - needs more tinkering - some implicit
     ##   conversions would be nice here
@@ -177,7 +172,7 @@ type
 func raiseResultError[T, E](self: Result[T, E]) {.noreturn.} =
   mixin toException
 
-  when E is ref Exception:
+  when E is ref Defect or E is ref CatchableError:
     if self.e.isNil: # for example Result.default()!
       raise (ref ResultError[void])(msg: "Trying to access value with err (nil)")
     raise self.e
@@ -310,38 +305,43 @@ func `==`*[T0, E0, T1, E1](lhs: Result[T0, E0], rhs: Result[T1, E1]): bool {.inl
     lhs.e == rhs.e
 
 func get*[T: not void, E](self: Result[T, E]): T {.inline.} =
-  ## Fetch value of result if set, or raise error as an Exception
+  ## Fetch value of result if set, or raise a Defect
   ## See also: Option.get
-  if self.isErr: self.raiseResultError()
+  ##
+  ## TODO: if E is ref Exception, should we raise that exception instead of a
+  ##       Defect? It might be easier to use Result as a "bridge" library
+  ##       that way.
+  doAssert self.isOk, "Attempt to get a failed result"
+  self.v
 
+func tryGet*[T: not void, E](self: Result[T, E]): T {.inline.} = # raises: [Defect, CatchableError] - but the calculated exception is more precise!
+  ## Fetch value of result if set, or raise a CatchableError
+  if not self.isOk: self.raiseResultError
   self.v
 
 func get*[T, E](self: Result[T, E], otherwise: T): T {.inline.} =
-  ## Fetch value of result if set, or raise error as an Exception
-  ## See also: Option.get
+  ## Fetch value of result if set, or return the value `otherwise`
   if self.isErr: otherwise
   else: self.v
 
 func get*[T, E](self: var Result[T, E]): var T {.inline.} =
-  ## Fetch value of result if set, or raise error as an Exception
+  ## Fetch value of result if set, or raise a Defect
   ## See also: Option.get
-  if self.isErr: self.raiseResultError()
-
+  doAssert self.isOk, "Attempt to get a failed result"
   self.v
 
 template `[]`*[T, E](self: Result[T, E]): T =
-  ## Fetch value of result if set, or raise error as an Exception
+  ## Fetch value of result if set, or raise a Defect
   self.get()
 
 template `[]`*[T, E](self: var Result[T, E]): var T =
-  ## Fetch value of result if set, or raise error as an Exception
+  ## Fetch value of result if set, or raise a Defect
   self.get()
 
 template unsafeGet*[T, E](self: Result[T, E]): T =
   ## Fetch value of result if set, undefined behavior if unset
   ## See also: Option.unsafeGet
-  assert not isErr(self)
-
+  assert isOk(self)
   self.v
 
 func expect*[T: not void, E](self: Result[T, E], m: string): T =
@@ -369,8 +369,7 @@ func `$`*(self: Result): string =
   else: "Err(" & $self.e & ")"
 
 func error*[T, E](self: Result[T, E]): E =
-  if self.isOk: raise (ref ResultError[void])(msg: "Result does not contain an error")
-
+  doAssert self.isErr, "Result does not contain an error"
   self.e
 
 template value*[T, E](self: Result[T, E]): T = self.get()
@@ -424,12 +423,16 @@ func map*[T, E](
   else: result.err(self.e)
 
 func get*[E](self: Result[void, E]) {.inline.} =
-  ## Fetch value of result if set, or raise error as an Exception
+  ## Fetch value of result if set, or raise a Defect
   ## See also: Option.get
-  if self.isErr: self.raiseResultError()
+  doAssert self.isOk, "Attempt to get a failed result"
+
+func tryGet*[E](self: Result[void, E]) {.inline.} =
+  ## Fetch value of result if set, or raise a CatchableError
+  doAssert self.isOk, "Attempt to get a failed result"
 
 template `[]`*[E](self: Result[void, E]) =
-  ## Fetch value of result if set, or raise error as an Exception
+  ## Fetch value of result if set, or raise a Defect
   self.get()
 
 template unsafeGet*[E](self: Result[void, E]) =
@@ -464,4 +467,3 @@ template `?`*[T, E](self: Result[T, E]): T =
   if v.isErr: return err(typeof(result), v.error)
 
   v.value
-

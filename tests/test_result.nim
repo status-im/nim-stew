@@ -88,7 +88,7 @@ doAssert e.isErr
 doAssert e.error.msg == "test"
 
 try:
-  discard e[]
+  discard e.tryGet
   doAssert false, "should have raised"
 except ValueError as e:
   doAssert e.msg == "test"
@@ -173,7 +173,7 @@ func toException(v: AnEnum): AnException = AnException(v: v)
 func testToException(): int =
   try:
     var r = Result[int, AnEnum].err(anEnumA)
-    r[]
+    r.tryGet
   except AnException:
     42
 
@@ -187,7 +187,7 @@ type
 func testToString(): int =
   try:
     var r = Result[int, AnEnum2].err(anEnum2A)
-    r[]
+    r.tryGet
   except ResultError[AnEnum2]:
     42
 
@@ -225,3 +225,4 @@ except:
   discard
 
 doAssert vErr.mapErr(proc(x: int): int = 10).error() == 10
+
