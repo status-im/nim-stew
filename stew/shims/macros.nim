@@ -35,13 +35,16 @@ template readPragma*(field: FieldDescription, pragmaName: static string): NimNod
   if p != nil and p.len == 2: p[1] else: p
 
 proc recordFields*(typeImpl: NimNode): seq[FieldDescription] =
+  # TODO: This doesn't support inheritance yet
   if typeImpl.isTuple:
     for i in 1 ..< typeImpl.len:
       result.add FieldDescription(typ: typeImpl[i], name: ident("Field" & $(i - 1)))
     return
 
-  # TODO: This doesn't support inheritance yet
-  let objectType = typeImpl[2]
+  var objectType = typeImpl[2]
+  if objectType.kind == nnkRefTy:
+    objectType = objectType[0]
+
   let recList = objectType[2]
 
   type
@@ -128,7 +131,7 @@ proc recordFields*(typeImpl: NimNode): seq[FieldDescription] =
         discard
 
       else:
-        doAssert false
+        doAssert false, "Unexpected nodes in recordFields:\n" & n.treeRepr
 
       if traversalStack.len == 0: break
 
