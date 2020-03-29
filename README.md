@@ -24,6 +24,7 @@ respective folders
 - `bitops2` - an updated version of `bitops.nim`, filling in gaps in original code
 - `byteutils` - utilities that make working with the Nim `byte` type convenient
 - `endians2` - utilities for converting to and from little / big endian integers
+- `objects` - get an object's base type at runtime, as a string
 - `ptrops` - pointer arithmetic utilities
 - `ranges` - utility functions for working with parts and blobs of memory
 - `shims` - backports of nim `devel` code to the stable version that Status is using
