@@ -10,7 +10,7 @@ func fails(): R = R.err("dummy")
 func fails2(): R = result.err("dummy")
 
 func raises(): int =
-  raise newException(Exception, "hello")
+  raise (ref CatchableError)(msg: "hello")
 
 # Basic usage, consumer
 let
@@ -83,13 +83,15 @@ doAssert (rOk.flatMap(
 doAssert (rErr.mapErr(func(x: string): string = x & "no!").error == (rErr.error & "no!"))
 
 # Exception interop
-let e = capture(int, newException(Exception, "test"))
+let e = capture(int, (ref ValueError)(msg: "test"))
 doAssert e.isErr
+doAssert e.error.msg == "test"
+
 try:
   discard e[]
   doAssert false, "should have raised"
-except:
-  doAssert getCurrentException().msg == "test"
+except ValueError as e:
+  doAssert e.msg == "test"
 
 # Nice way to checks
 if (let v = works(); v.isOk):
@@ -145,33 +147,13 @@ func testErr(): Result[int, string] =
 doAssert testOk()[] == 42
 doAssert testErr().error == "323"
 
-# It's also possible to use the same trick for stack capture:
-template capture*(): untyped =
-  type R = type(result)
-
-  var ret: R
-  try:
-    # TODO is this needed? I think so, in order to grab a call stack, but
-    #      haven't actually tested...
-    if true:
-      # I'm sure there's a nicer way - this just works :)
-      raise newException(Exception, "")
-  except:
-    ret = R.err(getCurrentException())
-  ret
-
-proc testCapture(): Result[int, ref Exception] =
-  return capture()
-
-doAssert testCapture().isErr
-
 func testQn(): Result[int, string] =
   let x = ?works() - ?works()
   result.ok(x)
 
 func testQn2(): Result[int, string] =
   # looks like we can even use it creatively like this
-  if ?fails() == 42: raise newException(Exception, "shouldn't happen")
+  if ?fails() == 42: raise (ref ValueError)(msg: "shouldn't happen")
 
 doAssert testQn()[] == 0
 doAssert testQn2().isErr
@@ -180,7 +162,7 @@ type
   AnEnum = enum
     anEnumA
     anEnumB
-  AnException = ref object of Exception
+  AnException = ref object of CatchableError
     v: AnEnum
 
 func toException(v: AnEnum): AnException = AnException(v: v)

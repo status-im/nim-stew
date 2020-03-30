@@ -7,10 +7,10 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 type
-  ResultError*[E] = ref object of ValueError
+  ResultError*[E] = object of ValueError
     ## Error raised when trying to access value of result when error is set
     ## Note: If error is of exception type, it will be raised instead!
-    error: E
+    error*: E
 
   Result*[T, E] = object
     ## Result type that can hold either a value or an error, but not both
@@ -19,7 +19,7 @@ type
     ##
     ## ```
     ## # It's convenient to create an alias - most likely, you'll do just fine
-    ## # with strings as error!
+    ## # with strings or cstrings as error
     ##
     ## type R = Result[int, string]
     ##
@@ -49,10 +49,10 @@ type
     ##
     ## # If you provide this exception converter, this exception will be raised
     ## # on dereference
-    ## func toException(v: Error): ref CatchableException = (ref CatchableException)(msg: $v)
+    ## func toException(v: Error): ref CatchableError = (ref CatchableError)(msg: $v)
     ## try:
     ##   RE[int].err(a)[]
-    ## except CatchableException:
+    ## except CatchableError:
     ##   echo "in here!"
     ##
     ## ```
@@ -92,6 +92,8 @@ type
     ## The API visibility issue of exceptions can also be solved with
     ## `{.raises.}` annotations - as of now, the compiler doesn't remind
     ## you to do so, even though it knows what the right annotation should be.
+    ## `{.raises.}` does not participate in generic typing, making it just as
+    ## verbose but less flexible in some ways, if you want to type it out.
     ##
     ## Many system languages make a distinction between errors you want to
     ## handle and those that are simply bugs or unrealistic to deal with..
@@ -116,6 +118,21 @@ type
     ## that way by implicitly passing them up the call chain - with a mandatory
     ## annotation that function may throw:
     ## https://developer.apple.com/library/content/documentation/Swift/Conceptual/Swift_Programming_Language/ErrorHandling.html
+    ##
+    ## # Considerations for the error type
+    ##
+    ## * Use a `string` or a `cstring` if you want to provide a diagnostic for
+    ##   the caller without an expectation that they will differentiate between
+    ##   different errors. Callers should never parse the given string!
+    ## * Use an `enum` to provide in-depth errors where the caller is expected
+    ##   to have different logic for different errors
+    ## * Use a complex type to include error-specific meta-data - or make the
+    ##   meta-data collection a visible part of your API in another way - this
+    ##   way it remains discoverable by the caller!
+    ##
+    ## A natural "error API" progression is starting with `Option[T]`, then
+    ## `Result[T, cstring]`, `Result[T, enum]` and `Result[T, object]` in
+    ## escalating order of complexity.
     ##
     ## # Other implemenations in nim
     ##
@@ -143,6 +160,11 @@ type
     ## * Rust uses From traits to deal with result translation as the result
     ##   travels up the call stack - needs more tinkering - some implicit
     ##   conversions would be nice here
+    ## * Pattern matching in rust allows convenient extraction of value or error
+    ##   in one go.
+    ##
+    ## Relevant nim bugs:
+    ## https://github.com/nim-lang/Nim/issues/13799
 
     case o: bool
     of false:
@@ -151,40 +173,42 @@ type
       v: T
 
 func raiseResultError[T, E](self: Result[T, E]) {.noreturn.} =
+  mixin toException
+
   when E is ref Exception:
     if self.e.isNil: # for example Result.default()!
-      raise ResultError[void](msg: "Trying to access value with err (nil)")
+      raise (ref ResultError[void])(msg: "Trying to access value with err (nil)")
     raise self.e
-  elif compiles(self.e.toException()):
-    raise self.e.toException()
+  elif compiles(toException(self.e)):
+    raise toException(self.e)
   elif compiles($self.e):
-    raise ResultError[E](
+    raise (ref ResultError[E])(
       error: self.e, msg: "Trying to access value with err: " & $self.e)
   else:
-    raise ResultError[E](error: self.e)
+    raise (res ResultError[E])(msg: "Trying to access value with err", error: self.e)
 
-template ok*(R: type Result, x: auto): auto =
+template ok*[T, E](R: type Result[T, E], x: auto): R =
   ## Initialize a result with a success and value
   ## Example: `Result[int, string].ok(42)`
   R(o: true, v: x)
 
-template ok*(self: var Result, x: auto) =
+template ok*[T, E](self: var Result[T, E], x: auto) =
   ## Set the result to success and update value
   ## Example: `result.ok(42)`
   self = ok(type self, x)
 
-template err*(R: type Result, x: auto): auto =
+template err*[T, E](R: type Result[T, E], x: auto): R =
   ## Initialize the result to an error
   ## Example: `Result[int, string].err("uh-oh")`
   R(o: false, e: x)
 
-template err*(self: var Result, x: auto) =
+template err*[T, E](self: var Result[T, E], x: auto) =
   ## Set the result as an error
   ## Example: `result.err("uh-oh")`
   self = err(type self, x)
 
-template ok*(v: auto): auto = typeof(result).ok(v)
-template err*(v: auto): auto = typeof(result).err(v)
+template ok*(v: auto): auto = ok(typeof(result), v)
+template err*(v: auto): auto = err(typeof(result), v)
 
 template isOk*(self: Result): bool = self.o
 template isErr*(self: Result): bool = not self.o
@@ -220,32 +244,49 @@ func mapCast*[T0, E0](
   if self.isOk: result.ok(cast[T1](self.v))
   else: result.err(self.e)
 
-template `and`*(self: Result, other: untyped): untyped =
+template `and`*[T, E](self, other: Result[T, E]): Result[T, E] =
   ## Evaluate `other` iff self.isOk, else return error
   ## fail-fast - will not evaluate other if a is an error
+  ##
+  ## TODO: This API is unsafe due to potential multiple
+  ## evaluation of the `self` parameter.
   if self.isOk:
     other
   else:
     type R = type(other)
     R.err(self.e)
 
-template `or`*(self: Result, other: untyped): untyped =
+template `or`*[T, E](self, other: Result[T, E]): Result[T, E] =
   ## Evaluate `other` iff not self.isOk, else return self
   ## fail-fast - will not evaluate other if a is a value
+  ##
+  ## TODO: This API is unsafe due to potential multiple
+  ## evaluation of the `self` parameter.
   if self.isOk: self
   else: other
 
-template catch*(body: typed): Result[type(body), ref Exception] =
-  ## Convert a try expression into a Result
-  type R = Result[type(body), ref Exception]
+template catch*(body: typed): Result[type(body), ref CatchableError] =
+  ## Catch exceptions for body and store them in the Result
+  ##
+  ## ```
+  ## let r = catch: someFuncThatMayRaise()
+  ## ```
+  type R = Result[type(body), ref CatchableError]
 
   try:
     R.ok(body)
-  except:
-    R.err(getCurrentException())
+  except CatchableError as e:
+    R.err(e)
 
-template capture*(T: type, e: ref Exception): Result[T, ref Exception] =
-  type R = Result[T, ref Exception]
+template capture*[E: Exception](T: type, someExceptionExpr: ref E): Result[T, ref E] =
+  ## Evaluate someExceptionExpr and put the exception into a result, making sure
+  ## to capture a call stack at the capture site:
+  ##
+  ## ```
+  ## let e: Result[void, ValueError] = void.capture((ref ValueError)(msg: "test"))
+  ## echo e.error().getStackTrace()
+  ## ```
+  type R = Result[T, ref E]
 
   var ret: R
   try:
@@ -253,12 +294,12 @@ template capture*(T: type, e: ref Exception): Result[T, ref Exception] =
     #      haven't actually tested...
     if true:
       # I'm sure there's a nicer way - this just works :)
-      raise e
-  except:
-    ret = R.err(getCurrentException())
+      raise someExceptionExpr
+  except E as caught:
+    ret = R.err(caught)
   ret
 
-func `==`*(lhs, rhs: Result): bool {.inline.} =
+func `==`*[T0, E0, T1, E1](lhs: Result[T0, E0], rhs: Result[T1, E1]): bool {.inline.} =
   if lhs.isOk != rhs.isOk:
     false
   elif lhs.isOk:
@@ -307,7 +348,7 @@ func `$`*(self: Result): string =
   else: "Err(" & $self.e & ")"
 
 func error*[T, E](self: Result[T, E]): E =
-  if self.isOk: raise ResultError[void](msg: "Result does not contain an error")
+  if self.isOk: raise (ref ResultError[void])(msg: "Result does not contain an error")
 
   self.e
 
@@ -330,6 +371,13 @@ template ok*[E](self: var Result[void, E]) =
   ## Set the result to success and update value
   ## Example: `result.ok(42)`
   self = (type self).ok()
+
+template ok*(): auto = ok(typeof(result))
+template err*(): auto = err(typeof(result))
+
+# TODO:
+# Supporting `map` and `get` operations on a `void` result is quite
+# an unusual API. We should provide some motivating examples.
 
 func map*[E, A](
     self: Result[void, E], f: proc(): A): Result[A, E] {.inline.} =
@@ -379,11 +427,16 @@ template value*[E](self: var Result[void, E]) = self.get()
 template `?`*[T, E](self: Result[T, E]): T =
   ## Early return - if self is an error, we will return from the current
   ## function, else we'll move on..
+  ##
+  ## ```
+  ## let v = ? funcWithResult()
+  ## echo v # prints value, not Result!
+  ## ```
   ## Experimental
   # TODO the v copy is here to prevent multiple evaluations of self - could
   #      probably avoid it with some fancy macro magic..
-  let v = self
-  if v.isErr: return v
+  let v = (self)
+  if v.isErr: return err(typeof(result), v.error)
 
   v.value
 
