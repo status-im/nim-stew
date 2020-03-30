@@ -31,3 +31,15 @@ when not compiles(len((1, 2))):
   func len*(x: tuple): int =
     arity(type(x))
 
+# Get an object's base type, as a cstring. Ref objects will have an ":ObjectType"
+# suffix.
+# From: https://gist.github.com/stefantalpalaru/82dc71bb547d6f9178b916e3ed5b527d
+proc baseType*(obj: RootObj): cstring =
+  when not defined(nimTypeNames):
+    raiseAssert("you need to compile this with '-d:nimTypeNames'")
+  else:
+    {.emit: "result = `obj`->m_type->name;".}
+
+proc baseType*(obj: ref RootObj): cstring =
+  obj[].baseType
+

@@ -16,6 +16,7 @@ import
   test_bitseqs,
   test_byteutils,
   test_endians2,
+  test_objects,
   test_ptrops,
   test_result,
   test_varints
