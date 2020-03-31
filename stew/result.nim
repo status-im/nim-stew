@@ -12,6 +12,8 @@ type
     ## Note: If error is of exception type, it will be raised instead!
     error*: E
 
+  ResultDefect* = object of Defect
+
   Result*[T, E] = object
     ## Result type that can hold either a value or an error, but not both
     ##
@@ -342,6 +344,25 @@ template unsafeGet*[T, E](self: Result[T, E]): T =
 
   self.v
 
+func expect*[T: not void, E](self: Result[T, E], m: string): T =
+  ## Return value of Result, or raise a `Defect` with the given message - use
+  ## this helper to extract the value when an error is not expected, for example
+  ## because the program logic dictates that the operation should never fail
+  ##
+  ## ```nim
+  ## let r = Result[int, int].ok(42)
+  ## # Put here a helpful comment why you think this won't fail
+  ## echo r.expect("r was just set to ok(42)")
+  ## ```
+  if not self.isOk():
+    raise (ref ResultDefect)(msg: m)
+  self.v
+
+func expect*[T: not void, E](self: var Result[T, E], m: string): var T =
+  if not self.isOk():
+    raise (ref ResultDefect)(msg: m)
+  self.v
+
 func `$`*(self: Result): string =
   ## Returns string representation of `self`
   if self.isOk: "Ok(" & $self.v & ")"
@@ -415,6 +436,10 @@ template unsafeGet*[E](self: Result[void, E]) =
   ## Fetch value of result if set, undefined behavior if unset
   ## See also: Option.unsafeGet
   assert not self.isErr
+
+func expect*[E](self: Result[void, E], msg: string) =
+  if not self.isOk():
+    raise (ref ResultDefect)(msg: msg)
 
 func `$`*[E](self: Result[void, E]): string =
   ## Returns string representation of `self`

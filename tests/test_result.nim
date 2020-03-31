@@ -147,6 +147,8 @@ func testErr(): Result[int, string] =
 doAssert testOk()[] == 42
 doAssert testErr().error == "323"
 
+doAssert testOk().expect("testOk never fails") == 42
+
 func testQn(): Result[int, string] =
   let x = ?works() - ?works()
   result.ok(x)
@@ -209,6 +211,7 @@ doAssert vErr.isErr
 doAssert vErr2.isErr
 
 vOk.get()
+vOk.expect("should never fail")
 
 doAssert vOk.map(proc (): int = 42).get() == 42
 
