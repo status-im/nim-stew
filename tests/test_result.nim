@@ -107,6 +107,7 @@ doAssert $rOk == "Ok(42)"
 
 doAssert rOk.mapConvert(int64)[] == int64(42)
 doAssert rOk.mapCast(int8)[] == int8(42)
+doAssert rOk.mapConvert(uint64)[] == uint64(42)
 
 # TODO there's a bunch of operators that one could lift through magic - this
 #      is mainly an example

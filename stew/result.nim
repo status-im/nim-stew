@@ -234,9 +234,9 @@ func mapErr*[T: not void, E, A](
 
 func mapConvert*[T0, E0](
     self: Result[T0, E0], T1: type): Result[T1, E0] {.inline.} =
-  ## Convert result value to A using an implicit conversion
-  ## Would be nice if it was automatic...
-  if self.isOk: result.ok(self.v)
+  ## Convert result value to A using an conversion
+  # Would be nice if it was automatic...
+  if self.isOk: result.ok(T1(self.v))
   else: result.err(self.e)
 
 func mapCast*[T0, E0](
