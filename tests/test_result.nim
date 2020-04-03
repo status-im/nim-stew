@@ -32,6 +32,9 @@ doAssert (rErr and rOk).isErr
 doAssert (rOk or rErr).isOk
 doAssert (rErr or rOk).isOk
 
+# `and` heterogenous types
+doAssert (rOk and rOk.map(proc(x: auto): auto = $x))[] == $(rOk[])
+
 # Exception on access
 let va = try: discard rOk.error; false except: true
 doAssert va, "not an error, should raise"
