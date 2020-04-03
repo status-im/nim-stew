@@ -266,7 +266,7 @@ func mapCast*[T0, E0](
   if self.isOk: result.ok(cast[T1](self.v))
   else: result.err(self.e)
 
-template `and`*[T, E](self, other: Result[T, E]): Result[T, E] =
+template `and`*[T0, E, T1](self: Result[T0, E], other: Result[T1, E]): Result[T1, E] =
   ## Evaluate `other` iff self.isOk, else return error
   ## fail-fast - will not evaluate other if a is an error
   ##
