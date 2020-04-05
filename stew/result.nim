@@ -171,8 +171,41 @@ type
     ## * Pattern matching in rust allows convenient extraction of value or error
     ##   in one go.
     ##
+    ## # Performance considerations
+    ##
+    ## Compared to a simple return type, returning a Result sometimes incurs
+    ## an overhead. Compared to raising an exception, this overhead is very low.
+    ## Compared to returning a plain value, it may be significant, specially for
+    ## large value types (deeply nested `object`:s) and value-like types (large
+    ## `seq`:s):
+    ##
+    ## * Loss of RVO
+    ##   Nim does return-value-optimization by rewriting `proc f(): X` into
+    ##   `proc f(result: var X)` - in an expression like `let x = f()`, this
+    ##   allows it to avoid a copy from the "temporary" return value to `x` -
+    ##   when using Result, this copy currently happens always because you need
+    ##   to fetch the value from the Result in a second step: `let x = f().value`
+    ##   To solve this, "move" support in the compiler is needed - it would
+    ##   allow moving the value out of the temporary result created here.
+    ## * Bad codegen
+    ##   When doing RVO, Nim generates poor and slow code: it uses a construct
+    ##   called `genericReset` that will zero-initialize a value using dynamic
+    ##   RTTI - a process that the C compiler subsequently is unable to
+    ##   optimize. This applies to all types, and could be fixed in compiler.
+    ## * Double zero-initialization bug
+    ##   Nim has an initialization bug that causes additional poor performance:
+    ##   `var x = f()` will be expanded into `var x; zeroInit(x); f(x)` where
+    ##   `f(x)` will call the slow `genericReset` and zero-init `x` again,
+    ##   unnecessarily.
+    ## * Extra local copy in templates
+    ##   To avoid spurious evaluation of expressions in templates, we use a
+    ##   temporary variable sometimes - this means an unnecessary copy for some
+    ##   types.
+    ##
     ## Relevant nim bugs:
-    ## https://github.com/nim-lang/Nim/issues/13799
+    ## https://github.com/nim-lang/Nim/issues/13799 - type issues
+    ## https://github.com/nim-lang/Nim/issues/8745 - genericReset slow
+    ## https://github.com/nim-lang/Nim/issues/13879 - double-zero-init slow
 
     case o: bool
     of false:
@@ -180,7 +213,9 @@ type
     of true:
       v: T
 
-func raiseResultError[T, E](self: Result[T, E]) {.noreturn.} =
+func raiseResultError[T, E](self: Result[T, E]) {.noreturn, noinline.} =
+  # noinline because raising should take as little space as possible at call
+  # site
   mixin toException
 
   when E is ref Exception:
@@ -195,7 +230,7 @@ func raiseResultError[T, E](self: Result[T, E]) {.noreturn.} =
   else:
     raise (res ResultError[E])(msg: "Trying to access value with err", error: self.e)
 
-func raiseResultDefect(m: string, v: auto) {.noreturn.} =
+func raiseResultDefect(m: string, v: auto) {.noreturn, noinline.} =
   if compiles($v): raise (ref ResultDefect)(msg: m & ": " & $v)
   else: raise (ref ResultDefect)(msg: m)
 
@@ -203,6 +238,7 @@ template checkOk(self: Result) =
   # TODO This condition is a bit odd in that it raises different exceptions
   #      depending on the type of E - this is done to support using Result as a
   #      bridge type that can transport Exceptions
+  mixin toException
   if not self.isOk:
     when E is ref Exception or compiles(toException(self.e)):
       raiseResultError(self)
@@ -269,22 +305,18 @@ func mapCast*[T0, E0](
 template `and`*[T0, E, T1](self: Result[T0, E], other: Result[T1, E]): Result[T1, E] =
   ## Evaluate `other` iff self.isOk, else return error
   ## fail-fast - will not evaluate other if a is an error
-  ##
-  ## TODO: This API is unsafe due to potential multiple
-  ## evaluation of the `self` parameter.
-  if self.isOk:
+  let s = self
+  if s.isOk:
     other
   else:
     type R = type(other)
-    R.err(self.e)
+    R.err(s.e)
 
 template `or`*[T, E](self, other: Result[T, E]): Result[T, E] =
   ## Evaluate `other` iff not self.isOk, else return self
   ## fail-fast - will not evaluate other if a is a value
-  ##
-  ## TODO: This API is unsafe due to potential multiple
-  ## evaluation of the `self` parameter.
-  if self.isOk: self
+  let s = self
+  if s.isOk: s
   else: other
 
 template catch*(body: typed): Result[type(body), ref CatchableError] =
