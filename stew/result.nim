@@ -66,8 +66,8 @@ type
     ##
     ## # Potential benefits:
     ##
-    ## * Handling errors becomes explicit and mandatory - goodbye "out of sight,
-    ##   out of mind"
+    ## * Handling errors becomes explicit and mandatory at the call site -
+    ##   goodbye "out of sight, out of mind"
     ## * Errors are a visible part of the API - when they change, so must the
     ##   calling code and compiler will point this out - nice!
     ## * Errors are a visible part of the API - your fellow programmer is
@@ -86,7 +86,7 @@ type
     ##
     ## * Handling errors becomes explicit and mandatory - if you'd rather ignore
     ##   them or just pass them to some catch-all, this is noise
-    ## * When composing operations, value must be lifted before funcessing,
+    ## * When composing operations, value must be lifted before processing,
     ##   adding potential verbosity / noise (fancy macro, anyone?)
     ## * There's no call stack captured by default (see also `catch` and
     ##   `capture`)
@@ -173,36 +173,78 @@ type
     ##
     ## # Performance considerations
     ##
-    ## Compared to a simple return type, returning a Result sometimes incurs
-    ## an overhead. Compared to raising an exception, this overhead is very low.
-    ## Compared to returning a plain value, it may be significant, specially for
-    ## large value types (deeply nested `object`:s) and value-like types (large
-    ## `seq`:s):
+    ## When returning a Result instead of a simple value, there are a few things
+    ## to take into consideration - in general, we are returning more
+    ## information directly to the caller which has an associated cost.
     ##
+    ## Result is a value type, thus its performance characteristics
+    ## generally follow the performance of copying the value or error that
+    ## it stores. `Result` would benefit greatly from "move" support in the
+    ## language.
+    ##
+    ## In many cases, these performance costs are negligeable, but nonetheless
+    ## they are important to be aware of, to structure your code in an efficient
+    ## manner:
+    ##
+    ## * Memory overhead
+    ##   Result is stored in memory as a union with a `bool` discriminator -
+    ##   alignment makes it somewhat tricky to give an exact size, but in
+    ##   general, `Result[int, int]` will take up `2*sizeof(int)` bytes:
+    ##   1 `int` for the discriminator and padding, 1 `int` for either the value
+    ##   or the error. The additional size means that returning may take up more
+    ##   registers or spill onto the stack.
     ## * Loss of RVO
     ##   Nim does return-value-optimization by rewriting `proc f(): X` into
     ##   `proc f(result: var X)` - in an expression like `let x = f()`, this
     ##   allows it to avoid a copy from the "temporary" return value to `x` -
     ##   when using Result, this copy currently happens always because you need
     ##   to fetch the value from the Result in a second step: `let x = f().value`
-    ##   To solve this, "move" support in the compiler is needed - it would
-    ##   allow moving the value out of the temporary result created here.
+    ## * Extra copies
+    ##   To avoid spurious evaluation of expressions in templates, we use a
+    ##   temporary variable sometimes - this means an unnecessary copy for some
+    ##   types.
     ## * Bad codegen
     ##   When doing RVO, Nim generates poor and slow code: it uses a construct
     ##   called `genericReset` that will zero-initialize a value using dynamic
     ##   RTTI - a process that the C compiler subsequently is unable to
-    ##   optimize. This applies to all types, and could be fixed in compiler.
+    ##   optimize. This applies to all types, but is exacerbated with Result
+    ##   because of its bigger footprint - this should be fixed in compiler.
     ## * Double zero-initialization bug
     ##   Nim has an initialization bug that causes additional poor performance:
     ##   `var x = f()` will be expanded into `var x; zeroInit(x); f(x)` where
     ##   `f(x)` will call the slow `genericReset` and zero-init `x` again,
     ##   unnecessarily.
-    ## * Extra local copy in templates
-    ##   To avoid spurious evaluation of expressions in templates, we use a
-    ##   temporary variable sometimes - this means an unnecessary copy for some
-    ##   types.
     ##
-    ## Relevant nim bugs:
+    ## Comparing `Result` performance to exceptions in Nim is difficult - the
+    ## specific performance will depend on the error type used, the frequency
+    ## at which exceptions happen, the amount of error handling code in the
+    ## application and the compiler and backend used.
+    ##
+    ## * the default C backend in nim uses `setjmp` for exception handling -
+    ##   the relative performance of the happy path will depend on the structure
+    ##   of the code: how many exception handlers there are, how much unwinding
+    ##   happens. `setjmp` works by taking a snapshot of the full CPU state and
+    ##   saving it in memory when enterting a try block (or an implict try
+    ##   block, such as is introduced with `defer` and similar constructs) which
+    ##   is an expensive operation.
+    ## * an efficient exception handling mechanism (like the C++ backend or
+    ##   `nlvm`) will usually have a lower cost on the happy path because the
+    ##   value can be returned more efficiently. However, there is still a code
+    ##   and data size increase depending on the specific situation, as well as
+    ##   loss of optimization opportunities to consider.
+    ## * raising an exception is usually (a lot) slower than returning an error
+    ##   through a Result - at raise time, capturing a call stack and allocating
+    ##   memory for the Exception is expensive, so the performance difference
+    ##   comes down to the complexity of the error type used.
+    ## * checking for errors with Result is local branching operation that
+    ##   happens on the happy path - even if all that is done is passing the
+    ##   error to the next layer - when errors happen rarely, this may be a cost.
+    ##
+    ## An accurate summary might be that Exceptions are at its most efficient
+    ## when errors are not handled and don't happen.
+    ##
+    ## # Relevant nim bugs
+    ##
     ## https://github.com/nim-lang/Nim/issues/13799 - type issues
     ## https://github.com/nim-lang/Nim/issues/8745 - genericReset slow
     ## https://github.com/nim-lang/Nim/issues/13879 - double-zero-init slow
