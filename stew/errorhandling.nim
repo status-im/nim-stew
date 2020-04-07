@@ -2,6 +2,9 @@ import
   typetraits, strutils,
   shims/macros, results
 
+export
+  results
+
 const
   enforce_error_handling {.strdefine.}: string = "yes"
   errorHandlingEnforced = parseBool(enforce_error_handling)
@@ -152,7 +155,13 @@ template raising*[E, R](x: Raising[E, R]): R =
   ## by the `errors` pragma.
   distinctBase(x)
 
-macro chk*[R, E](x: Raising[R, E], handlers: untyped): untyped =
+template raising*[R, E](x: Result[R, E]): R =
+  tryGet(x)
+
+macro chk*(x: Result, handlers): untyped =
+  discard
+
+macro chk*(x: Raising, handlers: untyped): untyped =
   ## The `chk` macro can be used in 2 different ways
   ##
   ## 1) Try to get the result of an expression. In case of any
