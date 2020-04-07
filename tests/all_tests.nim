@@ -18,5 +18,5 @@ import
   test_endians2,
   test_objects,
   test_ptrops,
-  test_result,
+  test_results,
   test_varints

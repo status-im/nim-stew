@@ -1,6 +1,6 @@
 # nim-result is also available stand-alone from https://github.com/arnetheduck/nim-result/
 
-import ../stew/result
+import ../stew/results
 type R = Result[int, string]
 
 # Basic usage, producer
