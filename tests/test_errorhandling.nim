@@ -1,5 +1,5 @@
 import
-  ../stew/[shims/macros, errorhandling]
+  ../stew/[shims/macros, eh]
 
 proc bar(x: int): int {.noerrors.} =
   100
