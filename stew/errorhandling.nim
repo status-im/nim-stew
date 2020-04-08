@@ -1,9 +1,9 @@
 import
-  typetraits, strutils,
+  typetraits, tables, strutils, options,
   shims/macros, results
 
 export
-  results
+  results, options
 
 const
   enforce_error_handling {.strdefine.}: string = "yes"
@@ -158,55 +158,29 @@ template raising*[E, R](x: Raising[E, R]): R =
 template raising*[R, E](x: Result[R, E]): R =
   tryGet(x)
 
-macro chk*(x: Result, handlers): untyped =
-  discard
+const
+  incorrectChkSyntaxMsg =
+    "The `check` handlers block should consist of `ExceptionType: Value/Block` pairs"
 
-macro chk*(x: Raising, handlers: untyped): untyped =
-  ## The `chk` macro can be used in 2 different ways
-  ##
-  ## 1) Try to get the result of an expression. In case of any
-  ##    errors, substitute the result with a default value:
-  ##
-  ##    ```
-  ##    let x = chk(foo(), defaultValue)
-  ##    ```
-  ##
-  ##    We'll handle this case with a simple rewrite to
-  ##
-  ##    ```
-  ##    let x = try: distinctBase(foo())
-  ##            except CatchableError: defaultValue
-  ##    ```
-  ##
-  ## 2) Try to get the result of an expression while providing exception
-  ##    handlers that must cover all possible recoverable errors.
-  ##
-  ##    ```
-  ##    let x = chk foo():
-  ##                KeyError as err: defaultValue
-  ##                ValueError: return
-  ##                _: raise
-  ##    ```
-  ##
-  ##    The above example will be rewritten to:
-  ##
-  ##    ```
-  ##    let x = try:
-  ##      foo()
-  ##    except KeyError as err:
-  ##      defaultValue
-  ##    except ValueError:
-  ##      return
-  ##    except CatchableError:
-  ##      raise
-  ##    ```
-  ##
-  ##    Please note that the special case `_` is considered equivalent to
-  ##    `CatchableError`.
-  ##
-  ##    If the `chk` block lacks a default handler and there are unlisted
-  ##    recoverable errors, the compiler will fail to compile the code with
-  ##    a message indicating the missing ones.
+template either*[E, R](x: Raising[E, R], otherwise: R): R =
+  try: distinctBase(x)
+  except CatchableError: otherwise
+
+template either*[R, E](x: Result[R, E], otherwise: R): R =
+  let r = x
+  if isOk(r):
+    value(r)
+  else:
+    otherwise
+
+template either*[T](x: Option[T], otherwise: T): T =
+  let o = x
+  if isSome(o):
+    get(o)
+  else:
+    otherwise
+
+macro check*(x: Raising, handlers: untyped): untyped =
   let
     RaisingType = getTypeInst(x)
     ErrorsSetTuple = RaisingType[1]
@@ -230,13 +204,13 @@ macro chk*(x: Raising, handlers: untyped): untyped =
 
   # Check how the API was used:
   if handlers.kind != nnkStmtList:
-    # This is usage type 1: chk(foo(), defaultValue)
+    # This is usage type 1: check(foo(), defaultValue)
     result.add newTree(nnkExceptBranch,
                        bindSym("CatchableError"),
                        newStmtList(handlers))
   else:
     var
-      # This will be a tuple of all the errors handled by the `chk` block.
+      # This will be a tuple of all the errors handled by the `check` block.
       # In the end, we'll compare it to the Raising list.
       HandledErrorsTuple = newNimNode(nnkPar, x)
       # Has the user provided a default `_: value` handler?
@@ -244,8 +218,7 @@ macro chk*(x: Raising, handlers: untyped): untyped =
 
     for handler in handlers:
       template err(msg: string) = error msg, handler
-      template unexpectedSyntax = err(
-        "The `chk` handlers block should consist of `ExceptionType: Value/Block` pairs")
+      template unexpectedSyntax = err incorrectChkSyntaxMsg
 
       case handler.kind
       of nnkCommentStmt:
@@ -263,7 +236,7 @@ macro chk*(x: Raising, handlers: untyped): untyped =
           result.add newTree(nnkExceptBranch, infix(ExceptionType, "as", exceptionVar),
                              valueBlock)
         else:
-          err "The '$1' operator is not expected in a `chk` block" % [$handler[0]]
+          err "The '$1' operator is not expected in a `check` block" % [$handler[0]]
       of nnkCall:
         if handler.len != 2:
           unexpectedSyntax
@@ -284,3 +257,133 @@ macro chk*(x: Raising, handlers: untyped): untyped =
                      result)
 
   storeMacroResult result
+
+macro check*[R, E](x: Result[R, E], handlers: untyped): untyped =
+  if handlers.kind != nnkStmtList:
+    return newCall(bindSym"get", x, handlers)
+
+  let
+    R = getTypeInst(x)
+    SuccessResultType = R[1]
+    ErrorResultType = R[2]
+
+  let enumImpl = getImpl(ErrorResultType)[2]
+  if enumImpl.kind != nnkEnumTy:
+    error "`check` handler blocks can be used only with Results based on enums", x
+
+  let tempVar = genSym(nskLet, "res")
+
+  var errorsSwitch = newTree(nnkCaseStmt)
+  var defaultHandler: NimNode
+  errorsSwitch.add newCall(bindSym"error", tempVar)
+
+  for handler in handlers:
+    template err(msg: string) = error msg, handler
+    template unexpectedSyntax = err incorrectChkSyntaxMsg
+
+    case handler.kind
+    of nnkCommentStmt:
+      continue
+    of nnkInfix:
+      if eqIdent(handler[0], "as"):
+        if handler.len != 4:
+          err "The expected syntax is `ExceptionType as exceptionVar: Value/Block`"
+        let
+          ErrorType = handler[1]
+          valueBlock = handler[3]
+        errorsSwitch.add newTree(nnkOfBranch, ErrorType, valueBlock)
+      else:
+        err "The '$1' operator is not expected in a `check` block" % [$handler[0]]
+    of nnkCall:
+      if handler.len != 2:
+        unexpectedSyntax
+      let
+        ErrorType = handler[0]
+        valueBlock = handler[1]
+      if eqIdent(ErrorType, "_"):
+        if defaultHandler != nil:
+          err "Only a single default handler is expected"
+        defaultHandler = valueBlock
+      else:
+        errorsSwitch.add newTree(nnkOfBranch, ErrorType, valueBlock)
+    else:
+      unexpectedSyntax
+
+  if defaultHandler != nil:
+    errorsSwitch.add newTree(nnkElse, defaultHandler)
+
+  result = quote do:
+    let `tempVar` = `x`
+    if isOk `tempVar`:
+      get `tempVar`
+    else:
+      `errorsSwitch`
+
+  storeMacroResult result
+
+macro Try*(body: typed, handlers: varargs[untyped]): untyped =
+  type ParamRegistryEntry = object
+    origSymbol: NimNode
+    newParam: NimNode
+
+  var params = initTable[string, ParamRegistryEntry]()
+
+  proc makeParam(replacedSym: NimNode,
+                 registryEntry: var ParamRegistryEntry): NimNode =
+    if registryEntry.newParam == nil:
+      registryEntry.origSymbol = replacedSym
+      registryEntry.newParam = genSym(nskParam, $replacedSym)
+    return registryEntry.newParam
+
+  proc registerParamsInBody(n: NimNode) =
+    for i in 0 ..< n.len:
+      let son = n[i]
+      case son.kind
+      of nnkIdent, nnkCharLit..nnkTripleStrLit:
+        discard
+      of nnkSym:
+        if son.symKind in {nskLet, nskVar, nskForVar,
+                           nskParam, nskTemp, nskResult}:
+          n[i] = makeParam(son, params.mgetOrPut(son.signatureHash,
+                                                 default(ParamRegistryEntry)))
+      of nnkHiddenDeref:
+        registerParamsInBody son
+        n[i] = son[0]
+      else:
+        registerParamsInBody son
+
+  let procName = genSym(nskProc, "Try_payload")
+
+  var procBody = copy body
+  registerParamsInBody procBody
+
+  var raisesList = newTree(nnkBracket)
+  for handler in handlers:
+    raisesList.add handler[0]
+
+  var
+    procCall = newCall(procName)
+    procParams = @[newEmptyNode()]
+
+  for hash, param in params:
+    var paramType = getType(param.origSymbol)
+    if param.origSymbol.symKind in {nskVar, nskResult}:
+      if paramType.kind != nnkBracketExpr or not eqIdent(paramType[0], "var"):
+        paramType = newTree(nnkVarTy, paramType)
+
+    procParams.add newIdentDefs(param.newParam, paramType)
+    procCall.add param.origSymbol
+
+  let procPragma = newTree(nnkPragma,
+                           newColonExpr(ident "raises", raisesList))
+
+  let generatedProc = newProc(name = procName,
+                              params = procParams,
+                              pragmas = procPragma,
+                              body = procBody)
+
+  result = newTree(nnkTryStmt, newStmtList(generatedProc, procCall))
+  for handler in handlers: result.add handler
+
+  storeMacroResult result
+
