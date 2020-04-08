@@ -23,10 +23,11 @@ respective folders
 
 - `bitops2` - an updated version of `bitops.nim`, filling in gaps in original code
 - `byteutils` - utilities that make working with the Nim `byte` type convenient
+- `eh` - error-handling utils for working with tracked exceptions, `Result` or `Option` types. Please see [the dedicated docs](docs/error_handling.md).
 - `endians2` - utilities for converting to and from little / big endian integers
 - `objects` - get an object's base type at runtime, as a string
 - `ptrops` - pointer arithmetic utilities
-- `result` - friendly, exception-free value-or-error returns, similar to `Option[T]`, from [nim-result](https://github.com/arnetheduck/nim-result/)
+- `results` - friendly, exception-free value-or-error returns, similar to `Option[T]`, from [nim-result](https://github.com/arnetheduck/nim-result/)
 - `shims` - backports of nim `devel` code to the stable version that Status is using
 
 ## Layout
