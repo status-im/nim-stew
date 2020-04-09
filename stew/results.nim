@@ -573,3 +573,32 @@ template `?`*[T, E](self: Result[T, E]): T =
   if v.isErr: return err(typeof(result), v.error)
 
   v.value
+
+# Options compatibility
+
+import options
+export options
+
+when defined(resultsExperimental):
+  {.pragma: resexp.}
+else:
+  {.pragma: resexp, deprecated: "experimental".}
+
+func ok*[T, E](r: Result[T, E]): Option[T] {.resexp.} =
+  if r.isOk():
+    return some(r.v)
+
+func err*[T, E](r: Result[T, E]): Option[E] {.resexp.} =
+  if r.isErr():
+    return some(r.e)
+
+func mapErr*[T, E](o: Option[T], f: proc (): E): Result[T, E] {.resexp.} =
+  if o.isSome():
+    ok(o.get())
+  else:
+    err(f())
+
+# Options extras
+
+func contains*[T](o: Option[T], v: T): bool {.resexp.} =
+  o.isSome() and o.get() == v

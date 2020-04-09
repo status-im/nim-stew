@@ -240,3 +240,18 @@ except:
   discard
 
 doAssert vErr.mapErr(proc(x: int): int = 10).error() == 10
+
+doAssert rOk.ok().get() == rOk.get()
+doAssert rOk.err().isNone()
+doAssert rErr.ok().isNone()
+doAssert rErr.err().get() == rErr.error()
+
+let
+  oSome = some(100)
+  oNone = none(int)
+
+doAssert oSome.mapErr(proc(): int = 200).get() == oSome.get()
+doAssert oNone.mapErr(proc(): int = 200).error() == 200
+
+doAssert rOk.get() in rOk.ok() # "contains"
+doAssert rErr.error() in rErr.err()
