@@ -33,8 +33,17 @@ suite "Byte utils":
       a = hexToByteArray[4](s)
     check a == simpleBArray
 
+    expect(ValueError): discard hexToByteArray[1]("")
+    expect(ValueError): discard hexToByteArray[1]("1")
+
   test "toHex":
     check simpleBArray.toHex == "12345678"
+    check hexToSeqByte("12345678") == simpleBArray
+    check hexToSeqByte("00") == [byte 0]
+    check hexToSeqByte("0x") == []
+    expect(ValueError): discard hexToSeqByte("1234567")
+    expect(ValueError): discard hexToSeqByte("X")
+    expect(ValueError): discard hexToSeqByte("0")
 
   test "Array concatenation":
     check simpleBArray & simpleBArray ==
@@ -57,7 +66,7 @@ suite "Byte utils":
       let a = hexToPaddedByteArray[32]("0x68656c6c6f20776f726c64")
       check a.toHex == "00000000000000000000000000000000000000000068656c6c6f20776f726c64"
     block:
-      expect AssertionError:
+      expect ValueError:
         discard hexToPaddedByteArray[2]("0x12345")
 
   test "lessThan":
