@@ -51,7 +51,7 @@ proc readHexChar*(c: char): byte {.noSideEffect, inline.}=
 template skip0xPrefix(hexStr: string): int =
   ## Returns the index of the first meaningful char in `hexStr` by skipping
   ## "0x" prefix
-  if hexStr[0] == '0' and hexStr[1] in {'x', 'X'}: 2
+  if hexStr.len > 1 and hexStr[0] == '0' and hexStr[1] in {'x', 'X'}: 2
   else: 0
 
 func hexToByteArray*(hexStr: string, output: var openArray[byte], fromIdx, toIdx: int) =
@@ -62,8 +62,8 @@ func hexToByteArray*(hexStr: string, output: var openArray[byte], fromIdx, toIdx
   doAssert(fromIdx >= 0 and toIdx >= fromIdx and fromIdx < output.len and toIdx < output.len)
   let sz = toIdx - fromIdx + 1
 
-  doAssert hexStr.len - sIdx >= 2*sz
-
+  if hexStr.len - sIdx < 2*sz:
+    raise (ref ValueError)(msg: "hex string too short")
   sIdx += fromIdx * 2
   for bIdx in fromIdx ..< sz + fromIdx:
     output[bIdx] = hexStr[sIdx].readHexChar shl 4 or hexStr[sIdx + 1].readHexChar
@@ -89,7 +89,9 @@ func hexToPaddedByteArray*[N: static[int]](hexStr: string): array[N, byte] =
     bIdx: int
     shift = 4
 
-  doAssert hexStr.len - p <= maxStrSize
+  if hexStr.len - p > maxStrSize:
+    # TODO this is a bit strange, compared to the hexToByteArray above...
+    raise (ref ValueError)(msg: "hex string too long")
 
   if sz < maxStrSize:
     # include extra byte if odd length
@@ -105,7 +107,8 @@ func hexToPaddedByteArray*[N: static[int]](hexStr: string): array[N, byte] =
 
 func hexToSeqByte*(hexStr: string): seq[byte] =
   ## Read an hex string and store it in a sequence of bytes. No "endianness" reordering is done.
-  doAssert (hexStr.len and 1) == 0
+  if (hexStr.len and 1) == 1:
+    raise (ref ValueError)(msg: "hex string must have even length")
 
   let skip = skip0xPrefix(hexStr)
   let N = (hexStr.len - skip) div 2
