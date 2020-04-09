@@ -34,6 +34,70 @@ template readPragma*(field: FieldDescription, pragmaName: static string): NimNod
   let p = findPragma(field.pragmas, bindSym(pragmaName))
   if p != nil and p.len == 2: p[1] else: p
 
+proc recordFieldsAux(result: var seq[FieldDescription],
+                     n: NimNode,
+                     parentCaseField: NimNode = nil,
+                     parentCaseBranch: NimNode = nil,
+                     isDiscriminator = false) =
+  case n.kind
+  of nnkRecList:
+    for entry in n:
+      recordFieldsAux result, entry,
+                      parentCaseField, parentCaseBranch
+  of nnkRecWhen:
+    for branch in n:
+      case branch.kind:
+      of nnkElifBranch:
+        recordFieldsAux result, branch[1],
+                        parentCaseField, parentCaseBranch
+      of nnkElse:
+        recordFieldsAux result, branch[0],
+                        parentCaseField, parentCaseBranch
+      else:
+        doAssert false
+
+  of nnkRecCase:
+    recordFieldsAux result, n[0],
+                    parentCaseField,
+                    parentCaseBranch,
+                    isDiscriminator = true
+
+    for i in 1 ..< n.len:
+      let branch = n[i]
+      case branch.kind
+      of nnkOfBranch:
+        recordFieldsAux result, branch[^1], n[0], branch
+      of nnkElse:
+        recordFieldsAux result, branch[0], n[0], branch
+      else:
+        doAssert false
+
+  of nnkIdentDefs:
+    let fieldType = n[^2]
+    for i in 0 ..< n.len - 2:
+      var field: FieldDescription
+      field.name = n[i]
+      field.typ = fieldType
+      field.caseField = parentCaseField
+      field.caseBranch = parentCaseBranch
+      field.isDiscriminator = isDiscriminator
+
+      if field.name.kind == nnkPragmaExpr:
+        field.pragmas = field.name[1]
+        field.name = field.name[0]
+
+      if field.name.kind == nnkPostfix:
+        field.isPublic = true
+        field.name = field.name[1]
+
+      result.add field
+
+  of nnkNilLit, nnkDiscardStmt, nnkCommentStmt, nnkEmpty:
+    discard
+
+  else:
+    doAssert false, "Unexpected nodes in recordFields:\n" & n.treeRepr
+
 proc recordFields*(typeImpl: NimNode): seq[FieldDescription] =
   # TODO: This doesn't support inheritance yet
   if typeImpl.isTuple:
@@ -46,94 +110,7 @@ proc recordFields*(typeImpl: NimNode): seq[FieldDescription] =
     objectType = objectType[0]
 
   let recList = objectType[2]
-
-  type
-    RecursionStackItem = tuple
-      currentNode: NimNode
-      currentChildItem: int
-      parentCaseField: NimNode
-      parentCaseBranch: NimNode
-
-  if recList.len > 0:
-    var traversalStack: seq[RecursionStackItem] = @[
-      (recList, 0, NimNode(nil), NimNode(nil))
-    ]
-
-    template recuseInto(childNode: NimNode,
-                        currentCaseField: NimNode = nil,
-                        currentCaseBranch: NimNode = nil) =
-      traversalStack.add (childNode, 0, currentCaseField, currentCaseBranch)
-
-    while true:
-      doAssert traversalStack.len > 0
-
-      var stackTop = traversalStack[^1]
-      let recList = stackTop.currentNode
-      let idx = stackTop.currentChildItem
-      let n = recList[idx]
-      inc traversalStack[^1].currentChildItem
-
-      if idx == recList.len - 1:
-        discard traversalStack.pop
-
-      case n.kind
-      of nnkRecWhen:
-        for i in countdown(n.len - 1, 0):
-          let branch = n[i]
-          case branch.kind:
-          of nnkElifBranch:
-            recuseInto branch[1]
-          of nnkElse:
-            recuseInto branch[0]
-          else:
-            doAssert false
-
-        continue
-
-      of nnkRecCase:
-        doAssert n.len > 0
-        for i in countdown(n.len - 1, 1):
-          let branch = n[i]
-          case branch.kind
-          of nnkOfBranch:
-            recuseInto branch[^1], n[0], branch
-          of nnkElse:
-            recuseInto branch[0], n[0], branch
-          else:
-            doAssert false
-
-        recuseInto newTree(nnkRecCase, n[0]),
-                   stackTop.parentCaseField,
-                   stackTop.parentCaseBranch
-        continue
-
-      of nnkIdentDefs:
-        let fieldType = n[^2]
-        for i in 0 ..< n.len - 2:
-          var field: FieldDescription
-          field.name = n[i]
-          field.typ = fieldType
-          field.caseField = stackTop.parentCaseField
-          field.caseBranch = stackTop.parentCaseBranch
-          field.isDiscriminator = recList.kind == nnkRecCase
-
-          if field.name.kind == nnkPragmaExpr:
-            field.pragmas = field.name[1]
-            field.name = field.name[0]
-
-          if field.name.kind == nnkPostfix:
-            field.isPublic = true
-            field.name = field.name[1]
-
-          result.add field
-
-      of nnkNilLit, nnkDiscardStmt, nnkCommentStmt, nnkEmpty:
-        discard
-
-      else:
-        doAssert false, "Unexpected nodes in recordFields:\n" & n.treeRepr
-
-      if traversalStack.len == 0: break
+  recordFieldsAux result, recList
 
 macro field*(obj: typed, fieldName: static string): untyped =
   newDotExpr(obj, ident fieldName)
