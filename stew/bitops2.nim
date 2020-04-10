@@ -18,6 +18,8 @@
 ## This module is also compatible with other backends: ``Javascript``, ``Nimscript``
 ## as well as the ``compiletime VM``.
 
+{.push raises: [].}
+
 const
   useBuiltins = not defined(noIntrinsicsBitOpts)
 
@@ -470,7 +472,7 @@ func setBitBE*(x: var BitIndexable, bit: Natural) {.inline.} =
   x = x or mask
 
 func clearBit*(x: var BitIndexable, bit: Natural) {.inline.} =
-  ## raises bit in a byte, assuming 0 to be the position of the
+  ## clears bit in a byte, assuming 0 to be the position of the
   ## least significant bit
   type T = type(x)
   let mask = T(1) shl bit
@@ -480,7 +482,7 @@ template clearBitLE*(x: var BitIndexable, bit: Natural) =
   clearBit(x, bit)
 
 func clearBitBE*(x: var BitIndexable, bit: Natural) {.inline.} =
-  ## raises a bit in `x`, assuming 0 to be the position of the
+  ## clears a bit in `x`, assuming 0 to be the position of the
   ## most significant bit
   let mask = mostSignificantBit(x.type) shr bit
   x = x and not mask

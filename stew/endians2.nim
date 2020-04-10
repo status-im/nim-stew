@@ -18,6 +18,8 @@
 # hold values of specific endianness and read them out with `fromBytes` when the
 # integer interpretation of the bytes is needed.
 
+{.push raises: [].}
+
 type
   SomeEndianInt* = uint8|uint16|uint32|uint64
     ## types that we support endian conversions for - uint8 is there for
