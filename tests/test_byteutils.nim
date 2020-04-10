@@ -6,7 +6,7 @@
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import  unittest,
-        ../stew/[byteutils, io]
+        ../stew/byteutils
 
 proc compilationTest {.exportc: "compilationTest".} =
   var bytes = @[1.byte, 2, 3, 4]
