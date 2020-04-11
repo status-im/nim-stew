@@ -215,18 +215,17 @@ type
     ##   `f(x)` will call the slow `genericReset` and zero-init `x` again,
     ##   unnecessarily.
     ##
-    ## Comparing `Result` performance to exceptions in Nim is difficult - the
-    ## specific performance will depend on the error type used, the frequency
-    ## at which exceptions happen, the amount of error handling code in the
-    ## application and the compiler and backend used.
+    ## Comparing `Result` performance to exceptions in Nim is difficult - it
+    ## will depend on the error type used, the frequency at which exceptions
+    ## happen, the amount of error handling code in the application and the
+    ## compiler and backend used.
     ##
     ## * the default C backend in nim uses `setjmp` for exception handling -
     ##   the relative performance of the happy path will depend on the structure
     ##   of the code: how many exception handlers there are, how much unwinding
     ##   happens. `setjmp` works by taking a snapshot of the full CPU state and
-    ##   saving it in memory when enterting a try block (or an implict try
-    ##   block, such as is introduced with `defer` and similar constructs) which
-    ##   is an expensive operation.
+    ##   saving it to memory when enterting a try block (or an implict try
+    ##   block, such as is introduced with `defer` and similar constructs).
     ## * an efficient exception handling mechanism (like the C++ backend or
     ##   `nlvm`) will usually have a lower cost on the happy path because the
     ##   value can be returned more efficiently. However, there is still a code
@@ -236,9 +235,8 @@ type
     ##   through a Result - at raise time, capturing a call stack and allocating
     ##   memory for the Exception is expensive, so the performance difference
     ##   comes down to the complexity of the error type used.
-    ## * checking for errors with Result is local branching operation that
-    ##   happens on the happy path - even if all that is done is passing the
-    ##   error to the next layer - when errors happen rarely, this may be a cost.
+    ## * checking for errors with Result is local branching operation that also
+    ##   happens on the happy path - this may be a cost.
     ##
     ## An accurate summary might be that Exceptions are at its most efficient
     ## when errors are not handled and don't happen.
@@ -273,7 +271,7 @@ func raiseResultError[T, E](self: Result[T, E]) {.noreturn, noinline.} =
     raise (res ResultError[E])(msg: "Trying to access value with err", error: self.e)
 
 func raiseResultDefect(m: string, v: auto) {.noreturn, noinline.} =
-  if compiles($v): raise (ref ResultDefect)(msg: m & ": " & $v)
+  when compiles($v): raise (ref ResultDefect)(msg: m & ": " & $v)
   else: raise (ref ResultDefect)(msg: m)
 
 template checkOk(self: Result) =
@@ -316,6 +314,11 @@ template isErr*(self: Result): bool = not self.o
 func map*[T, E, A](
     self: Result[T, E], f: proc(x: T): A): Result[A, E] {.inline.} =
   ## Transform value using f, or return error
+  ##
+  ## ```
+  ## let r = Result[int, cstring).ok(42)
+  ## assert r.map(proc (v: int): int = $v).get() == "42"
+  ## ```
   if self.isOk: result.ok(f(self.v))
   else: result.err(self.e)
 
@@ -570,6 +573,10 @@ template `?`*[T, E](self: Result[T, E]): T =
   # TODO the v copy is here to prevent multiple evaluations of self - could
   #      probably avoid it with some fancy macro magic..
   let v = (self)
-  if v.isErr: return err(typeof(result), v.error)
+  if v.isErr:
+    when typeof(result) is typeof(v):
+      return v
+    else:
+      return err(typeof(result), v.e)
 
-  v.value
+  v.v

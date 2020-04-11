@@ -173,8 +173,14 @@ func testQn2(): Result[int, string] =
   # looks like we can even use it creatively like this
   if ?fails() == 42: raise (ref ValueError)(msg: "shouldn't happen")
 
+func testQn3(): Result[bool, string] =
+  # different T but same E
+  let x = ?works() - ?works()
+  result.ok(x == 0)
+
 doAssert testQn()[] == 0
 doAssert testQn2().isErr
+doAssert testQn3()[]
 
 type
   AnEnum = enum

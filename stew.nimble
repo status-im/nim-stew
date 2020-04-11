@@ -7,7 +7,7 @@ description   = "Backports, standard library candidates and small utilities that
 license       = "Apache License 2.0"
 skipDirs      = @["tests"]
 
-requires "nim >= 0.19.0"
+requires "nim >= 1.2.0"
 
 task test, "Run all tests":
   exec "nim c -r --threads:off tests/all_tests"
