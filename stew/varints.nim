@@ -171,7 +171,7 @@ func readVarint*[Stream](input: var Stream,
 
   raise newException(EOFError, "Failed to read a varint")
 
-func appendVarintImpl[Stream](s: var Stream, x: SomeUnsignedInt) {.inline.} =
+proc appendVarintImpl[Stream](s: var Stream, x: SomeUnsignedInt) {.inline.} =
   mixin append
 
   if x <= 0x7F:
@@ -188,7 +188,7 @@ func appendVarintImpl[Stream](s: var Stream, x: SomeUnsignedInt) {.inline.} =
       else:
         s.append nextByte
 
-func appendVarint*[Stream](s: var Stream, x: SomeInteger,
+proc appendVarint*[Stream](s: var Stream, x: SomeInteger,
                            flavour: static VarintFlavour = ProtoBuf) {.inline.} =
   ## Writes a varint to a stream (e.g. faststreams.OutputStream)
   when x is SomeSignedInt:
