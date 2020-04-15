@@ -112,8 +112,9 @@ type
     ##
     ## When the error of a `Result` is an `Exception`, or a `toException` helper
     ## is present for your error type, the "Exception bridge mode" is
-    ## enabled and instead of raising `Defect`, we will raise the given
-    ## `Exception` on access.
+    ## enabled and instead of raising `ResultError`, `tryGet` will raise the
+    ## given `Exception` on access. `[]` and `get` will continue to raise a
+    ## `Defect`.
     ##
     ## This is an experimental feature that may be removed.
     ##
@@ -274,16 +275,9 @@ func raiseResultDefect(m: string, v: auto) {.noreturn, noinline.} =
   when compiles($v): raise (ref ResultDefect)(msg: m & ": " & $v)
   else: raise (ref ResultDefect)(msg: m)
 
-template checkOk(self: Result) =
-  # TODO This condition is a bit odd in that it raises different exceptions
-  #      depending on the type of E - this is done to support using Result as a
-  #      bridge type that can transport Exceptions
-  mixin toException
-  if not self.isOk:
-    when E is ref Exception or compiles(toException(self.e)):
-      raiseResultError(self)
-    else:
-      raiseResultDefect("Trying to acces value with err Result", self.e)
+template assertOk(self: Result) =
+  if not self.o:
+    raiseResultDefect("Trying to acces value with err Result", self.e)
 
 template ok*[T, E](R: type Result[T, E], x: auto): R =
   ## Initialize a result with a success and value
@@ -319,39 +313,39 @@ func map*[T, E, A](
   ## let r = Result[int, cstring).ok(42)
   ## assert r.map(proc (v: int): int = $v).get() == "42"
   ## ```
-  if self.isOk: result.ok(f(self.v))
+  if self.o: result.ok(f(self.v))
   else: result.err(self.e)
 
 func flatMap*[T, E, A](
     self: Result[T, E], f: proc(x: T): Result[A, E]): Result[A, E] {.inline.} =
-  if self.isOk: f(self.v)
+  if self.o: f(self.v)
   else: Result[A, E].err(self.e)
 
 func mapErr*[T: not void, E, A](
     self: Result[T, E], f: proc(x: E): A): Result[T, A] {.inline.} =
   ## Transform error using f, or return value
-  if self.isOk: result.ok(self.v)
+  if self.o: result.ok(self.v)
   else: result.err(f(self.e))
 
 func mapConvert*[T0, E0](
     self: Result[T0, E0], T1: type): Result[T1, E0] {.inline.} =
   ## Convert result value to A using an conversion
   # Would be nice if it was automatic...
-  if self.isOk: result.ok(T1(self.v))
+  if self.o: result.ok(T1(self.v))
   else: result.err(self.e)
 
 func mapCast*[T0, E0](
     self: Result[T0, E0], T1: type): Result[T1, E0] {.inline.} =
   ## Convert result value to A using a cast
   ## Would be nice with nicer syntax...
-  if self.isOk: result.ok(cast[T1](self.v))
+  if self.o: result.ok(cast[T1](self.v))
   else: result.err(self.e)
 
 template `and`*[T0, E, T1](self: Result[T0, E], other: Result[T1, E]): Result[T1, E] =
   ## Evaluate `other` iff self.isOk, else return error
   ## fail-fast - will not evaluate other if a is an error
   let s = self
-  if s.isOk:
+  if s.o:
     other
   else:
     type R = type(other)
@@ -361,7 +355,7 @@ template `or`*[T, E](self, other: Result[T, E]): Result[T, E] =
   ## Evaluate `other` iff not self.isOk, else return self
   ## fail-fast - will not evaluate other if a is a value
   let s = self
-  if s.isOk: s
+  if s.o: s
   else: other
 
 template catch*(body: typed): Result[type(body), ref CatchableError] =
@@ -399,9 +393,9 @@ template capture*[E: Exception](T: type, someExceptionExpr: ref E): Result[T, re
   ret
 
 func `==`*[T0, E0, T1, E1](lhs: Result[T0, E0], rhs: Result[T1, E1]): bool {.inline.} =
-  if lhs.isOk != rhs.isOk:
+  if lhs.o != rhs.o:
     false
-  elif lhs.isOk:
+  elif lhs.o: # and rhs.o implied
     lhs.v == rhs.v
   else:
     lhs.e == rhs.e
@@ -410,41 +404,47 @@ func get*[T: not void, E](self: Result[T, E]): T {.inline.} =
   ## Fetch value of result if set, or raise Defect
   ## Exception bridge mode: raise given Exception instead
   ## See also: Option.get
-  checkOk(self)
+  assertOk(self)
   self.v
 
 func tryGet*[T: not void, E](self: Result[T, E]): T {.inline.} =
   ## Fetch value of result if set, or raise
   ## When E is an Exception, raise that exception - otherwise, raise a ResultError[E]
-  if not self.isOk: self.raiseResultError
+  mixin raiseResultError
+  if not self.o: self.raiseResultError()
   self.v
 
 func get*[T, E](self: Result[T, E], otherwise: T): T {.inline.} =
   ## Fetch value of result if set, or return the value `otherwise`
-  if self.isErr: otherwise
-  else: self.v
+  ## See `valueOr` for a template version that avoids evaluating `otherwise`
+  ## unless necessary
+  if self.o: self.v
+  else: otherwise
 
 func get*[T, E](self: var Result[T, E]): var T {.inline.} =
   ## Fetch value of result if set, or raise Defect
   ## Exception bridge mode: raise given Exception instead
   ## See also: Option.get
-  checkOk(self)
+  assertOk(self)
   self.v
 
 template `[]`*[T, E](self: Result[T, E]): T =
   ## Fetch value of result if set, or raise Defect
   ## Exception bridge mode: raise given Exception instead
+  mixin get
   self.get()
 
 template `[]`*[T, E](self: var Result[T, E]): var T =
   ## Fetch value of result if set, or raise Defect
   ## Exception bridge mode: raise given Exception instead
+  mixin get
   self.get()
 
 template unsafeGet*[T, E](self: Result[T, E]): T =
   ## Fetch value of result if set, undefined behavior if unset
   ## See also: Option.unsafeGet
-  assert isOk(self)
+  assert self.o
+
   self.v
 
 func expect*[T: not void, E](self: Result[T, E], m: string): T =
@@ -457,37 +457,42 @@ func expect*[T: not void, E](self: Result[T, E], m: string): T =
   ## # Put here a helpful comment why you think this won't fail
   ## echo r.expect("r was just set to ok(42)")
   ## ```
-  if not self.isOk():
-    raiseResultDefect(m, self.error)
+  if not self.o:
+    raiseResultDefect(m, self.e)
   self.v
 
 func expect*[T: not void, E](self: var Result[T, E], m: string): var T =
-  if not self.isOk():
-    raiseResultDefect(m, self.error)
+  if not self.o:
+    raiseResultDefect(m, self.e)
   self.v
 
 func `$`*(self: Result): string =
   ## Returns string representation of `self`
-  if self.isOk: "Ok(" & $self.v & ")"
+  if self.o: "Ok(" & $self.v & ")"
   else: "Err(" & $self.e & ")"
 
 func error*[T, E](self: Result[T, E]): E =
   ## Fetch error of result if set, or raise Defect
-  if not self.isErr:
+  if self.o:
     when T is not void:
       raiseResultDefect("Trying to access error when value is set", self.v)
     else:
       raise (ref ResultDefect)(msg: "Trying to access error when value is set")
-
   self.e
 
-template value*[T, E](self: Result[T, E]): T = self.get()
-template value*[T, E](self: var Result[T, E]): T = self.get()
+template value*[T, E](self: Result[T, E]): T =
+  mixin get
+  self.get()
+
+template value*[T, E](self: var Result[T, E]): T =
+  mixin get
+  self.get()
 
 template valueOr*[T, E](self: Result[T, E], def: T): T =
   ## Fetch value of result if set, or supplied default
   ## default will not be evaluated iff value is set
-  self.get(def)
+  if self.o: self.v
+  else: def
 
 # void support
 
@@ -499,10 +504,16 @@ template ok*[E](R: type Result[void, E]): auto =
 template ok*[E](self: var Result[void, E]) =
   ## Set the result to success and update value
   ## Example: `result.ok(42)`
+  mixin ok
   self = (type self).ok()
 
-template ok*(): auto = ok(typeof(result))
-template err*(): auto = err(typeof(result))
+template ok*(): auto =
+  mixin ok
+  ok(typeof(result))
+
+template err*(): auto =
+  mixin err
+  err(typeof(result))
 
 # TODO:
 # Supporting `map` and `get` operations on a `void` result is quite
@@ -511,55 +522,64 @@ template err*(): auto = err(typeof(result))
 func map*[E, A](
     self: Result[void, E], f: proc(): A): Result[A, E] {.inline.} =
   ## Transform value using f, or return error
-  if self.isOk: result.ok(f())
+  if self.o: result.ok(f())
   else: result.err(self.e)
 
 func flatMap*[E, A](
     self: Result[void, E], f: proc(): Result[A, E]): Result[A, E] {.inline.} =
-  if self.isOk: f(self.v)
+  if self.o: f(self.v)
   else: Result[A, E].err(self.e)
 
 func mapErr*[E, A](
     self: Result[void, E], f: proc(x: E): A): Result[void, A] {.inline.} =
   ## Transform error using f, or return value
-  if self.isOk: result.ok()
+  if self.o: result.ok()
   else: result.err(f(self.e))
 
 func map*[T, E](
     self: Result[T, E], f: proc(x: T)): Result[void, E] {.inline.} =
   ## Transform value using f, or return error
-  if self.isOk: f(self.v); result.ok()
+  if self.o: f(self.v); result.ok()
   else: result.err(self.e)
 
 func get*[E](self: Result[void, E]) {.inline.} =
   ## Fetch value of result if set, or raise
   ## See also: Option.get
-  checkOk(self)
+  mixin assertOk
+  assertOk(self)
 
 func tryGet*[E](self: Result[void, E]) {.inline.} =
   ## Fetch value of result if set, or raise a CatchableError
-  if not self.isOk: self.raiseResultError
+  mixin raiseResultError
+  if not self.o:
+    self.raiseResultError()
 
 template `[]`*[E](self: Result[void, E]) =
   ## Fetch value of result if set, or raise
+  mixin get
   self.get()
 
 template unsafeGet*[E](self: Result[void, E]) =
   ## Fetch value of result if set, undefined behavior if unset
   ## See also: Option.unsafeGet
-  assert not self.isErr
+  assert self.o
 
 func expect*[E](self: Result[void, E], msg: string) =
-  if not self.isOk():
+  if not self.o:
     raise (ref ResultDefect)(msg: msg)
 
 func `$`*[E](self: Result[void, E]): string =
   ## Returns string representation of `self`
-  if self.isOk: "Ok()"
+  if self.o: "Ok()"
   else: "Err(" & $self.e & ")"
 
-template value*[E](self: Result[void, E]) = self.get()
-template value*[E](self: var Result[void, E]) = self.get()
+template value*[E](self: Result[void, E]) =
+  mixin get
+  self.get()
+
+template value*[E](self: var Result[void, E]) =
+  mixin get
+  self.get()
 
 template `?`*[T, E](self: Result[T, E]): T =
   ## Early return - if self is an error, we will return from the current
@@ -573,7 +593,7 @@ template `?`*[T, E](self: Result[T, E]): T =
   # TODO the v copy is here to prevent multiple evaluations of self - could
   #      probably avoid it with some fancy macro magic..
   let v = (self)
-  if v.isErr:
+  if not v.o:
     when typeof(result) is typeof(v):
       return v
     else:
