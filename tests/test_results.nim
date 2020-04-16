@@ -194,7 +194,7 @@ func toException(v: AnEnum): AnException = AnException(v: v)
 func testToException(): int =
   try:
     var r = Result[int, AnEnum].err(anEnumA)
-    r[]
+    r.tryGet
   except AnException:
     42
 
