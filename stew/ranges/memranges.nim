@@ -1,3 +1,5 @@
+{.deprecated: "unattractive memory unsafety - use openArray and other techniques instead".}
+
 import
   ptr_arith
 
