@@ -43,7 +43,7 @@ func declval*(T: type): T {.compileTime.} =
   ##    to `not nil` or `requiresInit` requirements.
   ##
   doAssert false,
-    "declvar should be used only in `typeof` expressions and concepts"
+    "declval should be used only in `typeof` expressions and concepts"
   default(ptr T)[]
 
 when not compiles(len((1, 2))):
