@@ -1,4 +1,5 @@
-import unittest,
+import
+  unittest, typetraits,
   ../stew/objects
 
 when defined(nimHasUsed):
@@ -33,4 +34,21 @@ suite "Objects":
         check o.baseType == "Bar:ObjectType"
 
       f(bar)
+
+  test "declval":
+    proc foo(x: int): string =
+      discard
+
+    proc foo(x: var int): float =
+      discard
+
+    type
+      T1 = typeof foo(declval(int))
+      T2 = typeof foo(declval(var int))
+      T3 = typeof foo(declval(lent int))
+
+    check:
+      T1 is string
+      T2 is float
+      T3 is string
 

@@ -25,6 +25,25 @@ template anonConst*(val: untyped): untyped =
   const c = val
   c
 
+func declval*(T: type): T {.compileTime.} =
+  ## `declval` denotes an anonymous expression of a particular
+  ## type. It can be used in situations where you want to determine
+  ## the type of an overloaded call in `typeof` expressions.
+  ##
+  ## Example:
+  ## ```
+  ## type T = typeof foo(declval(string), declval(var int))
+  ## ```
+  ##
+  ## Please note that `declval` has two advantages over `default`:
+  ## 
+  ## 1. It can return expressions with proper `var` or `lent` types.
+  ## 
+  ## 2. It will work for types that lack a valid default value due
+  ##    to `not nil` or `requiresInit` requirements.
+  ##
+  default(ptr T)[]
+
 when not compiles(len((1, 2))):
   import typetraits
 
