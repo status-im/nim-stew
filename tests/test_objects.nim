@@ -5,6 +5,8 @@ import
 when defined(nimHasUsed):
   {.used.}
 
+{.experimental: "notnil".}
+
 suite "Objects":
   test "baseType":
     type
@@ -36,19 +38,30 @@ suite "Objects":
       f(bar)
 
   test "declval":
+    type
+      Bar = object
+        x: RootRef not nil
+
     proc foo(x: int): string =
       discard
 
     proc foo(x: var int): float =
       discard
 
+    proc foo(x: Bar): int =
+      discard
+
     type
       T1 = typeof foo(declval(int))
       T2 = typeof foo(declval(var int))
       T3 = typeof foo(declval(lent int))
+      T4 = typeof foo(declval(Bar))
+      T5 = typeof foo(declval(var Bar))
 
     check:
       T1 is string
       T2 is float
       T3 is string
+      T4 is int
+      T5 is int
 

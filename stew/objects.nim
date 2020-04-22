@@ -42,6 +42,8 @@ func declval*(T: type): T {.compileTime.} =
   ## 2. It will work for types that lack a valid default value due
   ##    to `not nil` or `requiresInit` requirements.
   ##
+  doAssert false,
+    "declvar should be used only in `typeof` expressions and concepts"
   default(ptr T)[]
 
 when not compiles(len((1, 2))):
