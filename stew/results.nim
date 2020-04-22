@@ -254,6 +254,8 @@ type
     of true:
       v: T
 
+  Opt*[T] = Result[T, void]
+
 func raiseResultError[T, E](self: Result[T, E]) {.noreturn, noinline.} =
   # noinline because raising should take as little space as possible at call
   # site
@@ -272,12 +274,19 @@ func raiseResultError[T, E](self: Result[T, E]) {.noreturn, noinline.} =
     raise (res ResultError[E])(msg: "Trying to access value with err", error: self.e)
 
 func raiseResultDefect(m: string, v: auto) {.noreturn, noinline.} =
+  mixin `$`
   when compiles($v): raise (ref ResultDefect)(msg: m & ": " & $v)
   else: raise (ref ResultDefect)(msg: m)
 
+func raiseResultDefect(m: string) {.noreturn, noinline.} =
+  raise (ref ResultDefect)(msg: m)
+
 template assertOk(self: Result) =
   if not self.o:
-    raiseResultDefect("Trying to acces value with err Result", self.e)
+    when self.E isnot void:
+      raiseResultDefect("Trying to acces value with err Result", self.e)
+    else:
+      raiseResultDefect("Trying to acces value with err Result")
 
 template ok*[T, E](R: type Result[T, E], x: auto): R =
   ## Initialize a result with a success and value
@@ -294,16 +303,32 @@ template err*[T, E](R: type Result[T, E], x: auto): R =
   ## Example: `Result[int, string].err("uh-oh")`
   R(o: false, e: x)
 
+template err*[T](R: type Result[T, void]): R =
+  R(o: false)
+
 template err*[T, E](self: var Result[T, E], x: auto) =
   ## Set the result as an error
   ## Example: `result.err("uh-oh")`
   self = err(type self, x)
+
+template err*[T](self: var Result[T, void]) =
+  ## Set the result as an error
+  ## Example: `result.err()`
+  self = err(type self)
 
 template ok*(v: auto): auto = ok(typeof(result), v)
 template err*(v: auto): auto = err(typeof(result), v)
 
 template isOk*(self: Result): bool = self.o
 template isErr*(self: Result): bool = not self.o
+
+template isSome*(o: Opt): bool =
+  ## Alias for `isOk`
+  isOk o
+
+template isNone*(o: Opt): bool =
+  ## Alias of `isErr`
+  isErr o
 
 func map*[T, E, A](
     self: Result[T, E], f: proc(x: T): A): Result[A, E] {.inline.} =
