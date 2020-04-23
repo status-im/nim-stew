@@ -46,7 +46,7 @@ proc readHexChar*(c: char): byte {.noSideEffect, inline.}=
   of 'a'..'f': result = byte(ord(c) - ord('a') + 10)
   of 'A'..'F': result = byte(ord(c) - ord('A') + 10)
   else:
-    raise newException(ValueError, $c & "is not a hexademical character")
+    raise newException(ValueError, $c & " is not a hexademical character")
 
 template skip0xPrefix(hexStr: string): int =
   ## Returns the index of the first meaningful char in `hexStr` by skipping
