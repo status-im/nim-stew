@@ -99,7 +99,8 @@ suite "Byte utils":
 
       "".toBytes().len() == 0
       string.fromBytes([]) == ""
-
+      @[byte(ord('a'))] == static("a".toBytes())
+      "a" == static(string.fromBytes([byte(ord('a'))]))
   test "slices":
     var a: array[4, byte]
     a[0..<2] = [2'u8, 3]
