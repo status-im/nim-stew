@@ -28,7 +28,7 @@ const edgeValues = {
 suite "varints":
   template roundtipTest(val) =
     var s {.inject.}: VarintBuffer
-    s.appendVarint val
+    s.writeVarint val
 
     var roundtripVal: uint64
     let bytesRead = readVarint(s.bytes, roundtripVal)

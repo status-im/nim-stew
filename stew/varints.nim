@@ -62,7 +62,7 @@ type
     bytes*: array[10, byte]
     totalBytesWritten*: int
 
-func append*(buf: var VarintBuffer, b: byte) =
+func write*(buf: var VarintBuffer, b: byte) =
   buf.bytes[buf.totalBytesWritten] = b
   inc buf.totalBytesWritten
 
@@ -171,11 +171,11 @@ func readVarint*[Stream](input: var Stream,
 
   raise newException(EOFError, "Failed to read a varint")
 
-proc appendVarintImpl[Stream](s: var Stream, x: SomeUnsignedInt) {.inline.} =
-  mixin append
+proc writeVarintImpl[Stream](s: var Stream, x: SomeUnsignedInt) {.inline.} =
+  mixin write
 
   if x <= 0x7F:
-    s.append byte(x and 0xFF)
+    s.write byte(x and 0xFF)
   else:
     var x = x
     while true:
@@ -183,13 +183,13 @@ proc appendVarintImpl[Stream](s: var Stream, x: SomeUnsignedInt) {.inline.} =
       x = x shr 7
       if x == 0:
         nextByte = nextByte and 0x7F
-        s.append nextByte
+        s.write nextByte
         return
       else:
-        s.append nextByte
+        s.write nextByte
 
-proc appendVarint*[Stream](s: var Stream, x: SomeInteger,
-                           flavour: static VarintFlavour = ProtoBuf) {.inline.} =
+proc writeVarint*[Stream](s: var Stream, x: SomeInteger,
+                          flavour: static VarintFlavour = ProtoBuf) {.inline.} =
   ## Writes a varint to a stream (e.g. faststreams.OutputStream)
   when x is SomeSignedInt:
     type UInt = (when sizeof(x) == 8: uint64
@@ -202,7 +202,7 @@ proc appendVarint*[Stream](s: var Stream, x: SomeInteger,
   when flavour == LibP2P and sizeof(x) == 8:
     doAssert(x.getBitBE(0) == false)
 
-  s.appendVarintImpl x
+  s.writeVarintImpl x
 
 func vsizeof*(x: SomeInteger): int {.inline.} =
   ## Returns number of bytes required to encode integer ``x`` as varint.
@@ -212,7 +212,7 @@ func vsizeof*(x: SomeInteger): int {.inline.} =
 template varintBytes*(x: SomeInteger,
                       flavour: static VarintFlavour = ProtoBuf): untyped =
   var buf: VarintBuffer
-  buf.appendVarint(x, flavour)
+  buf.writeVarint(x, flavour)
   # TODO: toOpenArray doesn't work here for some reason, so we must
   # use the less optimal approach of allocating a sequence copy.
   # buf.bytes.toOpenArray(0, buf.totalBytesWritten - 1)
