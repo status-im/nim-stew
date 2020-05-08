@@ -373,15 +373,29 @@ template `and`*[T0, E, T1](self: Result[T0, E], other: Result[T1, E]): Result[T1
   if s.o:
     other
   else:
-    type R = type(other)
-    R.err(s.e)
+    when type(self) is type(other):
+      s
+    else:
+      type R = type(other)
+      err(R, s.e)
 
-template `or`*[T, E](self, other: Result[T, E]): Result[T, E] =
-  ## Evaluate `other` iff not self.isOk, else return self
-  ## fail-fast - will not evaluate other if a is a value
+template `or`*[T, E0, E1](self: Result[T, E0], other: Result[T, E1]): Result[T, E1] =
+  ## Evaluate `other` iff `not self.isOk`, else return `self`
+  ## fail-fast - will not evaluate `other` if `self` is ok
+  ##
+  ## ```
+  ## func f(): Result[int, SomeEnum] =
+  ##   f2() or err(EnumValue) # Collapse errors from other module / function
+  ## ```
   let s = self
-  if s.o: s
-  else: other
+  if s.o:
+    when type(self) is type(other):
+      s
+    else:
+      type R = type(other)
+      ok(R, s.v)
+  else:
+    other
 
 template catch*(body: typed): Result[type(body), ref CatchableError] =
   ## Catch exceptions for body and store them in the Result
