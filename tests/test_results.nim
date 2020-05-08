@@ -186,7 +186,7 @@ doAssert testQn2().isErr
 doAssert testQn3()[]
 
 proc heterOr(): Result[int, int] =
-  let value = ?(rErr or err(42))  # TODO ? binds more tightly than `or` - can that be fixed?
+  let value = ? (rErr or err(42))  # TODO ? binds more tightly than `or` - can that be fixed?
   doAssert value + 1 == value, "won't reach, ? will shortcut execution"
   ok(value)
 
