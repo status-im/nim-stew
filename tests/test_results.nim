@@ -35,6 +35,9 @@ doAssert (rErr or rOk).isOk
 # `and` heterogenous types
 doAssert (rOk and rOk.map(proc(x: auto): auto = $x))[] == $(rOk[])
 
+# `or` heterogenous types
+doAssert (rErr or rErr.mapErr(proc(x: auto): auto = len(x))).error == len(rErr.error)
+
 # Exception on access
 let va = try: discard rOk.error; false except: true
 doAssert va, "not an error, should raise"
@@ -181,6 +184,13 @@ func testQn3(): Result[bool, string] =
 doAssert testQn()[] == 0
 doAssert testQn2().isErr
 doAssert testQn3()[]
+
+proc heterOr(): Result[int, int] =
+  let value = ?(rErr or err(42))  # TODO ? binds more tightly than `or` - can that be fixed?
+  doAssert value + 1 == value, "won't reach, ? will shortcut execution"
+  ok(value)
+
+doAssert heterOr().error() == 42
 
 type
   AnEnum = enum
