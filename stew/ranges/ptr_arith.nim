@@ -14,17 +14,9 @@ template shift*(p: pointer, delta: int): pointer {.deprecated: "use ptrops".} =
 template shift*[T](p: ptr T, delta: int): ptr T {.deprecated: "use ptrops".} =
   p.offset(delta)
 
-when (NimMajor,NimMinor,NimPatch) >= (0,19,9):
-  template makeOpenArray*[T](p: ptr T, len: int): auto =
-    toOpenArray(cast[ptr UncheckedArray[T]](p), 0, len - 1)
+template makeOpenArray*[T](p: ptr T, len: Natural): auto =
+  toOpenArray(cast[ptr UncheckedArray[T]](p), 0, len - 1)
 
-  template makeOpenArray*(p: pointer, T: type, len: int): auto =
-    toOpenArray(cast[ptr UncheckedArray[T]](p), 0, len - 1)
+template makeOpenArray*(p: pointer, T: type, len: Natural): auto =
+  toOpenArray(cast[ptr UncheckedArray[T]](p), 0, len - 1)
 
-elif (NimMajor,NimMinor,NimPatch) >= (0,19,0):
-  # TODO: These are fallbacks until we upgrade to 0.19.9
-  template makeOpenArray*(p: pointer, T: type, len: int): auto =
-    toOpenArray(cast[ptr array[0, T]](p)[], 0, len - 1)
-
-  template makeOpenArray*[T](p: ptr T, len: int): auto =
-    toOpenArray(cast[ptr array[0, T]](p)[], 0, len - 1)

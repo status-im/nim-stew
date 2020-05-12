@@ -30,7 +30,7 @@ suite "varints":
     var s {.inject.}: VarintBuffer
     s.writeVarint val
 
-    var roundtripVal: uint64
+    var roundtripVal: type(val)
     let bytesRead = readVarint(s.bytes, roundtripVal)
 
     check:
@@ -47,12 +47,18 @@ suite "varints":
         toHex(s.writtenBytes) == hex
         toHex(val.varintBytes) == hex
 
-  test "[ProtoBuf] random values":
+  test "[ProtoBuf] random 64-bit values":
     for i in 0..10000:
       # TODO nim 1.0 random casts limits to int, so anything bigger will crash
       #      * sigh *
-      let
-        v1 = rand(0'u64 .. cast[uint64](int.high))
-      roundtipTest v1
+      let v = rand(0'u64 .. cast[uint64](int.high))
+      roundtipTest v
+
+  test "[ProtoBuf] random 32-bit values":
+    for i in 0..10000:
+      # TODO nim 1.0 random casts limits to int, so anything bigger will crash
+      #      * sigh *
+      let v = rand(0'u32 .. cast[uint32](int.high))
+      roundtipTest v
 
   # TODO Migrate the rest of the LibP2P test cases
