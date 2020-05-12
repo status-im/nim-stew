@@ -247,6 +247,7 @@ type
     ## https://github.com/nim-lang/Nim/issues/13799 - type issues
     ## https://github.com/nim-lang/Nim/issues/8745 - genericReset slow
     ## https://github.com/nim-lang/Nim/issues/13879 - double-zero-init slow
+    ## https://github.com/nim-lang/Nim/issues/14318 - generic error raises pragma
 
     case o: bool
     of false:
