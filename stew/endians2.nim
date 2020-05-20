@@ -47,13 +47,13 @@ elif defined(icc):
 
 elif defined(vcc):
   func swapBytesBuiltin(x: uint8): uint8 = x
-  proc builtin_bswap16(a: uint16): uint16 {.
+  func swapBytesBuiltin(a: uint16): uint16 {.
       importc: "_byteswap_ushort", cdecl, header: "<intrin.h>".}
 
-  proc builtin_bswap32(a: uint32): uint32 {.
+  func swapBytesBuiltin(a: uint32): uint32 {.
       importc: "_byteswap_ulong", cdecl, header: "<intrin.h>".}
 
-  proc builtin_bswap64(a: uint64): uint64 {.
+  func swapBytesBuiltin(a: uint64): uint64 {.
       importc: "_byteswap_uint64", cdecl, header: "<intrin.h>".}
 
 func swapBytesNim(x: uint8): uint8 = x
