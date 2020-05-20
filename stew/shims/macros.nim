@@ -119,19 +119,26 @@ proc skipPragma*(n: NimNode): NimNode =
   if n.kind == nnkPragmaExpr: n[0]
   else: n
 
-macro hasCustomPragmaFixed*(T: type, field: static string, pragma: typed{nkSym}): untyped =
+proc getPragma(T: NimNode, lookedUpField: string, pragma: NimNode): NimNode =
   let Tresolved = getType(T)[1]
   if isTuple(Tresolved):
-    return newLit(false)
+    return nil
 
   for f in recordFields(Tresolved.getImpl):
     var fieldName = f.name
     # TODO: Fix this in eqIdent
     if fieldName.kind == nnkAccQuoted: fieldName = fieldName[0]
-    if eqIdent(fieldName, field):
-      return newLit(f.pragmas.findPragma(pragma) != nil)
+    if eqIdent(fieldName, lookedUpField):
+      return f.pragmas.findPragma(pragma)
 
-  error "The type " & $Tresolved & " doesn't have a field named " & field
+  error "The type " & $Tresolved & " doesn't have a field named " & lookedUpField
+
+macro getCustomPragmaFixed*(T: type, field: static string, pragma: typed{nkSym}): untyped =
+  let p = getPragma(T, field, pragma)
+  if p != nil and p.len == 2: p[1] else: p
+
+macro hasCustomPragmaFixed*(T: type, field: static string, pragma: typed{nkSym}): untyped =
+  newLit(getPragma(T, field, pragma) != nil)
 
 proc humaneTypeName*(typedescNode: NimNode): string =
   var t = getType(typedescNode)[1]
