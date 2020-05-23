@@ -298,7 +298,7 @@ iterator typedParams*(n: NimNode, skip = 0): (NimNode, NimNode) =
     let paramType = paramNodes[^2]
 
     for j in 0 ..< paramNodes.len - 2:
-      yield (paramNodes[j], paramType)
+      yield (skipPragma paramNodes[j], paramType)
 
 macro unpackArgs*(callee: typed, args: untyped): untyped =
   result = newCall(callee)

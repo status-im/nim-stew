@@ -42,6 +42,8 @@ suite "Objects":
       Bar = object
         x: RootRef not nil
 
+      DistinctBar = distinct Bar
+
     proc foo(x: int): string =
       discard
 
@@ -57,6 +59,7 @@ suite "Objects":
       T3 = typeof foo(declval(lent int))
       T4 = typeof foo(declval(Bar))
       T5 = typeof foo(declval(var Bar))
+      T6 = typeof declval(DistinctBar)
 
     check:
       T1 is string
@@ -64,4 +67,6 @@ suite "Objects":
       T3 is string
       T4 is int
       T5 is int
+      T6 is DistinctBar
+      T6 isnot Bar
 
