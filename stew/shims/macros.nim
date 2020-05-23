@@ -1,5 +1,5 @@
 import
-  std/macros
+  std/[macros, tables, hashes]
 
 export
   macros
@@ -16,6 +16,42 @@ type
 
 const
   nnkPragmaCallKinds = {nnkExprColonExpr, nnkCall, nnkCallStrLit}
+
+proc hash*(x: LineInfo): Hash =
+  !$(hash(x.filename) !& hash(x.line) !& hash(x.column))
+
+var
+  # Please note that we are storing NimNode here in order to
+  # incur the code rendering cost only on a successful compilation.
+  macroLocations {.compileTime.} = newSeq[LineInfo]()
+  macroOutputs {.compileTime.} = newSeq[NimNode]()
+
+proc storeMacroResult*(callSite: LineInfo, macroResult: NimNode) =
+  macroLocations.add callSite
+  macroOutputs.add macroResult
+
+proc storeMacroResult*(macroResult: NimNode) =
+  let usageSite = callsite().lineInfoObj
+  storeMacroResult(usageSite, macroResult)
+
+macro dumpMacroResults*: untyped =
+  var files = initTable[string, NimNode]()
+
+  proc addToFile(file: var NimNode, location: LineInfo, macroOutput: NimNode) =
+    if file == nil:
+      file = newNimNode(nnkStmtList, macroOutput)
+
+    file.add newCommentStmtNode($location)
+    file.add macroOutput
+
+  for i in 0..< macroLocations.len:
+    addToFile files.mgetOrPut(macroLocations[i].filename, nil),
+              macroLocations[i], macroOutputs[i]
+
+  for name, contents in files:
+    let targetFile = name & ".generated.nim"
+    writeFile(targetFile, repr(contents))
+    hint "Wrote macro output to " & targetFile, contents
 
 proc findPragma*(pragmas: NimNode, pragmaSym: NimNode): NimNode =
   for p in pragmas:
@@ -299,6 +335,20 @@ iterator typedParams*(n: NimNode, skip = 0): (NimNode, NimNode) =
 
     for j in 0 ..< paramNodes.len - 2:
       yield (skipPragma paramNodes[j], paramType)
+
+iterator baseTypes*(exceptionType: NimNode): NimNode =
+  var typ = exceptionType
+  while typ != nil:
+    let impl = getImpl(typ)
+    if impl.len != 3 or impl[2].kind != nnkObjectTy:
+      break
+
+    let objType = impl[2]
+    if objType[1].kind != nnkOfInherit:
+      break
+
+    typ = objType[1][0]
+    yield typ
 
 macro unpackArgs*(callee: typed, args: untyped): untyped =
   result = newCall(callee)
