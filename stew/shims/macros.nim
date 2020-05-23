@@ -26,22 +26,14 @@ var
   macroLocations {.compileTime.} = newSeq[LineInfo]()
   macroOutputs {.compileTime.} = newSeq[NimNode]()
 
-proc storeMacroResult*(callSite: LineInfo, macroResult: NimNode) =
-  macroLocations.add callSite
-  macroOutputs.add macroResult
-
-proc storeMacroResult*(macroResult: NimNode) =
-  let usageSite = callsite().lineInfoObj
-  storeMacroResult(usageSite, macroResult)
-
-macro dumpMacroResults*: untyped =
+proc writeMacroResultsNow* {.compileTime.} =
   var files = initTable[string, NimNode]()
 
   proc addToFile(file: var NimNode, location: LineInfo, macroOutput: NimNode) =
     if file == nil:
       file = newNimNode(nnkStmtList, macroOutput)
 
-    file.add newCommentStmtNode($location)
+    file.add newCommentStmtNode("Generated at line " & $location.line)
     file.add macroOutput
 
   for i in 0..< macroLocations.len:
@@ -52,6 +44,22 @@ macro dumpMacroResults*: untyped =
     let targetFile = name & ".generated.nim"
     writeFile(targetFile, repr(contents))
     hint "Wrote macro output to " & targetFile, contents
+
+proc storeMacroResult*(callSite: LineInfo,
+                       macroResult: NimNode,
+                       writeOutputImmediately = false) =
+  macroLocations.add callSite
+  macroOutputs.add macroResult
+  if writeOutputImmediately:
+    # echo macroResult.repr
+    writeMacroResultsNow()
+
+proc storeMacroResult*(macroResult: NimNode, writeOutputImmediately = false) =
+  let usageSite = callsite().lineInfoObj
+  storeMacroResult(usageSite, macroResult, writeOutputImmediately)
+
+macro dumpMacroResults*: untyped =
+  writeMacroResultsNow()
 
 proc findPragma*(pragmas: NimNode, pragmaSym: NimNode): NimNode =
   for p in pragmas:
