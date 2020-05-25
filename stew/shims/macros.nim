@@ -136,6 +136,14 @@ proc recordFieldsAux(result: var seq[FieldDescription],
 
       result.add field
 
+  of nnkSym:
+    result.add FieldDescription(
+      name: n,
+      typ: getType(n),
+      caseField: parentCaseField,
+      caseBranch: parentCaseBranch,
+      isDiscriminator: isDiscriminator)
+
   of nnkNilLit, nnkDiscardStmt, nnkCommentStmt, nnkEmpty:
     discard
 
