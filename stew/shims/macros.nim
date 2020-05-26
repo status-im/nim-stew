@@ -74,45 +74,51 @@ func isTuple*(t: NimNode): bool =
 macro isTuple*(T: type): untyped =
   newLit(isTuple(getType(T)[1]))
 
+proc skipRef*(T: NimNode): NimNode =
+  result = T
+  if T.kind == nnkBracketExpr:
+    if eqIdent(T[0], bindSym"ref"):
+      result = T[1]
+
 template readPragma*(field: FieldDescription, pragmaName: static string): NimNode =
   let p = findPragma(field.pragmas, bindSym(pragmaName))
   if p != nil and p.len == 2: p[1] else: p
 
-proc recordFieldsAux(result: var seq[FieldDescription],
-                     n: NimNode,
-                     parentCaseField: NimNode = nil,
-                     parentCaseBranch: NimNode = nil,
-                     isDiscriminator = false) =
+proc collectFieldsFromRecList(result: var seq[FieldDescription],
+                              n: NimNode,
+                              parentCaseField: NimNode = nil,
+                              parentCaseBranch: NimNode = nil,
+                              isDiscriminator = false) =
   case n.kind
   of nnkRecList:
     for entry in n:
-      recordFieldsAux result, entry,
-                      parentCaseField, parentCaseBranch
+      collectFieldsFromRecList result, entry,
+                               parentCaseField, parentCaseBranch
   of nnkRecWhen:
     for branch in n:
       case branch.kind:
       of nnkElifBranch:
-        recordFieldsAux result, branch[1],
-                        parentCaseField, parentCaseBranch
+        collectFieldsFromRecList result, branch[1],
+                                 parentCaseField, parentCaseBranch
       of nnkElse:
-        recordFieldsAux result, branch[0],
-                        parentCaseField, parentCaseBranch
+        collectFieldsFromRecList result, branch[0],
+                                 parentCaseField, parentCaseBranch
       else:
         doAssert false
 
   of nnkRecCase:
-    recordFieldsAux result, n[0],
-                    parentCaseField,
-                    parentCaseBranch,
-                    isDiscriminator = true
+    collectFieldsFromRecList result, n[0],
+                             parentCaseField,
+                             parentCaseBranch,
+                             isDiscriminator = true
 
     for i in 1 ..< n.len:
       let branch = n[i]
       case branch.kind
       of nnkOfBranch:
-        recordFieldsAux result, branch[^1], n[0], branch
+        collectFieldsFromRecList result, branch[^1], n[0], branch
       of nnkElse:
-        recordFieldsAux result, branch[0], n[0], branch
+        collectFieldsFromRecList result, branch[0], n[0], branch
       else:
         doAssert false
 
@@ -150,19 +156,37 @@ proc recordFieldsAux(result: var seq[FieldDescription],
   else:
     doAssert false, "Unexpected nodes in recordFields:\n" & n.treeRepr
 
+proc collectFieldsInHierarchy(result: var seq[FieldDescription],
+                              objectType: NimNode) =
+  var objectType = objectType
+
+  if objectType.kind == nnkRefTy:
+    objectType = objectType[0]
+
+  objectType.expectKind nnkObjectTy
+
+  var baseType = objectType[1]
+  if baseType.kind != nnkEmpty:
+    baseType.expectKind nnkOfInherit
+    baseType = baseType[0]
+    baseType.expectKind nnkSym
+    baseType = getImpl(baseType)
+    baseType.expectKind nnkTypeDef
+    baseType = baseType[2]
+    baseType.expectKind nnkObjectTy
+    collectFieldsInHierarchy result, baseType
+
+  let recList = objectType[2]
+  collectFieldsFromRecList result, recList
+
 proc recordFields*(typeImpl: NimNode): seq[FieldDescription] =
-  # TODO: This doesn't support inheritance yet
   if typeImpl.isTuple:
     for i in 1 ..< typeImpl.len:
       result.add FieldDescription(typ: typeImpl[i], name: ident("Field" & $(i - 1)))
     return
 
-  var objectType = typeImpl[2]
-  if objectType.kind == nnkRefTy:
-    objectType = objectType[0]
-
-  let recList = objectType[2]
-  recordFieldsAux result, recList
+  typeImpl.expectKind nnkTypeDef
+  collectFieldsInHierarchy(result, typeImpl[2])
 
 macro field*(obj: typed, fieldName: static string): untyped =
   newDotExpr(obj, ident fieldName)
