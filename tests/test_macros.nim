@@ -17,6 +17,9 @@ type
   DerivedType = ref object of BaseType
     derivedField: int
 
+  DerivedFromRefType = ref object of DerivedType
+    anotherDerivedField: string
+
 macro getFieldsLists(T: type): untyped =
   result = newTree(nnkBracket)
 
@@ -29,10 +32,11 @@ macro getFieldsLists(T: type): untyped =
     result.add newLit($f.name)
 
 static:
-  doAssert getFieldsLists(DerivedType) == [
+  doAssert getFieldsLists(DerivedFromRefType) == [
     "baseField",
     "baseCaseField",
     "baseA",
-    "derivedField"
+    "derivedField",
+    "anotherDerivedField"
   ]
 

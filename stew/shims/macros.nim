@@ -160,6 +160,8 @@ proc collectFieldsInHierarchy(result: var seq[FieldDescription],
                               objectType: NimNode) =
   var objectType = objectType
 
+  objectType.expectKind {nnkObjectTy, nnkRefTy}
+
   if objectType.kind == nnkRefTy:
     objectType = objectType[0]
 
@@ -173,7 +175,7 @@ proc collectFieldsInHierarchy(result: var seq[FieldDescription],
     baseType = getImpl(baseType)
     baseType.expectKind nnkTypeDef
     baseType = baseType[2]
-    baseType.expectKind nnkObjectTy
+    baseType.expectKind {nnkObjectTy, nnkRefTy}
     collectFieldsInHierarchy result, baseType
 
   let recList = objectType[2]
