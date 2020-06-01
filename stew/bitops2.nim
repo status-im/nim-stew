@@ -20,6 +20,9 @@
 
 {.push raises: [].}
 
+import
+  endians2
+
 const
   useBuiltins = not defined(noIntrinsicsBitOpts)
 
@@ -595,3 +598,47 @@ template lowerBitLE*(bytes: var openarray[byte], pos: Natural) {.deprecated: "cl
   clearBitLE(bytes, pos)
 template lowerBitBE*(bytes: var openarray[byte], pos: Natural) {.deprecated: "clearBitBE".} =
   clearBitBE(bytes, pos)
+
+func getBitsBE*(data: openarray[byte], slice: HSlice, T: type[SomeUnsignedInt]): T =
+  ## Treats `data` as an unsigned big endian integer and returns a slice of bits
+  ## extracted from it, assuming 0 to be the possition of the most significant bit.
+  let totalBits = data.len * 8
+
+  template normalizeIdx(idx): int =
+    when idx is BackwardsIndex: totalBits - int(idx)
+    else: int(idx)
+
+  let
+    a = normalizeIdx(slice.a)
+    b = normalizeIdx(slice.b) + 1
+    sliceLen = b - a
+
+  const resultBits = sizeof(result) * 8
+  doAssert a < b and sliceLen <= resultBits and b <= totalBits
+
+  let limbs = cast[ptr UncheckedArray[T]](unsafeAddr data[0])
+
+  template readLimb(idx: int): auto =
+    when cpuEndian == bigEndian or sizeof(result) == 1:
+      limbs[][idx]
+    else:
+      swapBytes(limbs[][idx])
+
+  let
+    firstLimbIdx = a div resultBits
+    firstLimbUnusedBits = (a mod resultBits)
+    firstLimbUsedBits = resultBits - firstLimbUnusedBits
+    firstLimb = readLimb firstLimbIdx
+
+  if sliceLen > firstLimbUsedBits:
+    let
+      bitsFromSecondLimb = sliceLen - firstLimbUsedBits
+      secondLimb = readLimb(firstLimbIdx + 1)
+    ((firstLimb shl firstLimbUnusedBits) shr (firstLimbUnusedBits - bitsFromSecondLimb)) or
+    (secondLimb shr (resultBits - bitsFromSecondLimb))
+  else:
+    (firstLimb shl firstLimbUnusedBits) shr (resultBits - sliceLen)
+
+template getBitsBE*(data: openarray[byte], slice: HSlice): BiggestUInt =
+  getBitsBE(data, slice, BiggestUInt)
+

@@ -86,8 +86,47 @@ template test() =
   # T(1 shl 63) raises!
   doAssert bit64 == 0b10000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000'u64
 
+proc runtimeTest =
+  var bytes = @[byte 0b11001101, 0b10010010, 0b00000000, 0b11111111,
+                     0b11000010, 0b00110110, 0b11010110, 0b00101010,
+                     0b01101110, 0b11101001, 0b10101011, 0b00110010]
+
+  doAssert getBitsBE(bytes, 0..0, byte) == byte(1)
+  doAssert getBitsBE(bytes, 1..1, byte) == byte(1)
+  doAssert getBitsBE(bytes, 2..2, byte) == byte(0)
+  doAssert getBitsBE(bytes, 6..6, byte) == byte(0)
+  doAssert getBitsBE(bytes, 7..7, byte) == byte(1)
+
+  doAssert getBitsBE(bytes, 0..1, byte) == byte(0b11)
+  doAssert getBitsBE(bytes, 1..2, byte) == byte(0b10)
+  doAssert getBitsBE(bytes, 2..3, byte) == byte(0)
+  doAssert getBitsBE(bytes, 5..6, byte) == byte(0b10)
+  doAssert getBitsBE(bytes, 6..7, byte) == byte(0b1)
+
+  doAssert getBitsBE(bytes, 7..8, byte) == byte(0b11)
+
+  doAssert getBitsBE(bytes, 0..2, byte) == byte(0b110)
+  doAssert getBitsBE(bytes, 1..3, byte) == byte(0b100)
+  doAssert getBitsBE(bytes, 6..9, byte) == byte(0b110)
+
+  doAssert getBitsBE(bytes, 0..3, byte) == byte(0b1100)
+  doAssert getBitsBE(bytes, 0..7, byte) == byte(0b11001101)
+
+  doAssert getBitsBE(bytes, 0..10, uint16) == uint16(0b11001101100)
+  doAssert getBitsBE(bytes, 0..15, uint16) == uint16(0b1100110110010010)
+  doAssert getBitsBE(bytes, 1..11, uint16) == uint16(0b10011011001)
+  doAssert getBitsBE(bytes, 3..18, uint16) == uint16(0b110110010010000)
+  doAssert getBitsBE(bytes, 35..50, uint16) == uint16(0b1000110110110)
+
+  doAssert getBitsBE(bytes, 4..7, uint16) == uint16(0b1101)
+  doAssert getBitsBE(bytes, 1..29) == 0b10011011001001000000000111111'u64
+  doAssert getBitsBE(bytes, 1..25, uint32) == 0b1001101100100100000000011'u32
+  doAssert getBitsBE(bytes, 1..25, uint32) == 0b1001101100100100000000011'u32
+
 static: test()
 
 suite "bitops2":
   test "bitops2_test":
     test() # Cannot use unittest at compile time..
+    runtimeTest()
+
