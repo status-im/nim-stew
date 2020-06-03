@@ -17,6 +17,8 @@
 # Note that `ByteAddress` in stdlib is implemented as a signed integer and
 # might lead to overflow on arithmetic - avoid
 
+{.push raises: [].}
+
 template offset*(p: pointer, bytes: int): pointer =
   ## Offset a memory address by a number of bytes. Behavior is undefined on
   ## overflow.

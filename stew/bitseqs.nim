@@ -1,3 +1,5 @@
+{.push raises: [Defect].}
+
 import
   bitops2, ptrops
 
@@ -6,6 +8,9 @@ type
 
   BitSeq* = distinct Bytes
     ## TODO
+    ##
+    ## Update: the SSZ module has its own bitseq now - this bitseq can be
+    ## reimplemented to use any in-memory representation it deems convenient
     ##
     ## The current design of BitSeq tries to follow precisely
     ## the bitwise representation of the SSZ bitlists.
