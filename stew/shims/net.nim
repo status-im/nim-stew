@@ -32,8 +32,7 @@ func init*(T: type ValidIpAddress, str: string): T
           {.raises: [ValueError].} =
   ValidIpAddress(value: stdNet.parseIpAddress(str))
 
-func init*(T: type ValidIpAddress, ip: IpAddress): T
-          {.raises: [ValueError].} =
+func init*(T: type ValidIpAddress, ip: IpAddress): T =
   ValidIpAddress(value: ip)
 
 converter toNormalIp*(ip: ValidIpAddress): IpAddress =
