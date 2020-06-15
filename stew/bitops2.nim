@@ -266,8 +266,8 @@ elif defined(vcc) and useBuiltins:
     when arch64:
       builtin_popcnt64(v).int
     else:
-      builtin_popcnt32((v and 0xFFFFFFFF'u64).uint32).int +
-        builtin_popcnt32((v shr 32'u64).uint32).int
+      builtin_popcnt32((v and 0xFFFFFFFF'u64).cint).int +
+        builtin_popcnt32((v shr 32'u64).cint).int
 
   func firstOneBuiltin(v: uint8|uint16|uint32): int =
     1 + checkedScan(bitScanForward, v.culong, -1)
