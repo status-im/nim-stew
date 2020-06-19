@@ -253,12 +253,12 @@ elif defined(vcc) and useBuiltins:
 
   template checkedScan(fnc: untyped, x: typed, def: typed): int =
     var index{.noinit.}: culong
-    if fnc(index.addr, v) == 0: def
+    if fnc(index.addr, v).int == 0: def
     else: index.int
 
   template bitScan(fnc: untyped, x: typed): int =
     var index{.noinit.}: culong
-    if fnc(index.addr, v) == 0: 0
+    if fnc(index.addr, v).int == 0: 0
     else: index.int
 
   func countOnesBuiltin(v: uint8|uint16|uint32): int = builtin_popcnt32(v.uint32).int
@@ -266,8 +266,8 @@ elif defined(vcc) and useBuiltins:
     when arch64:
       builtin_popcnt64(v).int
     else:
-      builtin_popcnt32((v and 0xFFFFFFFF'u64).uint32).int +
-        builtin_popcnt32((v shr 32'u64).uint32).int
+      builtin_popcnt32((v and 0xFFFFFFFF'u64).cint).int +
+        builtin_popcnt32((v shr 32'u64).cint).int
 
   func firstOneBuiltin(v: uint8|uint16|uint32): int =
     1 + checkedScan(bitScanForward, v.culong, -1)
