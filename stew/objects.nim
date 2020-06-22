@@ -1,3 +1,6 @@
+import
+  macros
+
 template init*(lvalue: var auto) =
   mixin init
   lvalue = init(type(lvalue))
@@ -36,9 +39,9 @@ func declval*(T: type): T {.compileTime.} =
   ## ```
   ##
   ## Please note that `declval` has two advantages over `default`:
-  ## 
+  ##
   ## 1. It can return expressions with proper `var` or `lent` types.
-  ## 
+  ##
   ## 2. It will work for types that lack a valid default value due
   ##    to `not nil` or `requiresInit` requirements.
   ##
@@ -63,4 +66,44 @@ proc baseType*(obj: RootObj): cstring =
 
 proc baseType*(obj: ref RootObj): cstring =
   obj[].baseType
+
+when false:
+  # TODO: Implementing this doesn't seem possible at the moment.
+  #
+  # When given enum like:
+  #
+  # type WithoutHoles2 = enum
+  #   A2 = 2, B2 = 3, C2 = 4
+  #
+  # ...the code below will print:
+  #
+  #  EnumTy
+  #    Empty
+  #    Sym "A2"
+  #    Sym "B2"
+  #    Sym "C2"
+  #
+  macro hasHoles*(T: type[enum]): bool =
+    let t = getType(T)[1]
+    echo t.treeRepr
+    return newLit(true)
+
+func checkedEnumAssign*[E: enum, I: SomeInteger](res: var E, value: I): bool =
+  ## This function can be used to safely assign a tainted integer value (coming
+  ## from untrusted source) to an enum variable. The function will return `true`
+  ## if the integer value is within the acceped values of the enum and `false`
+  ## otherwise.
+
+  # TODO: Enums with holes are not supported yet
+  # static: doAssert(not hasHoles(E))
+
+  when I is SomeSignedInt or low(E).int > 0:
+    if value < I(low(E)):
+      return false
+
+  if value > I(high(E)):
+    return false
+
+  res = E value
+  return true
 
