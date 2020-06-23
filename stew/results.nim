@@ -285,9 +285,9 @@ func raiseResultDefect(m: string) {.noreturn, noinline.} =
 template assertOk(self: Result) =
   if not self.o:
     when self.E isnot void:
-      raiseResultDefect("Trying to acces value with err Result", self.e)
+      raiseResultDefect("Trying to access value with err Result", self.e)
     else:
-      raiseResultDefect("Trying to acces value with err Result")
+      raiseResultDefect("Trying to access value with err Result")
 
 template ok*[T, E](R: type Result[T, E], x: auto): R =
   ## Initialize a result with a success and value
