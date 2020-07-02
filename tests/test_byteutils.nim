@@ -36,6 +36,18 @@ suite "Byte utils":
     expect(ValueError): discard hexToByteArray[1]("")
     expect(ValueError): discard hexToByteArray[1]("1")
 
+  test "array.fromHex":
+    let
+      s = "0x12345678"
+      a2 = array[2, byte].fromHex(s)
+      a4 = array[4, byte].fromHex(s)
+
+    check:
+      a2.toHex == "1234"
+      a4.toHex == "12345678"
+
+    expect(ValueError): echo array[5, byte].fromHex(s)
+
   test "toHex":
     check simpleBArray.toHex == "12345678"
     check hexToSeqByte("12345678") == simpleBArray

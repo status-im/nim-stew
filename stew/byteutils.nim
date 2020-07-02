@@ -83,6 +83,11 @@ func hexToByteArray*[N: static[int]](hexStr: string): array[N, byte]
   ## Read an hex string and store it in a byte array. No "endianness" reordering is done.
   hexToByteArray(hexStr, result)
 
+func fromHex*[N](A: type array[N, byte], hexStr: string): A
+                {.raises: [ValueError, Defect], noInit, inline.}=
+  ## Read an hex string and store it in a byte array. No "endianness" reordering is done.
+  hexToByteArray(hexStr, result)
+
 func hexToPaddedByteArray*[N: static[int]](hexStr: string): array[N, byte]
                                           {.raises: [ValueError, Defect].} =
   ## Read a hex string and store it in a byte array `output`.
