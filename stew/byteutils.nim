@@ -78,11 +78,13 @@ func hexToByteArray*(hexStr: string, output: var openArray[byte])
   ## Read a hex string and store it in a byte array `output`. No "endianness" reordering is done.
   hexToByteArray(hexStr, output, 0, output.high)
 
-func hexToByteArray*[N: static[int]](hexStr: string): array[N, byte] {.noInit, inline.}=
+func hexToByteArray*[N: static[int]](hexStr: string): array[N, byte]
+                    {.raises: [ValueError, Defect], noInit, inline.}=
   ## Read an hex string and store it in a byte array. No "endianness" reordering is done.
   hexToByteArray(hexStr, result)
 
-func hexToPaddedByteArray*[N: static[int]](hexStr: string): array[N, byte] =
+func hexToPaddedByteArray*[N: static[int]](hexStr: string): array[N, byte]
+                                          {.raises: [ValueError, Defect].} =
   ## Read a hex string and store it in a byte array `output`.
   ## The string may be shorter than the byte array.
   ## No "endianness" reordering is done.
