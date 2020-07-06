@@ -36,8 +36,9 @@ template offset*[T](p: ptr T, count: int): ptr T =
   # better optimizations.
 
   # We turn off checking here - too large counts is UB
-  {.checks: off.}
+  {.push checks: off.}
   let bytes = count * sizeof(T)
+  {.pop.}
   cast[ptr T](offset(cast[pointer](p), bytes))
 
 template distance*(a, b: pointer): int =
@@ -50,5 +51,5 @@ template distance*(a, b: pointer): int =
 template distance*[T](a, b: ptr T): int =
   # Number of elements between a and b - undefined behavior when difference
   # exceeds what can be represented in an int
-  {.checks: off.}
   distance(cast[pointer](a), cast[pointer](b)) div sizeof(T)
+
