@@ -403,7 +403,17 @@ macro unpackArgs*(callee: typed, args: untyped): untyped =
     else:
       result.add arg
 
-template genCode*(body: untyped) =
+template genExpr*(treeType: NimNodeKind, body: untyped): untyped =
+  iterator generator: NimNode = body
+
+  macro payload: untyped =
+    result = newTree(treeType)
+    for node in generator():
+      result.add node
+
+  payload()
+
+template genStmtList*(body: untyped) =
   iterator generator: NimNode = body
 
   macro payload: untyped =
@@ -413,7 +423,7 @@ template genCode*(body: untyped) =
 
   payload()
 
-template genExpr*(body: untyped) =
+template genSimpleExpr*(body: untyped): untyped =
   macro payload: untyped = body
   payload()
 
