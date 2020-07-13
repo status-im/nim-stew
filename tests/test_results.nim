@@ -256,3 +256,13 @@ except:
   discard
 
 doAssert vErr.mapErr(proc(x: int): int = 10).error() == 10
+
+func voidF(): VoidRes =
+  ok()
+
+func voidF2(): VoidRes =
+  ? voidF()
+
+  ok()
+
+doAssert voidF2().isOk
