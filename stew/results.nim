@@ -621,7 +621,7 @@ template value*[E](self: var Result[void, E]) =
   mixin get
   self.get()
 
-template `?`*[T, E](self: Result[T, E]): T =
+template `?`*[T, E](self: Result[T, E]): auto =
   ## Early return - if self is an error, we will return from the current
   ## function, else we'll move on..
   ##
@@ -639,4 +639,5 @@ template `?`*[T, E](self: Result[T, E]): T =
     else:
       return err(typeof(result), v.e)
 
-  v.v
+  when not(T is void):
+    v.v
