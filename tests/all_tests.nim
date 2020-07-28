@@ -20,4 +20,5 @@ import
   test_objects,
   test_ptrops,
   test_results,
-  test_varints
+  test_varints,
+  test_ctops
