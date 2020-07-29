@@ -38,7 +38,8 @@ suite "Constant-time operations test suite":
       uint32Arr = [1'u32, 2'u32, 3'u32]
       uintArr = [1'u, 2'u, 3'u]
 
-      emptyArray: array[0, byte] = []
+    var
+      emptyArray: array[0, byte]
       emptyString = ""
       emptySeq = newSeq[byte]()
 
