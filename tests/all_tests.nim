@@ -15,10 +15,11 @@ import
   test_bitops2,
   test_bitseqs,
   test_byteutils,
+  test_ctops,
   test_endians2,
   test_macros,
   test_objects,
   test_ptrops,
   test_results,
-  test_varints,
-  test_ctops
+  test_tables,
+  test_varints
