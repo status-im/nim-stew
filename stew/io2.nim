@@ -165,6 +165,13 @@ type
     ReadOnly, WriteOnly, ReadWrite, Create, Exclusive, Append, Truncate,
     NoInherit, NonBlock, Direct
 
+  Permission* = enum
+    UserRead, UserWrite, UserExec,
+    GroupRead, GroupWrite, GroupExec,
+    OtherRead, OtherWrite, OtherExec
+
+  Permissions* = set[Permission]
+
   AccessFlags* = enum
     Find, Read, Write, Execute
 
@@ -357,7 +364,7 @@ proc getCurrentDir*(): IoResult[string] =
       else:
         return ok(buffer$int(res))
 
-proc createDir*(dir: string, mode: int = 0o755): IoResult[bool] =
+proc rawCreateDir(dir: string, mode: int = 0o755): IoResult[bool] =
   ## Attempts to create a directory named ``dir``.
   ##
   ## The argument ``mode`` specifies the mode for the new directory.
@@ -521,7 +528,7 @@ proc createPath*(path: string, createMode: int = 0o755): IoResult[void] =
   when defined(posix):
     let oldmask = posix.umask(Mode(0))
   for item in paths:
-    let res = createDir(item, createMode)
+    let res = rawCreateDir(item, createMode)
     if res.isErr():
       when defined(posix):
         discard posix.umask(oldmask)
@@ -808,14 +815,63 @@ proc fileAccessible*(pathName: string, mask: set[AccessFlags]): bool =
         return true
     return true
 
+proc getPermissions*(pathName: string): IoResult[int] =
+  ## Retreive permissions of file/folder ``pathName`` and return it as integer.
+  when defined(windows):
+    let res = getFileAttributes(newWideCString(pathName))
+    if res == INVALID_FILE_ATTRIBUTES:
+      err(ioLastError())
+    else:
+      if (res and FILE_ATTRIBUTE_READONLY) == FILE_ATTRIBUTE_READONLY:
+        ok(0o555)
+      else:
+        ok(0o777)
+  elif defined(posix):
+    var a: posix.Stat
+    let res = posix.stat(pathName, a)
+    if res == 0:
+      ok(int(a.st_mode) and 0o777)
+    else:
+      err(ioLastError())
+  else:
+    ok(0o777)
+
+proc getPermissionsSet*(pathName: string): IoResult[set[Permission]] =
+  ## Retreive permissions of file/folder ``pathName`` and return set of
+  ## ``Permission`.
+  let mask = ? getPermissions(pathName)
+  when defined(windows):
+    if mask == 0o555:
+      ok({UserRead, UserExec, GroupRead, GroupExec, OtherRead, OtherExec})
+    else:
+      ok({UserRead .. OtherExec})
+  elif defined(posix):
+    var res: set[Permission]
+    if (mask and S_IRUSR) != 0: res.incl(UserRead)
+    if (mask and S_IWUSR) != 0: res.incl(UserWrite)
+    if (mask and S_IXUSR) != 0: res.incl(UserExec)
+
+    if (mask and S_IRGRP) != 0: res.incl(GroupRead)
+    if (mask and S_IWGRP) != 0: res.incl(GroupWrite)
+    if (mask and S_IXGRP) != 0: res.incl(GroupExec)
+
+    if (mask and S_IROTH) != 0: res.incl(OtherRead)
+    if (mask and S_IWOTH) != 0: res.incl(OtherWrite)
+    if (mask and S_IXOTH) != 0: res.incl(OtherExec)
+    ok(res)
+  else:
+    ok({UserRead .. OtherExec})
+
 proc checkPermissions*(pathName: string, mask: int): bool =
   ## Checks if the file ``pathName`` permissions is equal to ``mask``.
   when defined(windows):
     true
-  else:
+  elif defined(posix):
     var a: posix.Stat
     let res = posix.stat(pathName, a)
     if res == 0:
       (int(a.st_mode) and 0o777) == mask
     else:
       false
+  else:
+    true
