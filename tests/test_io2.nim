@@ -172,3 +172,13 @@ suite "OS Input/Output procedures test suite":
       removeFile("testblob4").isOk()
       removeFile("testblob5").isOk()
       removeFile("testblob6").isOk()
+
+  test "toString(set[Permission]) test":
+    let emptyMask: set[Permission] = {}
+    check:
+      {UserRead, UserWrite, UserExec}.toString() == "0700 (rwx------)"
+      {GroupRead, GroupWrite, GroupExec}.toString() == "0070 (---rwx---)"
+      {OtherRead, OtherWrite, OtherExec}.toString() == "0007 (------rwx)"
+      {UserExec, GroupExec, OtherExec}.toString() == "0111 (--x--x--x)"
+      {UserRead .. OtherExec}.toString() == "0777 (rwxrwxrwx)"
+      emptyMask.toString() == "0000 (---------)"

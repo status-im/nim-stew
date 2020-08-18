@@ -765,7 +765,7 @@ proc writeFile*(pathName: string, data: openarray[char],
 proc readAllFile*(pathName: string, blockSize = 16384'u): IoResult[seq[byte]] =
   ## Opens a file named ``pathName`` for reading, reads all the data from
   ## file and closes the file afterwards. Returns sequence of bytes or error.
-  doAssert(blockSize > 0, "blockSize must not be zero")
+  doAssert(blockSize > 0'u, "blockSize must not be zero")
   let flags = {OpenFlags.ReadOnly}
   let handle = ? openFile(pathName, flags)
   var offset = 0
@@ -861,6 +861,44 @@ proc getPermissionsSet*(pathName: string): IoResult[set[Permission]] =
     ok(res)
   else:
     ok({UserRead .. OtherExec})
+
+proc toString*(mask: set[Permission]): string =
+  var rnum = 0
+  var rstr = "0000 (---------)"
+  if UserRead in mask:
+    rstr[6] = 'r'
+    rnum = rnum or 0o400
+  if UserWrite in mask:
+    rstr[7] = 'w'
+    rnum = rnum or 0o200
+  if UserExec in mask:
+    rstr[8] = 'x'
+    rnum = rnum or 0o100
+  if GroupRead in mask:
+    rstr[9] = 'r'
+    rnum = rnum or 0o40
+  if GroupWrite in mask:
+    rstr[10] = 'w'
+    rnum = rnum or 0o20
+  if GroupExec in mask:
+    rstr[11] = 'x'
+    rnum = rnum or 0o10
+  if OtherRead in mask:
+    rstr[12] = 'r'
+    rnum = rnum or 0o4
+  if OtherWrite in mask:
+    rstr[13] = 'w'
+    rnum = rnum or 0o2
+  if OtherExec in mask:
+    rstr[14] = 'x'
+    rnum = rnum or 0o1
+  if (rnum and 0o700) != 0:
+    rstr[1] = ($((rnum shr 6) and 0x07))[0]
+  if (rnum and 0o70) != 0:
+    rstr[2] = ($((rnum shr 3) and 0x07))[0]
+  if (rnum and 0o7) != 0:
+    rstr[3] = ($(rnum and 0x07))[0]
+  rstr
 
 proc checkPermissions*(pathName: string, mask: int): bool =
   ## Checks if the file ``pathName`` permissions is equal to ``mask``.
