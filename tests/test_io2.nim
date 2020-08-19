@@ -146,6 +146,16 @@ suite "OS Input/Output procedures test suite":
       removeDir(path32d).isOk()
       removeDir(path31d).isOk()
 
+  test "writeFile() to existing file with different permissions":
+    check:
+      writeFile("testblob0", "BLOCK0", 0o666).isOk()
+      checkPermissions("testblob0", 0o666) == true
+      writeFile("testblob0", "BLOCK1", 0o600).isOk()
+      checkPermissions("testblob0", 0o600) == true
+      writeFile("testblob0", "BLOCK2", 0o777).isOk()
+      checkPermissions("testblob0", 0o777) == true
+      removeFile("testblob0").isOk()
+
   test "writeFile()/readFile() test":
     check:
       writeFile("testblob1", "BLOCK1", 0o600).isOk()

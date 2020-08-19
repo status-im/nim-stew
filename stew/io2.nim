@@ -81,6 +81,8 @@ when defined(windows):
        importc: "ReadFile", dynlib: "kernel32", stdcall, sideEffect.}
   proc getFileAttributes(path: WideCString): uint32 {.
        importc: "GetFileAttributesW", dynlib: "kernel32", stdcall, sideEffect.}
+  proc setFileAttributes(path: WideCString, dwAttributes: uint32): uint32 {.
+       importc: "SetFileAttributesW", dynlib: "kernel32", stdcall, sideEffect.}
   proc getCurrentDirectoryW(nBufferLength: uint32,
                             lpBuffer: WideCString): uint32 {.
        importc: "GetCurrentDirectoryW", dynlib: "kernel32", stdcall,
@@ -535,6 +537,212 @@ proc createPath*(path: string, createMode: int = 0o755): IoResult[void] =
       return err(res.error)
   ok()
 
+proc getPermissions*(pathName: string): IoResult[int] =
+  ## Retreive permissions of file/folder ``pathName`` and return it as integer.
+  when defined(windows):
+    let res = getFileAttributes(newWideCString(pathName))
+    if res == INVALID_FILE_ATTRIBUTES:
+      err(ioLastError())
+    else:
+      if (res and FILE_ATTRIBUTE_READONLY) == FILE_ATTRIBUTE_READONLY:
+        ok(0o555)
+      else:
+        ok(0o777)
+  elif defined(posix):
+    var a: posix.Stat
+    let res = posix.stat(pathName, a)
+    if res == 0:
+      ok(int(a.st_mode) and 0o777)
+    else:
+      err(ioLastError())
+  else:
+    ok(0o777)
+
+proc setPermissions*(pathName: string, mask: int): IoResult[void] =
+  ## Set permissions for file/folder ``pathame``.
+  when defined(windows):
+    let gres = getFileAttributes(newWideCString(pathName))
+    if gres == INVALID_FILE_ATTRIBUTES:
+      err(ioLastError())
+    else:
+      let nmask =
+        if (mask and 0o222) == 0:
+          gres and uint32(FILE_ATTRIBUTE_READONLY)
+        else:
+          gres and not(FILE_ATTRIBUTE_READONLY)
+      let sres = setFileAttributes(newWideCString(pathName), nmask)
+      if sres == 0:
+        err(ioLastError())
+      else:
+        ok()
+  elif defined(posix):
+    while true:
+      let res = posix.chmod(pathName, Mode(mask))
+      if res == 0:
+        return ok()
+      else:
+        let errCode = ioLastError()
+        if errCode == EINTR:
+          continue
+        else:
+          return err(errCode)
+
+proc fileAccessible*(pathName: string, mask: set[AccessFlags]): bool =
+  ## Checks the file ``pathName`` for accessibility according to the bit
+  ## pattern contained in ``mask``.
+  when defined(posix):
+    var mode: cint
+    if AccessFlags.Find in mask:
+      mode = mode or posix.F_OK
+    if AccessFlags.Read in mask:
+      mode = mode or posix.R_OK
+    if AccessFlags.Write in mask:
+      mode = mode or posix.W_OK
+    if AccessFlags.Execute in mask:
+      mode = mode or posix.X_OK
+    let res = posix.access(cstring(pathName), mode)
+    if res == 0:
+      true
+    else:
+      false
+  elif defined(windows):
+    let res = getFileAttributes(newWideCString(pathName))
+    if res == INVALID_FILE_ATTRIBUTES:
+      return false
+    if AccessFlags.Write in mask:
+      if (res and FILE_ATTRIBUTE_READONLY) == FILE_ATTRIBUTE_READONLY:
+        return false
+      else:
+        return true
+    return true
+
+proc getPermissionsSet*(pathName: string): IoResult[set[Permission]] =
+  ## Retreive permissions of file/folder ``pathName`` and return set of
+  ## ``Permission`.
+  let mask = ? getPermissions(pathName)
+  when defined(windows):
+    if mask == 0o555:
+      ok({UserRead, UserExec, GroupRead, GroupExec, OtherRead, OtherExec})
+    else:
+      ok({UserRead .. OtherExec})
+  elif defined(posix):
+    var res: set[Permission]
+    if (mask and S_IRUSR) != 0: res.incl(UserRead)
+    if (mask and S_IWUSR) != 0: res.incl(UserWrite)
+    if (mask and S_IXUSR) != 0: res.incl(UserExec)
+
+    if (mask and S_IRGRP) != 0: res.incl(GroupRead)
+    if (mask and S_IWGRP) != 0: res.incl(GroupWrite)
+    if (mask and S_IXGRP) != 0: res.incl(GroupExec)
+
+    if (mask and S_IROTH) != 0: res.incl(OtherRead)
+    if (mask and S_IWOTH) != 0: res.incl(OtherWrite)
+    if (mask and S_IXOTH) != 0: res.incl(OtherExec)
+    ok(res)
+  else:
+    ok({UserRead .. OtherExec})
+
+proc setPermissions*(pathName: string, mask: set[Permission]): IoResult[void] =
+  ## Set permissions for file/folder ``pathame`` using mask ``mask``.
+  when defined(windows):
+    var rnum = 0
+    if UserRead in mask:
+      rnum = rnum or 0o400
+    if UserWrite in mask:
+      rnum = rnum or 0o200
+    if UserExec in mask:
+      rnum = rnum or 0o100
+    if GroupRead in mask:
+      rnum = rnum or 0o40
+    if GroupWrite in mask:
+      rnum = rnum or 0o20
+    if GroupExec in mask:
+      rnum = rnum or 0o10
+    if OtherRead in mask:
+      rnum = rnum or 0o4
+    if OtherWrite in mask:
+      rnum = rnum or 0o2
+    if OtherExec in mask:
+      rnum = rnum or 0o1
+    setPermissions(pathName, rnum)
+  elif defined(posix):
+    var rnum = 0
+    if UserRead in mask:
+      rnum = rnum or S_IRUSR
+    if UserWrite in mask:
+      rnum = rnum or S_IWUSR
+    if UserExec in mask:
+      rnum = rnum or S_IXUSR
+    if GroupRead in mask:
+      rnum = rnum or S_IRGRP
+    if GroupWrite in mask:
+      rnum = rnum or S_IWGRP
+    if GroupExec in mask:
+      rnum = rnum or S_IXGRP
+    if OtherRead in mask:
+      rnum = rnum or S_IROTH
+    if OtherWrite in mask:
+      rnum = rnum or S_IWOTH
+    if OtherExec in mask:
+      rnum = rnum or S_IXOTH
+    setPermissions(pathName, rnum)
+  else:
+    ok()
+
+proc toString*(mask: set[Permission]): string =
+  ## Return mask representation as human-readable string in format
+  ## "0xxx (---------)" where `xxx` is numeric representation of permissions.
+  var rnum = 0
+  var rstr = "0000 (---------)"
+  if UserRead in mask:
+    rstr[6] = 'r'
+    rnum = rnum or 0o400
+  if UserWrite in mask:
+    rstr[7] = 'w'
+    rnum = rnum or 0o200
+  if UserExec in mask:
+    rstr[8] = 'x'
+    rnum = rnum or 0o100
+  if GroupRead in mask:
+    rstr[9] = 'r'
+    rnum = rnum or 0o40
+  if GroupWrite in mask:
+    rstr[10] = 'w'
+    rnum = rnum or 0o20
+  if GroupExec in mask:
+    rstr[11] = 'x'
+    rnum = rnum or 0o10
+  if OtherRead in mask:
+    rstr[12] = 'r'
+    rnum = rnum or 0o4
+  if OtherWrite in mask:
+    rstr[13] = 'w'
+    rnum = rnum or 0o2
+  if OtherExec in mask:
+    rstr[14] = 'x'
+    rnum = rnum or 0o1
+  if (rnum and 0o700) != 0:
+    rstr[1] = ($((rnum shr 6) and 0x07))[0]
+  if (rnum and 0o70) != 0:
+    rstr[2] = ($((rnum shr 3) and 0x07))[0]
+  if (rnum and 0o7) != 0:
+    rstr[3] = ($(rnum and 0x07))[0]
+  rstr
+
+proc checkPermissions*(pathName: string, mask: int): bool =
+  ## Checks if the file ``pathName`` permissions is equal to ``mask``.
+  when defined(windows):
+    true
+  elif defined(posix):
+    var a: posix.Stat
+    let res = posix.stat(pathName, a)
+    if res == 0:
+      (int(a.st_mode) and 0o777) == mask
+    else:
+      false
+  else:
+    true
+
 proc openFile*(pathName: string, flags: set[OpenFlags],
                createMode: int = 0o666): IoResult[IoHandle] =
   when defined(posix):
@@ -738,6 +946,14 @@ proc writeFile*(pathName: string, data: openarray[byte],
   ##
   ## If file is not exists it will be created with permissions mask
   ## ``createMode`` (default value is 0o644).
+  ##
+  ## If file is already exists, but file permissions are not equal to
+  ## ``createMode`` procedure will change permissions first and only after
+  ## success it will write data to file.
+  if fileAccessible(pathName, {AccessFlags.Find, AccessFlags.Write}):
+    let permissions = ? getPermissions(pathName)
+    if permissions != createMode:
+      ? setPermissions(pathName, createMode)
   let flags = {OpenFlags.WriteOnly, OpenFlags.Truncate, OpenFlags.Create}
   let handle = ? openFile(pathName, flags, createMode)
   var offset = 0
@@ -785,131 +1001,3 @@ proc readAllFile*(pathName: string, blockSize = 16384'u): IoResult[seq[byte]] =
         return ok(buffer)
       else:
         buffer.setLen(len(buffer) + int(blockSize))
-
-proc fileAccessible*(pathName: string, mask: set[AccessFlags]): bool =
-  ## Checks the file ``pathName`` for accessibility according to the bit
-  ## pattern contained in ``mask``.
-  when defined(posix):
-    var mode: cint
-    if AccessFlags.Find in mask:
-      mode = mode or posix.F_OK
-    if AccessFlags.Read in mask:
-      mode = mode or posix.R_OK
-    if AccessFlags.Write in mask:
-      mode = mode or posix.W_OK
-    if AccessFlags.Execute in mask:
-      mode = mode or posix.X_OK
-    let res = posix.access(cstring(pathName), mode)
-    if res == 0:
-      true
-    else:
-      false
-  elif defined(windows):
-    let res = getFileAttributes(newWideCString(pathName))
-    if res == INVALID_FILE_ATTRIBUTES:
-      return false
-    if AccessFlags.Write in mask:
-      if (res and FILE_ATTRIBUTE_READONLY) == FILE_ATTRIBUTE_READONLY:
-        return false
-      else:
-        return true
-    return true
-
-proc getPermissions*(pathName: string): IoResult[int] =
-  ## Retreive permissions of file/folder ``pathName`` and return it as integer.
-  when defined(windows):
-    let res = getFileAttributes(newWideCString(pathName))
-    if res == INVALID_FILE_ATTRIBUTES:
-      err(ioLastError())
-    else:
-      if (res and FILE_ATTRIBUTE_READONLY) == FILE_ATTRIBUTE_READONLY:
-        ok(0o555)
-      else:
-        ok(0o777)
-  elif defined(posix):
-    var a: posix.Stat
-    let res = posix.stat(pathName, a)
-    if res == 0:
-      ok(int(a.st_mode) and 0o777)
-    else:
-      err(ioLastError())
-  else:
-    ok(0o777)
-
-proc getPermissionsSet*(pathName: string): IoResult[set[Permission]] =
-  ## Retreive permissions of file/folder ``pathName`` and return set of
-  ## ``Permission`.
-  let mask = ? getPermissions(pathName)
-  when defined(windows):
-    if mask == 0o555:
-      ok({UserRead, UserExec, GroupRead, GroupExec, OtherRead, OtherExec})
-    else:
-      ok({UserRead .. OtherExec})
-  elif defined(posix):
-    var res: set[Permission]
-    if (mask and S_IRUSR) != 0: res.incl(UserRead)
-    if (mask and S_IWUSR) != 0: res.incl(UserWrite)
-    if (mask and S_IXUSR) != 0: res.incl(UserExec)
-
-    if (mask and S_IRGRP) != 0: res.incl(GroupRead)
-    if (mask and S_IWGRP) != 0: res.incl(GroupWrite)
-    if (mask and S_IXGRP) != 0: res.incl(GroupExec)
-
-    if (mask and S_IROTH) != 0: res.incl(OtherRead)
-    if (mask and S_IWOTH) != 0: res.incl(OtherWrite)
-    if (mask and S_IXOTH) != 0: res.incl(OtherExec)
-    ok(res)
-  else:
-    ok({UserRead .. OtherExec})
-
-proc toString*(mask: set[Permission]): string =
-  var rnum = 0
-  var rstr = "0000 (---------)"
-  if UserRead in mask:
-    rstr[6] = 'r'
-    rnum = rnum or 0o400
-  if UserWrite in mask:
-    rstr[7] = 'w'
-    rnum = rnum or 0o200
-  if UserExec in mask:
-    rstr[8] = 'x'
-    rnum = rnum or 0o100
-  if GroupRead in mask:
-    rstr[9] = 'r'
-    rnum = rnum or 0o40
-  if GroupWrite in mask:
-    rstr[10] = 'w'
-    rnum = rnum or 0o20
-  if GroupExec in mask:
-    rstr[11] = 'x'
-    rnum = rnum or 0o10
-  if OtherRead in mask:
-    rstr[12] = 'r'
-    rnum = rnum or 0o4
-  if OtherWrite in mask:
-    rstr[13] = 'w'
-    rnum = rnum or 0o2
-  if OtherExec in mask:
-    rstr[14] = 'x'
-    rnum = rnum or 0o1
-  if (rnum and 0o700) != 0:
-    rstr[1] = ($((rnum shr 6) and 0x07))[0]
-  if (rnum and 0o70) != 0:
-    rstr[2] = ($((rnum shr 3) and 0x07))[0]
-  if (rnum and 0o7) != 0:
-    rstr[3] = ($(rnum and 0x07))[0]
-  rstr
-
-proc checkPermissions*(pathName: string, mask: int): bool =
-  ## Checks if the file ``pathName`` permissions is equal to ``mask``.
-  when defined(windows):
-    true
-  elif defined(posix):
-    var a: posix.Stat
-    let res = posix.stat(pathName, a)
-    if res == 0:
-      (int(a.st_mode) and 0o777) == mask
-    else:
-      false
-  else:
-    true
