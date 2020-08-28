@@ -163,8 +163,8 @@ elif defined(posix):
 type
   IoResult*[T] = Result[T, IoErrorCode]
 
-  OpenFlags* = enum
-    ReadOnly, WriteOnly, ReadWrite, Create, Exclusive, Append, Truncate,
+  OpenFlags* {.pure.} = enum
+    Read, Write, Create, Exclusive, Append, Truncate,
     NoInherit, NonBlock, Direct
 
   Permission* = enum
@@ -174,7 +174,7 @@ type
 
   Permissions* = set[Permission]
 
-  AccessFlags* = enum
+  AccessFlags* {.pure.} = enum
     Find, Read, Write, Execute
 
 proc `==`*(a, b: IoErrorCode): bool {.borrow.}
@@ -747,12 +747,15 @@ proc openFile*(pathName: string, flags: set[OpenFlags],
                createMode: int = 0o666): IoResult[IoHandle] =
   when defined(posix):
     var cflags: cint
-    if OpenFlags.ReadOnly in flags:
-      cflags = cflags or posix.O_RDONLY
-    if OpenFlags.WriteOnly in flags:
-      cflags = cflags or posix.O_WRONLY
-    if OpenFlags.ReadWrite in flags:
+
+    if (OpenFlags.Read in flags) and (OpenFlags.Write in flags):
       cflags = cflags or posix.O_RDWR
+    else:
+      if OpenFlags.Write in flags:
+        cflags = cflags or posix.O_WRONLY
+      else:
+        cflags = cflags or posix.O_RDONLY
+
     if OpenFlags.Create in flags:
       cflags = cflags or posix.O_CREAT
     if OpenFlags.Exclusive in flags:
@@ -807,19 +810,20 @@ proc openFile*(pathName: string, flags: set[OpenFlags],
       bInheritHandle: 1
     )
 
-    if OpenFlags.WriteOnly in flags:
-      dwAccess = dwAccess or GENERIC_WRITE
-    elif OpenFlags.ReadWrite in flags:
-      dwAccess = dwAccess or (GENERIC_WRITE or GENERIC_READ)
+    if (OpenFlags.Write in flags) and (OpenFlags.Read in flags):
+      dwAccess = dwAccess or (GENERIC_READ or GENERIC_WRITE)
     else:
-      dwAccess = dwAccess or GENERIC_READ
+      if OpenFlags.Write in flags:
+        dwAccess = dwAccess or GENERIC_WRITE
+      else:
+        dwAccess = dwAccess or GENERIC_READ
 
     if {OpenFlags.Create, OpenFlags.Exclusive} <= flags:
       dwCreation = dwCreation or CREATE_NEW
     elif OpenFlags.Truncate in flags:
       if OpenFlags.Create in flags:
         dwCreation = dwCreation or CREATE_ALWAYS
-      elif OpenFlags.ReadOnly notin flags:
+      elif OpenFlags.Read notin flags:
         dwCreation = dwCreation or TRUNCATE_EXISTING
     elif OpenFlags.Append in flags:
       dwCreation = dwCreation or OPEN_EXISTING
@@ -954,7 +958,7 @@ proc writeFile*(pathName: string, data: openarray[byte],
     let permissions = ? getPermissions(pathName)
     if permissions != createMode:
       ? setPermissions(pathName, createMode)
-  let flags = {OpenFlags.WriteOnly, OpenFlags.Truncate, OpenFlags.Create}
+  let flags = {OpenFlags.Write, OpenFlags.Truncate, OpenFlags.Create}
   let handle = ? openFile(pathName, flags, createMode)
   var offset = 0
   while offset < len(data):
@@ -982,7 +986,7 @@ proc readAllFile*(pathName: string, blockSize = 16384'u): IoResult[seq[byte]] =
   ## Opens a file named ``pathName`` for reading, reads all the data from
   ## file and closes the file afterwards. Returns sequence of bytes or error.
   doAssert(blockSize > 0'u, "blockSize must not be zero")
-  let flags = {OpenFlags.ReadOnly}
+  let flags = {OpenFlags.Read}
   let handle = ? openFile(pathName, flags)
   var offset = 0
   var buffer = newSeq[byte](blockSize)

@@ -156,7 +156,7 @@ suite "OS Input/Output procedures test suite":
       checkPermissions("testblob0", 0o777) == true
       removeFile("testblob0").isOk()
 
-  test "writeFile()/readFile() test":
+  test "writeFile()/readAllFile() test":
     check:
       writeFile("testblob1", "BLOCK1", 0o600).isOk()
       writeFile("testblob2", "BLOCK2", 0o660).isOk()
@@ -182,6 +182,36 @@ suite "OS Input/Output procedures test suite":
       removeFile("testblob4").isOk()
       removeFile("testblob5").isOk()
       removeFile("testblob6").isOk()
+
+  test "openFile()/readFile()/writeFile() test":
+    var buffer = newString(10)
+    let flags = {OpenFlags.Write, OpenFlags.Truncate, OpenFlags.Create}
+
+    var fdres = openFile("testfile.txt", flags)
+    check:
+      fdres.isOk()
+      readFile(fdres.get(), buffer).isErr()
+      writeFile(fdres.get(), "TEST").isOk()
+      readFile(fdres.get(), buffer).isErr()
+      closeFile(fdres.get()).isOk()
+
+    fdres = openFile("testfile.txt", {OpenFlags.Read})
+    check:
+      fdres.isOk()
+      readFile(fdres.get(), buffer).isOk()
+      writeFile(fdres.get(), "TEST2").isErr()
+      readFile(fdres.get(), buffer).isOk()
+      closeFile(fdres.get()).isOk()
+
+    fdres = openFile("testfile.txt", {OpenFlags.Read, OpenFlags.Write})
+    check:
+      fdres.isOk()
+      readFile(fdres.get(), buffer).isOk()
+      writeFile(fdres.get(), "TEST2").isOk()
+      closeFile(fdres.get()).isOk()
+
+    check:
+      removeFile("testfile.txt").isOk()
 
   test "toString(set[Permission]) test":
     let emptyMask: set[Permission] = {}
