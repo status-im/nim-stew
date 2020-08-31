@@ -165,7 +165,7 @@ type
 
   OpenFlags* {.pure.} = enum
     Read, Write, Create, Exclusive, Append, Truncate,
-    NoInherit, NonBlock, Direct
+    Inherit, NonBlock, Direct
 
   Permission* = enum
     UserRead, UserWrite, UserExec,
@@ -768,7 +768,7 @@ proc openFile*(pathName: string, flags: set[OpenFlags],
          defined(dragonflybsd):
       if OpenFlags.Direct in flags:
         cflags = cflags or O_DIRECT
-    if OpenFlags.NoInherit in flags:
+    if OpenFlags.Inherit notin flags:
       cflags = cflags or O_CLOEXEC
     if OpenFlags.NonBlock in flags:
       cflags = cflags or posix.O_NONBLOCK
@@ -807,7 +807,7 @@ proc openFile*(pathName: string, flags: set[OpenFlags],
 
     var sa = SECURITY_ATTRIBUTES(
       nLength: uint32(sizeof(SECURITY_ATTRIBUTES)),
-      bInheritHandle: 1
+      bInheritHandle: 0
     )
 
     if (OpenFlags.Write in flags) and (OpenFlags.Read in flags):
@@ -840,8 +840,8 @@ proc openFile*(pathName: string, flags: set[OpenFlags],
       dwFlags = dwFlags or FILE_FLAG_OVERLAPPED
     if OpenFlags.Direct in flags:
       dwFlags = dwFlags or FILE_FLAG_NO_BUFFERING
-    if OpenFlags.NoInherit in flags:
-      sa.bInheritHandle = 0
+    if OpenFlags.Inherit in flags:
+      sa.bInheritHandle = 1
 
     let res = createFileW(newWideCString(pathName), dwAccess, dwShareMode,
                           sa, dwCreation, dwFlags, 0'u32)
