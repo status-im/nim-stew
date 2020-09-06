@@ -156,7 +156,184 @@ suite "OS Input/Output procedures test suite":
       checkPermissions("testblob0", 0o777) == true
       removeFile("testblob0").isOk()
 
-  test "writeFile()/readAllFile() test":
+  test "setPermissions(handle)/getPermissions(handle)":
+    proc performTest(pathName: string,
+                     permissions: int): IoResult[int] =
+      let msg = "BLOCK"
+      let flags = {OpenFlags.Write, OpenFlags.Truncate, OpenFlags.Create}
+      let handle = ? openFile(pathName, flags)
+      let wcount {.used.} = ? writeFile(handle, msg)
+      let oldPermissions = ? getPermissions(handle)
+      ? setPermissions(handle, permissions)
+      let permissions = ? getPermissions(handle)
+      ? setPermissions(handle, oldPermissions)
+      ? closeFile(handle)
+      ? removeFile(pathName)
+      ok(permissions)
+
+    let r000 = performTest("testblob0", 0o000)
+
+    let r100 = performTest("testblob0", 0o100)
+    let r200 = performTest("testblob0", 0o200)
+    let r300 = performTest("testblob0", 0o300)
+    let r400 = performTest("testblob0", 0o400)
+    let r500 = performTest("testblob0", 0o500)
+    let r600 = performTest("testblob0", 0o600)
+    let r700 = performTest("testblob0", 0o700)
+
+    let r010 = performTest("testblob0", 0o010)
+    let r020 = performTest("testblob0", 0o020)
+    let r030 = performTest("testblob0", 0o030)
+    let r040 = performTest("testblob0", 0o040)
+    let r050 = performTest("testblob0", 0o050)
+    let r060 = performTest("testblob0", 0o060)
+    let r070 = performTest("testblob0", 0o070)
+
+    let r001 = performTest("testblob0", 0o001)
+    let r002 = performTest("testblob0", 0o002)
+    let r003 = performTest("testblob0", 0o003)
+    let r004 = performTest("testblob0", 0o004)
+    let r005 = performTest("testblob0", 0o005)
+    let r006 = performTest("testblob0", 0o006)
+    let r007 = performTest("testblob0", 0o007)
+
+    when defined(windows):
+      check:
+        r000.tryGet() == 0o555
+        r100.tryGet() == 0o555
+        r200.tryGet() == 0o777
+        r300.tryGet() == 0o777
+        r400.tryGet() == 0o555
+        r500.tryGet() == 0o555
+        r600.tryGet() == 0o777
+        r700.tryGet() == 0o777
+        r010.tryGet() == 0o555
+        r020.tryGet() == 0o777
+        r030.tryGet() == 0o777
+        r040.tryGet() == 0o555
+        r050.tryGet() == 0o555
+        r060.tryGet() == 0o777
+        r070.tryGet() == 0o777
+        r001.tryGet() == 0o555
+        r002.tryGet() == 0o777
+        r003.tryGet() == 0o777
+        r004.tryGet() == 0o555
+        r005.tryGet() == 0o555
+        r006.tryGet() == 0o777
+        r007.tryGet() == 0o777
+    else:
+      check:
+        r000.tryGet() == 0o000
+        r100.tryGet() == 0o100
+        r200.tryGet() == 0o200
+        r300.tryGet() == 0o300
+        r400.tryGet() == 0o400
+        r500.tryGet() == 0o500
+        r600.tryGet() == 0o600
+        r700.tryGet() == 0o700
+        r010.tryGet() == 0o010
+        r020.tryGet() == 0o020
+        r030.tryGet() == 0o030
+        r040.tryGet() == 0o040
+        r050.tryGet() == 0o050
+        r060.tryGet() == 0o060
+        r070.tryGet() == 0o070
+        r001.tryGet() == 0o001
+        r002.tryGet() == 0o002
+        r003.tryGet() == 0o003
+        r004.tryGet() == 0o004
+        r005.tryGet() == 0o005
+        r006.tryGet() == 0o006
+        r007.tryGet() == 0o007
+
+  test "setPermissions(path)/getPermissions(path)":
+    proc performTest(pathName: string,
+                     permissions: int): IoResult[int] =
+      let msg = "BLOCK"
+      ? io2.writeFile(pathName, msg)
+      let oldPermissions = ? getPermissions(pathName)
+      ? setPermissions(pathName, permissions)
+      let permissions = ? getPermissions(pathName)
+      ? setPermissions(pathName, oldPermissions)
+      ? removeFile(pathName)
+      ok(permissions)
+
+    let r000 = performTest("testblob1", 0o000)
+
+    let r100 = performTest("testblob1", 0o100)
+    let r200 = performTest("testblob1", 0o200)
+    let r300 = performTest("testblob1", 0o300)
+    let r400 = performTest("testblob1", 0o400)
+    let r500 = performTest("testblob1", 0o500)
+    let r600 = performTest("testblob1", 0o600)
+    let r700 = performTest("testblob1", 0o700)
+
+    let r010 = performTest("testblob1", 0o010)
+    let r020 = performTest("testblob1", 0o020)
+    let r030 = performTest("testblob1", 0o030)
+    let r040 = performTest("testblob1", 0o040)
+    let r050 = performTest("testblob1", 0o050)
+    let r060 = performTest("testblob1", 0o060)
+    let r070 = performTest("testblob1", 0o070)
+
+    let r001 = performTest("testblob1", 0o001)
+    let r002 = performTest("testblob1", 0o002)
+    let r003 = performTest("testblob1", 0o003)
+    let r004 = performTest("testblob1", 0o004)
+    let r005 = performTest("testblob1", 0o005)
+    let r006 = performTest("testblob1", 0o006)
+    let r007 = performTest("testblob1", 0o007)
+
+    when defined(windows):
+      check:
+        r000.tryGet() == 0o555
+        r100.tryGet() == 0o555
+        r200.tryGet() == 0o777
+        r300.tryGet() == 0o777
+        r400.tryGet() == 0o555
+        r500.tryGet() == 0o555
+        r600.tryGet() == 0o777
+        r700.tryGet() == 0o777
+        r010.tryGet() == 0o555
+        r020.tryGet() == 0o777
+        r030.tryGet() == 0o777
+        r040.tryGet() == 0o555
+        r050.tryGet() == 0o555
+        r060.tryGet() == 0o777
+        r070.tryGet() == 0o777
+        r001.tryGet() == 0o555
+        r002.tryGet() == 0o777
+        r003.tryGet() == 0o777
+        r004.tryGet() == 0o555
+        r005.tryGet() == 0o555
+        r006.tryGet() == 0o777
+        r007.tryGet() == 0o777
+    else:
+      check:
+        r000.tryGet() == 0o000
+        r100.tryGet() == 0o100
+        r200.tryGet() == 0o200
+        r300.tryGet() == 0o300
+        r400.tryGet() == 0o400
+        r500.tryGet() == 0o500
+        r600.tryGet() == 0o600
+        r700.tryGet() == 0o700
+        r010.tryGet() == 0o010
+        r020.tryGet() == 0o020
+        r030.tryGet() == 0o030
+        r040.tryGet() == 0o040
+        r050.tryGet() == 0o050
+        r060.tryGet() == 0o060
+        r070.tryGet() == 0o070
+        r001.tryGet() == 0o001
+        r002.tryGet() == 0o002
+        r003.tryGet() == 0o003
+        r004.tryGet() == 0o004
+        r005.tryGet() == 0o005
+        r006.tryGet() == 0o006
+        r007.tryGet() == 0o007
+
+  test "writeFile()/read[File(),AllBytes(),AllChars(),AllFile()] test":
     check:
       writeFile("testblob1", "BLOCK1", 0o600).isOk()
       writeFile("testblob2", "BLOCK2", 0o660).isOk()
@@ -170,12 +347,38 @@ suite "OS Input/Output procedures test suite":
       checkPermissions("testblob4", 0o700) == true
       checkPermissions("testblob5", 0o770) == true
       checkPermissions("testblob6", 0o777) == true
-      cast[string](readAllFile("testblob1").tryGet()) == "BLOCK1"
-      cast[string](readAllFile("testblob2").tryGet()) == "BLOCK2"
-      cast[string](readAllFile("testblob3").tryGet()) == "BLOCK3"
-      cast[string](readAllFile("testblob4").tryGet()) == "BLOCK4"
-      cast[string](readAllFile("testblob5").tryGet()) == "BLOCK5"
-      cast[string](readAllFile("testblob6").tryGet()) == "BLOCK6"
+    check:
+      readAllChars("testblob1").tryGet() == "BLOCK1"
+    block:
+      # readFile(path, var openArray[byte])
+      var data = newSeq[byte](6)
+      check:
+        readFile("testblob2", data.toOpenArray(0, len(data) - 1)).tryGet() ==
+          6'u
+        data == @[66'u8, 76'u8, 79'u8, 67'u8, 75'u8, 50'u8]
+    block:
+      # readFile(path, var openArray[char])
+      var data = newString(6)
+      check:
+        readFile("testblob3", data.toOpenArray(0, len(data) - 1)).tryGet() ==
+          6'u
+        data == "BLOCK3"
+    block:
+      # readFile(path, var seq[byte])
+      var data: seq[byte]
+      check:
+        readFile("testblob4", data).isOk()
+        data == @[66'u8, 76'u8, 79'u8, 67'u8, 75'u8, 52'u8]
+    block:
+      # readFile(path, var string)
+      var data: string
+      check:
+        readFile("testblob5", data).isOk()
+        data == "BLOCK5"
+    check:
+      readAllBytes("testblob6").tryGet() ==
+        @[66'u8, 76'u8, 79'u8, 67'u8, 75'u8, 54'u8]
+    check:
       removeFile("testblob1").isOk()
       removeFile("testblob2").isOk()
       removeFile("testblob3").isOk()
@@ -222,3 +425,86 @@ suite "OS Input/Output procedures test suite":
       {UserExec, GroupExec, OtherExec}.toString() == "0111 (--x--x--x)"
       {UserRead .. OtherExec}.toString() == "0777 (rwxrwxrwx)"
       emptyMask.toString() == "0000 (---------)"
+
+  test "toInt(set[Permission]) test":
+    let emptyMask: set[Permission] = {}
+    check:
+      {UserRead, UserWrite, UserExec}.toInt() == 0o700
+      {GroupRead, GroupWrite, GroupExec}.toInt() == 0o070
+      {OtherRead, OtherWrite, OtherExec}.toInt() == 0o007
+      {UserExec, GroupExec, OtherExec}.toInt() == 0o111
+      {UserRead .. OtherExec}.toInt() == 0o777
+      emptyMask.toInt() == 0o000
+
+  test "set[Permission].toSet(int) test":
+    check:
+      0o700.toSet() == {UserRead, UserWrite, UserExec}
+      0o070.toSet() == {GroupRead, GroupWrite, GroupExec}
+      0o007.toSet() == {OtherRead, OtherWrite, OtherExec}
+      0o111.toSet() == {UserExec, GroupExec, OtherExec}
+      0o777.toSet() == {UserRead .. OtherExec}
+      0o000.toSet() == {}
+
+  test "getFileSize(handle)/getFileSize(path) test":
+    proc performTest(path: string): IoResult[
+                                      tuple[s0, s1, s2, s3, s4: int64]
+                                    ] =
+      let flags = {OpenFlags.Write, OpenFlags.Truncate, OpenFlags.Create}
+      let handle = ? openFile(path, flags)
+      let psize0 = ? getFileSize(path)
+      let hsize0 = ? getFileSize(handle)
+      let msg = "BLOCK"
+      discard ? io2.writeFile(handle, msg)
+      let psize1 = ? getFileSize(path)
+      let hsize1 = ? getFileSize(handle)
+      ? closeFile(handle)
+      let psize2 = ? getFileSize(path)
+      ? removeFile(path)
+      ok((psize0, hsize0, psize1, hsize1, psize2))
+
+    let res = performTest("testblob2")
+    check res.isOk()
+    let sizes = res.get()
+    when defined(windows):
+      check:
+        sizes[0] == 0'i64
+        sizes[1] == 0'i64
+        sizes[2] == 0'i64
+        sizes[3] == 5'i64
+        sizes[4] == 5'i64
+    elif defined(posix):
+      check:
+        sizes[0] == 0'i64
+        sizes[1] == 0'i64
+        sizes[2] == 5'i64
+        sizes[3] == 5'i64
+        sizes[4] == 5'i64
+
+  test "getFilePos(handle)/setFilePos(handle) test":
+    proc performTest(path: string): IoResult[
+                                      tuple[s0, s1, s2, s3, s4: int64]
+                                    ] =
+      let flags = {OpenFlags.Write, OpenFlags.Truncate, OpenFlags.Create}
+      let handle = ? openFile(path, flags)
+      let pos0 = ? getFilePos(handle)
+      let msg = "AAAAABBBBBCCCCCDDDDD"
+      discard ? io2.writeFile(handle, msg)
+      let pos1 = ? getFilePos(handle)
+      ? setFilePos(handle, 0'i64, SeekBegin)
+      let pos2 = ? getFilePos(handle)
+      ? setFilePos(handle, 10'i64, SeekCurrent)
+      let pos3 = ? getFilePos(handle)
+      ? setFilePos(handle, 0'i64, SeekEnd)
+      let pos4 = ? getFilePos(handle)
+      ? closeFile(handle)
+      ? removeFile(path)
+      ok((pos0, pos1, pos2, pos3, pos4))
+    let res = performTest("testblob3")
+    check res.isOk()
+    let positions = res.get()
+    check:
+      positions[0] == 0'i64
+      positions[1] == 20'i64
+      positions[2] == 0'i64
+      positions[3] == 10'i64
+      positions[4] == 20'i64

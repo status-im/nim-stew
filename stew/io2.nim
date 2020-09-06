@@ -32,17 +32,22 @@ when defined(windows):
     FILE_ATTRIBUTE_DIRECTORY = 0x00000010'u32
 
     INVALID_HANDLE_VALUE = cast[uint](-1)
+    INVALID_FILE_SIZE = cast[uint32](-1)
     INVALID_FILE_ATTRIBUTES = cast[uint32](-1)
     MAX_PATH = 260
 
     ERROR_ALREADY_EXISTS = 183'u32
     ERROR_FILE_NOT_FOUND = 2'u32
-    # ERROR_PATH_NOT_FOUND = 3'u32
-    # ERROR_INSUFFICIENT_BUFFER = 122'u32
+
+    FILE_BEGIN = 0'u32
+    FILE_CURRENT = 1'u32
+    FILE_END = 2'u32
 
     DirSep* = '\\'
     AltSep* = '/'
     BothSeps* = {DirSep, AltSep}
+
+    FileBasicInfoClass = 0'u32
 
   type
     IoErrorCode* = distinct uint32
@@ -52,6 +57,41 @@ when defined(windows):
       nLength: uint32
       lpSecurityDescriptor: pointer
       bInheritHandle: int32
+
+    FILETIME {.final, pure.} = object
+      dwLowDateTime: uint32
+      dwHighDateTime: uint32
+
+    WIN32_FIND_DATAW {.final, pure.} = object
+      dwFileAttributes: uint32
+      ftCreationTime: FILETIME
+      ftLastAccessTime: FILETIME
+      ftLastWriteTime: FILETIME
+      nFileSizeHigh: uint32
+      nFileSizeLow: uint32
+      dwReserved0: uint32
+      dwReserved1: uint32
+      cFileName: array[MAX_PATH, Utf16Char]
+      cAlternateFileName: array[14, Utf16Char]
+
+    BY_HANDLE_FILE_INFORMATION {.final, pure.} = object
+      dwFileAttributes: uint32
+      ftCreationTime: FILETIME
+      ftLastAccessTime: FILETIME
+      ftLastWriteTime: FILETIME
+      dwVolumeSerialNumber: uint32
+      nFileSizeHigh: uint32
+      nFileSizeLow: uint32
+      nNumberOfLinks: uint32
+      nFileIndexHigh: uint32
+      nFileIndexLow: uint32
+
+    FILE_BASIC_INFO {.final, pure.} = object
+      creationTime: uint64
+      lastAccessTime: uint64
+      lastWriteTime: uint64
+      changeTime: uint64
+      fileAttributes: uint32
 
   proc getLastError(): uint32 {.
        importc: "GetLastError", stdcall, dynlib: "kernel32", sideEffect.}
@@ -94,17 +134,34 @@ when defined(windows):
        importc: "FormatMessageW", stdcall, dynlib: "kernel32".}
   proc localFree(p: pointer): uint {.
        importc: "LocalFree", stdcall, dynlib: "kernel32".}
-  # proc getTempPathW(nBufferLength: uint32, lpBuffer: WideCString): uint32 {.
-  #      importc: "GetTempPathW", dynlib: "kernel32", stdcall.}
-  # proc getUserProfileDirectoryW(hToken: uint, lpProfileDir: WideCString,
-  #                               lpcchSize: var uint32): uint32 {.
-  #      importc: "GetUserProfileDirectoryW", dynlib: "userenv.dll", stdcall.}
   proc getLongPathNameW(lpszShortPath: WideCString, lpszLongPath: WideCString,
                         cchBuffer: uint32): uint32 {.
        importc: "GetLongPathNameW", dynlib: "kernel32.dll", stdcall.}
-  # proc getCurrentProcessToken(): uint =
-  #   # (HANDLE)(LONG_PTR) -4;
-  #   cast[uint](-4)
+  proc findFirstFileW(lpFileName: WideCString,
+                      lpFindFileData: var WIN32_FIND_DATAW): uint {.
+       importc: "FindFirstFileW", dynlib: "kernel32", stdcall.}
+  proc findClose(hFindFile: uint): int32 {.
+       importc: "FindClose", dynlib: "kernel32", stdcall.}
+  proc getFileInformationByHandle(hFile: uint,
+                                 info: var BY_HANDLE_FILE_INFORMATION): int32 {.
+       importc: "GetFileInformationByHandle", dynlib: "kernel32", stdcall.}
+  proc getFileInformationByHandleEx(hFile: uint, information: uint32,
+                                    lpFileInformation: pointer,
+                                    dwBufferSize: uint32): int32 {.
+       importc: "GetFileInformationByHandleEx", dynlib: "kernel32", stdcall.}
+  proc setFileInformationByHandle(hFile: uint, information: uint32,
+                                  lpFileInformation: pointer,
+                                  dwBufferSize: uint32): int32 {.
+       importc: "SetFileInformationByHandle", dynlib: "kernel32", stdcall.}
+  proc getFileSize(hFile: uint, lpFileSizeHigh: var uint32): uint32 {.
+       importc: "GetFileSize", dynlib: "kernel32", stdcall.}
+  proc setFilePointerEx(hFile: uint, liDistanceToMove: int64,
+                        lpNewFilePointer: ptr int64,
+                        dwMoveMethod: uint32): int32 {.
+       importc: "SetFilePointerEx", dynlib: "kernel32", stdcall.}
+
+  const
+    NO_ERROR = IoErrorCode(0)
 
   proc `==`*(a: IoErrorCode, b: uint32): bool {.inline.} =
     (uint32(a) == b)
@@ -174,8 +231,16 @@ type
 
   Permissions* = set[Permission]
 
+  SeekPosition* = enum
+    SeekBegin, SeekCurrent, SeekEnd
+
   AccessFlags* {.pure.} = enum
     Find, Read, Write, Execute
+
+const
+  NimErrorCode = 100_000
+  UnsupportedFileSize* = IoErrorCode(NimErrorCode)
+  UserErrorCode* = 1_000_000
 
 proc `==`*(a, b: IoErrorCode): bool {.borrow.}
 proc `$`*(a: IoErrorCode): string {.borrow.}
@@ -199,13 +264,18 @@ proc ioLastError*(): IoErrorCode {.sideEffect.} =
 
 proc ioErrorMsg*(code: IoErrorCode): string =
   ## Converts an OS error code into a human readable string.
-  when defined(posix):
-    if code != IoErrorCode(0):
-      $c_strerror(cint(code))
+  if int(code) == 0:
+    ""
+  elif int(code) >= NimErrorCode:
+    case code
+    of UnsupportedFileSize:
+      "(" & $code & ") " & "File size is unsupported"
     else:
-      ""
-  elif defined(windows):
-    if code != IoErrorCode(0):
+      "(" & $code & ") " & "Unknown error"
+  else:
+    when defined(posix):
+      $c_strerror(cint(code))
+    elif defined(windows):
       var msgbuf: WideCString
       if formatMessageW(0x00000100'u32 or 0x00001000'u32 or 0x00000200'u32,
                         nil, uint32(code), 0, addr(msgbuf), 0, nil) != 0'u32:
@@ -215,8 +285,6 @@ proc ioErrorMsg*(code: IoErrorCode): string =
         res
       else:
         ""
-    else:
-      ""
 
 proc normPathEnd(path: var string, trailingSep: bool) =
   ## Ensures ``path`` has exactly 0 or 1 trailing `DirSep`, depending on
@@ -366,6 +434,16 @@ proc getCurrentDir*(): IoResult[string] =
       else:
         return ok(buffer$int(res))
 
+proc setUmask*(mask: int): int {.inline.} =
+  ## Procedure shall set the file mode creation mask of the process to ``mask``
+  ## and return the previous value of the ``mask``.
+  ##
+  ## Note: On Windows this is empty procedure which always returns ``0``.
+  when defined(windows):
+    0
+  else:
+    int(posix.umask(Mode(mask)))
+
 proc rawCreateDir(dir: string, mode: int = 0o755): IoResult[bool] =
   ## Attempts to create a directory named ``dir``.
   ##
@@ -385,7 +463,9 @@ proc rawCreateDir(dir: string, mode: int = 0o755): IoResult[bool] =
     else:
       let existFlags = {EEXIST}
     while true:
+      let omask = setUmask(0)
       let res = posix.mkdir(cstring(dir), Mode(mode))
+      discard setUmask(omask)
       if res == 0'i32:
         return ok(true)
       else:
@@ -527,19 +607,94 @@ proc createPath*(path: string, createMode: int = 0o755): IoResult[void] =
   ## It does **not** fail if the folder already exists because for
   ## most usages this does not indicate an error.
   let paths = getPathItems(path, true)
-  when defined(posix):
-    let oldmask = posix.umask(Mode(0))
   for item in paths:
     let res = rawCreateDir(item, createMode)
     if res.isErr():
-      when defined(posix):
-        discard posix.umask(oldmask)
       return err(res.error)
   ok()
 
+proc toSet*(mask: int): Permissions =
+  ## Converts permissions mask's integer to set of ``Permission``.
+  var res: Permissions
+  when defined(posix):
+    if (mask and S_IRUSR) != 0: res.incl(UserRead)
+    if (mask and S_IWUSR) != 0: res.incl(UserWrite)
+    if (mask and S_IXUSR) != 0: res.incl(UserExec)
+    if (mask and S_IRGRP) != 0: res.incl(GroupRead)
+    if (mask and S_IWGRP) != 0: res.incl(GroupWrite)
+    if (mask and S_IXGRP) != 0: res.incl(GroupExec)
+    if (mask and S_IROTH) != 0: res.incl(OtherRead)
+    if (mask and S_IWOTH) != 0: res.incl(OtherWrite)
+    if (mask and S_IXOTH) != 0: res.incl(OtherExec)
+    res
+  elif defined(windows):
+    if (mask and 0o400) != 0: res.incl(UserRead)
+    if (mask and 0o200) != 0: res.incl(UserWrite)
+    if (mask and 0o100) != 0: res.incl(UserExec)
+    if (mask and 0o40) != 0: res.incl(GroupRead)
+    if (mask and 0o20) != 0: res.incl(GroupWrite)
+    if (mask and 0o10) != 0: res.incl(GroupExec)
+    if (mask and 0o4) != 0: res.incl(OtherRead)
+    if (mask and 0o2) != 0: res.incl(OtherWrite)
+    if (mask and 0o1) != 0: res.incl(OtherExec)
+    res
+
+proc toInt*(mask: Permissions): int =
+  ## Converts set of ``Permission`` to permissions mask's integer.
+  var rnum = 0
+  when defined(windows):
+    if UserRead in mask:
+      rnum = rnum or 0o400
+    if UserWrite in mask:
+      rnum = rnum or 0o200
+    if UserExec in mask:
+      rnum = rnum or 0o100
+    if GroupRead in mask:
+      rnum = rnum or 0o40
+    if GroupWrite in mask:
+      rnum = rnum or 0o20
+    if GroupExec in mask:
+      rnum = rnum or 0o10
+    if OtherRead in mask:
+      rnum = rnum or 0o4
+    if OtherWrite in mask:
+      rnum = rnum or 0o2
+    if OtherExec in mask:
+      rnum = rnum or 0o1
+    rnum
+  elif defined(posix):
+    if UserRead in mask:
+      rnum = rnum or S_IRUSR
+    if UserWrite in mask:
+      rnum = rnum or S_IWUSR
+    if UserExec in mask:
+      rnum = rnum or S_IXUSR
+    if GroupRead in mask:
+      rnum = rnum or S_IRGRP
+    if GroupWrite in mask:
+      rnum = rnum or S_IWGRP
+    if GroupExec in mask:
+      rnum = rnum or S_IXGRP
+    if OtherRead in mask:
+      rnum = rnum or S_IROTH
+    if OtherWrite in mask:
+      rnum = rnum or S_IWOTH
+    if OtherExec in mask:
+      rnum = rnum or S_IXOTH
+    rnum
+  else:
+    0o777
+
 proc getPermissions*(pathName: string): IoResult[int] =
   ## Retreive permissions of file/folder ``pathName`` and return it as integer.
-  when defined(windows):
+  when defined(posix):
+    var a: posix.Stat
+    let res = posix.stat(pathName, a)
+    if res == 0:
+      ok(int(a.st_mode) and 0o777)
+    else:
+      err(ioLastError())
+  elif defined(windows):
     let res = getFileAttributes(newWideCString(pathName))
     if res == INVALID_FILE_ATTRIBUTES:
       err(ioLastError())
@@ -548,15 +703,48 @@ proc getPermissions*(pathName: string): IoResult[int] =
         ok(0o555)
       else:
         ok(0o777)
-  elif defined(posix):
-    var a: posix.Stat
-    let res = posix.stat(pathName, a)
+  else:
+    ok(0o777)
+
+proc getPermissions*(handle: IoHandle): IoResult[int] =
+  ## Retrieve permissions for file descriptor ``handle`` and return it as
+  ## integer.
+  when defined(posix):
+    var statbuf: posix.Stat
+    let res = posix.fstat(cint(handle), statbuf)
     if res == 0:
-      ok(int(a.st_mode) and 0o777)
+      ok(int(statbuf.st_mode) and 0o777)
+    else:
+      err(ioLastError())
+  elif defined(windows):
+    var info: BY_HANDLE_FILE_INFORMATION
+    let res = getFileInformationByHandle(uint(handle), info)
+    if res != 0:
+      let attr = info.dwFileAttributes
+      if (attr and FILE_ATTRIBUTE_READONLY) == FILE_ATTRIBUTE_READONLY:
+        ok(0o555)
+      else:
+        ok(0o777)
     else:
       err(ioLastError())
   else:
     ok(0o777)
+
+proc getPermissionsSet*(pathName: string): IoResult[Permissions] =
+  ## Retreive permissions of file/folder ``pathName`` and return set of
+  ## ``Permission`.
+  let mask = ? getPermissions(pathName)
+  when defined(windows) or defined(posix):
+    ok(mask.toSet())
+  else:
+    ok({UserRead .. OtherExec})
+
+proc getPermissionsSet*(handle: IoHandle): IoResult[Permissions] =
+  let mask = ? getPermissions(handle)
+  when defined(windows) or defined(posix):
+    ok(mask.toSet())
+  else:
+    ok({UserRead .. OtherExec})
 
 proc setPermissions*(pathName: string, mask: int): IoResult[void] =
   ## Set permissions for file/folder ``pathame``.
@@ -567,7 +755,7 @@ proc setPermissions*(pathName: string, mask: int): IoResult[void] =
     else:
       let nmask =
         if (mask and 0o222) == 0:
-          gres and uint32(FILE_ATTRIBUTE_READONLY)
+          gres or uint32(FILE_ATTRIBUTE_READONLY)
         else:
           gres and not(FILE_ATTRIBUTE_READONLY)
       let sres = setFileAttributes(newWideCString(pathName), nmask)
@@ -577,7 +765,9 @@ proc setPermissions*(pathName: string, mask: int): IoResult[void] =
         ok()
   elif defined(posix):
     while true:
+      let omask = setUmask(0)
       let res = posix.chmod(pathName, Mode(mask))
+      discard setUmask(omask)
       if res == 0:
         return ok()
       else:
@@ -586,6 +776,52 @@ proc setPermissions*(pathName: string, mask: int): IoResult[void] =
           continue
         else:
           return err(errCode)
+
+proc setPermissions*(handle: IoHandle, mask: int): IoResult[void] =
+  ## Set permissions for handle ``handle``.
+  when defined(posix):
+    while true:
+      let omask = setUmask(0)
+      let res = posix.fchmod(cint(handle), Mode(mask))
+      discard setUmask(omask)
+      if res == 0:
+        return ok()
+      else:
+        let errCode = ioLastError()
+        if errCode == EINTR:
+          continue
+        else:
+          return err(errCode)
+  elif defined(windows):
+    var info: FILE_BASIC_INFO
+    let infoSize = uint32(sizeof(FILE_BASIC_INFO))
+
+    let gres = getFileInformationByHandleEx(uint(handle),
+                                            FileBasicInfoClass,
+                                            cast[pointer](addr info), infoSize)
+    if gres == 0:
+      err(ioLastError())
+    else:
+      info.fileAttributes =
+        if (mask and 0o222) == 0:
+          info.fileAttributes or uint32(FILE_ATTRIBUTE_READONLY)
+        else:
+          info.fileAttributes and not(FILE_ATTRIBUTE_READONLY)
+      let sres = setFileInformationByHandle(uint(handle),
+                                            FileBasicInfoClass,
+                                            cast[pointer](addr info), infoSize)
+      if sres == 0:
+        err(ioLastError())
+      else:
+        ok()
+
+proc setPermissions*(pathName: string, mask: Permissions): IoResult[void] =
+  ## Set permissions for file/folder ``pathame`` using mask ``mask``.
+  setPermissions(pathName, mask.toInt())
+
+proc setPermissions*(handle: IoHandle, mask: Permissions): IoResult[void] =
+  ## Set permissions for file descriptor ``handle`` using mask ``mask``.
+  setPermissions(handle, mask.toInt())
 
 proc fileAccessible*(pathName: string, mask: set[AccessFlags]): bool =
   ## Checks the file ``pathName`` for accessibility according to the bit
@@ -616,80 +852,7 @@ proc fileAccessible*(pathName: string, mask: set[AccessFlags]): bool =
         return true
     return true
 
-proc getPermissionsSet*(pathName: string): IoResult[set[Permission]] =
-  ## Retreive permissions of file/folder ``pathName`` and return set of
-  ## ``Permission`.
-  let mask = ? getPermissions(pathName)
-  when defined(windows):
-    if mask == 0o555:
-      ok({UserRead, UserExec, GroupRead, GroupExec, OtherRead, OtherExec})
-    else:
-      ok({UserRead .. OtherExec})
-  elif defined(posix):
-    var res: set[Permission]
-    if (mask and S_IRUSR) != 0: res.incl(UserRead)
-    if (mask and S_IWUSR) != 0: res.incl(UserWrite)
-    if (mask and S_IXUSR) != 0: res.incl(UserExec)
-
-    if (mask and S_IRGRP) != 0: res.incl(GroupRead)
-    if (mask and S_IWGRP) != 0: res.incl(GroupWrite)
-    if (mask and S_IXGRP) != 0: res.incl(GroupExec)
-
-    if (mask and S_IROTH) != 0: res.incl(OtherRead)
-    if (mask and S_IWOTH) != 0: res.incl(OtherWrite)
-    if (mask and S_IXOTH) != 0: res.incl(OtherExec)
-    ok(res)
-  else:
-    ok({UserRead .. OtherExec})
-
-proc setPermissions*(pathName: string, mask: set[Permission]): IoResult[void] =
-  ## Set permissions for file/folder ``pathame`` using mask ``mask``.
-  when defined(windows):
-    var rnum = 0
-    if UserRead in mask:
-      rnum = rnum or 0o400
-    if UserWrite in mask:
-      rnum = rnum or 0o200
-    if UserExec in mask:
-      rnum = rnum or 0o100
-    if GroupRead in mask:
-      rnum = rnum or 0o40
-    if GroupWrite in mask:
-      rnum = rnum or 0o20
-    if GroupExec in mask:
-      rnum = rnum or 0o10
-    if OtherRead in mask:
-      rnum = rnum or 0o4
-    if OtherWrite in mask:
-      rnum = rnum or 0o2
-    if OtherExec in mask:
-      rnum = rnum or 0o1
-    setPermissions(pathName, rnum)
-  elif defined(posix):
-    var rnum = 0
-    if UserRead in mask:
-      rnum = rnum or S_IRUSR
-    if UserWrite in mask:
-      rnum = rnum or S_IWUSR
-    if UserExec in mask:
-      rnum = rnum or S_IXUSR
-    if GroupRead in mask:
-      rnum = rnum or S_IRGRP
-    if GroupWrite in mask:
-      rnum = rnum or S_IWGRP
-    if GroupExec in mask:
-      rnum = rnum or S_IXGRP
-    if OtherRead in mask:
-      rnum = rnum or S_IROTH
-    if OtherWrite in mask:
-      rnum = rnum or S_IWOTH
-    if OtherExec in mask:
-      rnum = rnum or S_IXOTH
-    setPermissions(pathName, rnum)
-  else:
-    ok()
-
-proc toString*(mask: set[Permission]): string =
+proc toString*(mask: Permissions): string =
   ## Return mask representation as human-readable string in format
   ## "0xxx (---------)" where `xxx` is numeric representation of permissions.
   var rnum = 0
@@ -734,17 +897,17 @@ proc checkPermissions*(pathName: string, mask: int): bool =
   when defined(windows):
     true
   elif defined(posix):
-    var a: posix.Stat
-    let res = posix.stat(pathName, a)
+    var statbuf: posix.Stat
+    let res = posix.stat(pathName, statbuf)
     if res == 0:
-      (int(a.st_mode) and 0o777) == mask
+      (int(statbuf.st_mode) and 0o777) == mask
     else:
       false
   else:
     true
 
 proc openFile*(pathName: string, flags: set[OpenFlags],
-               createMode: int = 0o666): IoResult[IoHandle] =
+               createMode: int = 0o644): IoResult[IoHandle] =
   when defined(posix):
     var cflags: cint
 
@@ -774,7 +937,9 @@ proc openFile*(pathName: string, flags: set[OpenFlags],
       cflags = cflags or posix.O_NONBLOCK
 
     while true:
+      let omask = setUmask(0)
       let ores = posix.open(cstring(pathName), cflags, Mode(createMode))
+      discard setUmask(omask)
       if ores == -1:
         let errCode = ioLastError()
         if errCode == EINTR:
@@ -866,7 +1031,7 @@ proc closeFile*(handle: IoHandle): IoResult[void] =
       ok()
 
 proc writeFile*(handle: IoHandle,
-                data: openarray[byte]): IoResult[uint] =
+                data: openArray[byte]): IoResult[uint] =
   ## Write ``data`` bytes to file descriptor ``handle``.
   ##
   ## Returns number of bytes written.
@@ -897,14 +1062,14 @@ proc writeFile*(handle: IoHandle,
       ok(0)
 
 proc writeFile*(handle: IoHandle,
-                data: openarray[char]): IoResult[uint] {.inline.} =
+                data: openArray[char]): IoResult[uint] {.inline.} =
   ## Write ``data`` characters to file descriptor ``handle``.
   ##
   ## Returns number of characters written.
   writeFile(handle, data.toOpenArrayByte(0, len(data) - 1))
 
 proc readFile*(handle: IoHandle,
-               data: var openarray[byte]): IoResult[uint] =
+               data: var openArray[byte]): IoResult[uint] =
   ## Reads ``len(data)`` bytes from file descriptor ``handle`` and store this
   ## bytes to ``data``.
   ##
@@ -936,14 +1101,14 @@ proc readFile*(handle: IoHandle,
       ok(0)
 
 proc readFile*(handle: IoHandle,
-               data: var openarray[char]): IoResult[uint] {.inline.} =
+               data: var openArray[char]): IoResult[uint] {.inline.} =
   ## Reads ``len(data)`` characters from file descriptor ``handle`` and store
   ## this characters to ``data``.
   ##
   ## Returns number of bytes characters read from file descriptor.
   readFile(handle, data.toOpenArrayByte(0, len(data) - 1))
 
-proc writeFile*(pathName: string, data: openarray[byte],
+proc writeFile*(pathName: string, data: openArray[byte],
                 createMode: int = 0o644): IoResult[void] =
   ## Opens a file named ``pathName`` for writing. Then writes the
   ## content ``data`` completely to the file and closes the file afterwards.
@@ -973,7 +1138,11 @@ proc writeFile*(pathName: string, data: openarray[byte],
   ? closeFile(handle)
   ok()
 
-proc writeFile*(pathName: string, data: openarray[char],
+when defined(windows):
+  template makeInt64(a, b: uint32): int64 =
+    (int64(a and 0x7FFF_FFFF'u32) shl 32) or int64(b and 0xFFFF_FFFF'u32)
+
+proc writeFile*(pathName: string, data: openArray[char],
                 createMode: int = 0o644): IoResult[void] {.inline.} =
   ## Opens a file named ``pathName`` for writing. Then writes the
   ## content ``data`` completely to the file and closes the file afterwards.
@@ -982,26 +1151,158 @@ proc writeFile*(pathName: string, data: openarray[char],
   ## ``createMode`` (default value is 0o644).
   writeFile(pathName, data.toOpenArrayByte(0, len(data) - 1), createMode)
 
-proc readAllFile*(pathName: string, blockSize = 16384'u): IoResult[seq[byte]] =
-  ## Opens a file named ``pathName`` for reading, reads all the data from
-  ## file and closes the file afterwards. Returns sequence of bytes or error.
-  doAssert(blockSize > 0'u, "blockSize must not be zero")
+proc getFileSize*(pathName: string): IoResult[int64] =
+  ## Returns size in bytes of the specified file ``pathName``.
+  when defined(posix):
+    var a: posix.Stat
+    let res = posix.stat(pathName, a)
+    if res == -1:
+      err(ioLastError())
+    else:
+      ok(int64(a.st_size))
+  elif defined(windows):
+    var wfd: WIN32_FIND_DATAW
+    let res = findFirstFileW(newWideCString(pathName), wfd)
+    if res == INVALID_HANDLE_VALUE:
+      err(ioLastError())
+    else:
+      if findClose(res) == 0:
+        err(ioLastError())
+      else:
+        ok(makeInt64(wfd.nFileSizeHigh, wfd.nFileSizeLow))
+
+proc getFileSize*(handle: IoHandle): IoResult[int64] =
+  ## Returns size in bytes of file specified by file descriptor ``handle``.
+  when defined(posix):
+    var statbuf: posix.Stat
+    let res = posix.fstat(cint(handle), statbuf)
+    if res == 0:
+      ok(int64(statbuf.st_size))
+    else:
+      err(ioLastError())
+  elif defined(windows):
+    var highPart: uint32
+    let res = getFileSize(uint(handle), highPart)
+    if res == INVALID_FILE_SIZE:
+      let errCode = ioLastError()
+      if errCode == NO_ERROR:
+        ok(makeInt64(highPart, res))
+      else:
+        err(errCode)
+    else:
+      ok(makeInt64(highPart, res))
+
+proc getFilePos*(handle: IoHandle): IoResult[int64] =
+  ## Returns current file offset for the open file associated with the file
+  ## descriptor ``handle``.
+  when defined(windows):
+    let whence = FILE_CURRENT
+    var pos: int64
+    let res = setFilePointerEx(uint(handle), 0'i64, addr pos, whence)
+    if res == 0:
+      err(ioLastError())
+    else:
+      ok(pos)
+  elif defined(posix):
+    let res = int64(posix.lseek(cint(handle), Off(0), posix.SEEK_CUR))
+    if res == -1'i64:
+      err(ioLastError())
+    else:
+      ok(int64(res))
+
+proc setFilePos*(handle: IoHandle, offset: int64,
+                 whence: SeekPosition): IoResult[void] =
+  ## Procedure shall set the file offset for the open file associated with the
+  ## file descriptor ``handle``, as follows:
+  ##   * If whence is ``SeekPosition.SeekBegin``, the file offset shall be set
+  ##     to ``offset`` bytes.
+  ##   * If whence is ``SeekPosition.SeekCur``, the file offset shall be set to
+  ##     its current location plus ``offset``.
+  ##   * If whence is ``SeekPosition.SeekEnd``, the file offset shall be set to
+  ##     the size of the file plus ``offset``.
+  when defined(windows):
+    let pos =
+      case whence
+      of SeekBegin:
+        FILE_BEGIN
+      of SeekCurrent:
+        FILE_CURRENT
+      of SeekEnd:
+        FILE_END
+    let res = setFilePointerEx(uint(handle), offset, nil, pos)
+    if res == 0:
+      err(ioLastError())
+    else:
+      ok()
+  else:
+    let pos =
+      case whence
+      of SeekBegin:
+        posix.SEEK_SET
+      of SeekCurrent:
+        posix.SEEK_CUR
+      of SeekEnd:
+        posix.SEEK_END
+    let res = int64(posix.lseek(cint(handle), Off(offset), pos))
+    if res == -1'i64:
+      err(ioLastError())
+    else:
+      ok()
+
+proc checkFileSize*(value: int64): IoResult[void] =
+  ## Checks if ``value`` fits into supported by Nim string/sequence indexing
+  ## mechanism.
+  ##
+  ## For 32bit systems the maximum value is 0x7FFF_FFFF'i64
+  ## For 64bit systems the maximum value is 0x7FFF_FFFF_FFFF_FFFF'i64
+  when sizeof(int) == 4:
+    if size > 0x7FFF_FFFF'i64:
+      err(UnsupportedFileSize)
+    else:
+      ok()
+  elif sizeof(int) == 8:
+    ok()
+
+proc readFile*[T: byte|char](pathName: string,
+                             data: var openArray[T]): IoResult[uint] =
+  ## Try to read all data from file ``pathName`` and store it to ``data``.
+  ## If size of ``data`` is not enough to store all data, only part of data
+  ## will be stored.
+  ##
+  ## Returns number of bytes read.
   let flags = {OpenFlags.Read}
   let handle = ? openFile(pathName, flags)
-  var offset = 0
-  var buffer = newSeq[byte](blockSize)
-  while true:
-    let res = readFile(handle, buffer.toOpenArray(offset, len(buffer) - 1))
-    if res.isErr():
-      # Do not care about `closeFile(handle)` error because we already in
-      # error handler.
-      discard closeFile(handle)
-      return err(res.error)
-    else:
-      offset = offset + int(res.get())
-      if res.get() != blockSize:
-        buffer.setLen(offset)
-        ? closeFile(handle)
-        return ok(buffer)
-      else:
-        buffer.setLen(len(buffer) + int(blockSize))
+  let res = readFile(handle, data)
+  if res.isErr():
+    # Do not care about `closeFile(handle)` error because we already in
+    # error handler.
+    discard closeFile(handle)
+    err(res.error)
+  else:
+    ? closeFile(handle)
+    ok(res.get())
+
+proc readFile*[T: seq[byte]|string](pathName: string,
+                                    data: var T): IoResult[void] =
+  ## Read all data from file ``pathName`` and store it to ``data``.
+  let fileSize = ? getFileSize(pathName)
+  ? checkFileSize(fileSize)
+  data.setLen(fileSize)
+  let res {.used.} = ? readFile(pathName, data.toOpenArray(0, len(data) - 1))
+  ok()
+
+proc readAllBytes*(pathName: string): IoResult[seq[byte]] =
+  ## Read all bytes/characters from file and return it as sequence of bytes.
+  var data: seq[byte]
+  ? readFile(pathName, data)
+  ok(data)
+
+proc readAllChars*(pathName: string): IoResult[string] =
+  ## Read all bytes/characters from file and return it as string.
+  var data: string
+  ? readFile(pathName, data)
+  ok(data)
+
+proc readAllFile*(pathName: string): IoResult[seq[byte]] =
+  ## Alias for ``readAllBytes()``.
+  readAllBytes(pathName)
