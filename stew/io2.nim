@@ -1253,10 +1253,10 @@ proc checkFileSize*(value: int64): IoResult[void] =
   ## Checks if ``value`` fits into supported by Nim string/sequence indexing
   ## mechanism.
   ##
-  ## For 32bit systems the maximum value is 0x7FFF_FFFF'i64
-  ## For 64bit systems the maximum value is 0x7FFF_FFFF_FFFF_FFFF'i64
+  ##   * For 32-bit systems the maximum value is 0x7FFF_FFFF'i64.
+  ##   * For 64-bit systems the maximum value is 0x7FFF_FFFF_FFFF_FFFF'i64.
   when sizeof(int) == 4:
-    if size > 0x7FFF_FFFF'i64:
+    if value > 0x7FFF_FFFF'i64:
       err(UnsupportedFileSize)
     else:
       ok()
