@@ -169,15 +169,15 @@ when (defined(gcc) or defined(llvm_gcc) or defined(clang)) and useBuiltins:
       builtin_parity(x)
 
   func firstOneBuiltin(x: SomeUnsignedInt): int =
-    when bitsof(x) == bitsof(culonglong):
-      builtin_ffsll(x)
+    when bitsof(x) == bitsof(clonglong):
+      builtin_ffsll(clonglong(x))
     else:
       builtin_ffs(x.cuint.cint)
 
   func log2truncBuiltin(v: uint8|uint16|uint32): int = 31 - builtin_clz(v.uint32)
   func log2truncBuiltin(v: uint64): int = 63 - builtin_clzll(v)
 
-elif defined(icc) and useBuiltins:
+elif defined(vcc) and useBuiltins:
   const arch64 = sizeof(int) == 8
 
   # Counts the number of one bits (population count) in a 16-, 32-, or 64-byte unsigned integer.
@@ -223,6 +223,11 @@ elif defined(icc) and useBuiltins:
     else:
       firstOneNim(v)
 
+  template bitScan(fnc: untyped, x: typed): int =
+    var index{.noinit.}: culong
+    if fnc(index.addr, v).int == 0: 0
+    else: index.int
+
   func log2truncBuiltin(v: uint8|uint16|uint32): int =
     bitScan(bitScanReverse, v.culong)
 
@@ -232,13 +237,13 @@ elif defined(icc) and useBuiltins:
     else:
       log2truncNim(v)
 
-elif defined(vcc) and useBuiltins:
+elif defined(icc) and useBuiltins:
   const arch64 = sizeof(int) == 8
 
   # Intel compiler intrinsics: http://fulla.fnal.gov/intel/compiler_c/main_cls/intref_cls/common/intref_allia_misc.htm
   # see also: https://software.intel.com/en-us/node/523362
   # Count the number of bits set to 1 in an integer a, and return that count in dst.
-  func builtin_popcnt32(x: cint): cint {.importc: "_popcnt" header: "<immintrin.h>".}
+  func builtin_popcnt32(x: cint): cint {.importc: "_popcnt32" header: "<immintrin.h>".}
 
   # Returns the number of trailing 0-bits in x, starting at the least significant bit position. If x is 0, the result is undefined.
   func bitScanForward(p: ptr uint32, b: uint32): cuchar {.importc: "_BitScanForward", header: "<immintrin.h>".}
@@ -261,7 +266,7 @@ elif defined(vcc) and useBuiltins:
     if fnc(index.addr, v).int == 0: 0
     else: index.int
 
-  func countOnesBuiltin(v: uint8|uint16|uint32): int = builtin_popcnt32(v.uint32).int
+  func countOnesBuiltin(v: uint8|uint16|uint32): int = builtin_popcnt32(v.cint).int
   func countOnesBuiltin(v: uint64): int =
     when arch64:
       builtin_popcnt64(v).int
@@ -297,7 +302,7 @@ func countOnes*(x: SomeUnsignedInt): int {.inline.} =
   when nimvm:
     countOnesNim(x)
   else:
-    when defined(countOnesBuiltin):
+    when declared(countOnesBuiltin):
       countOnesBuiltin(x)
     else:
       countOnesNim(x)
@@ -316,7 +321,7 @@ func parity*(x: SomeUnsignedInt): int {.inline.} =
   when nimvm:
     parityNim(x)
   else:
-    when defined parityBuiltin:
+    when declared(parityBuiltin):
       parityBuiltin(x)
     else:
       parityNim(x)
@@ -333,7 +338,7 @@ func firstOne*(x: SomeUnsignedInt): int {.inline.} =
   when nimvm:
     firstOneNim(x)
   else:
-    when defined(firstOneBuiltin):
+    when declared(firstOneBuiltin):
       firstOneBuiltin(x)
     else:
       firstOneNim(x)
@@ -353,7 +358,7 @@ func log2trunc*(x: SomeUnsignedInt): int {.inline.} =
     when nimvm:
       log2truncNim(x)
     else:
-      when defined(log2truncBuiltin):
+      when declared(log2truncBuiltin):
         log2truncBuiltin(x)
       else:
         log2truncNim(x)

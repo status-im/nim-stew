@@ -28,7 +28,10 @@ type
     ## * intX - over and underflow protection in nim might easily cause issues -
     ##          need to consider before adding here
 
-when defined(gcc) or defined(llvm_gcc) or defined(clang):
+const
+  useBuiltins = not defined(noIntrinsicsEndians)
+
+when (defined(gcc) or defined(llvm_gcc) or defined(clang)) and useBuiltins:
   func swapBytesBuiltin(x: uint8): uint8 = x
   func swapBytesBuiltin(x: uint16): uint16 {.
       importc: "__builtin_bswap16", nodecl.}
@@ -39,13 +42,13 @@ when defined(gcc) or defined(llvm_gcc) or defined(clang):
   func swapBytesBuiltin(x: uint64): uint64 {.
       importc: "__builtin_bswap64", nodecl.}
 
-elif defined(icc):
+elif defined(icc) and useBuiltins:
   func swapBytesBuiltin(x: uint8): uint8 = x
   func swapBytesBuiltin(a: uint16): uint16 {.importc: "_bswap16", nodecl.}
   func swapBytesBuiltin(a: uint32): uint32 {.importc: "_bswap", nodec.}
   func swapBytesBuiltin(a: uint64): uint64 {.importc: "_bswap64", nodecl.}
 
-elif defined(vcc):
+elif defined(vcc) and useBuiltins:
   func swapBytesBuiltin(x: uint8): uint8 = x
   func swapBytesBuiltin(a: uint16): uint16 {.
       importc: "_byteswap_ushort", cdecl, header: "<intrin.h>".}
@@ -82,7 +85,7 @@ func swapBytes*[T: SomeEndianInt](x: T): T {.inline.} =
   when nimvm:
     swapBytesNim(x)
   else:
-    when defined(swapBytesBuiltin):
+    when declared(swapBytesBuiltin):
       swapBytesBuiltin(x)
     else:
       swapBytesNim(x)
