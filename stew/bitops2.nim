@@ -195,16 +195,6 @@ elif defined(vcc) and useBuiltins:
     func bitScanReverse64(index: ptr culong, mask: uint64): cuchar {.importc: "_BitScanReverse64", header: "<intrin.h>".}
     func bitScanForward64(index: ptr culong, mask: uint64): cuchar {.importc: "_BitScanForward64", header: "<intrin.h>".}
 
-  template checkedScan(fnc: untyped, x: typed, def: typed): int =
-    var index{.noinit.}: culong
-    if fnc(index.addr, v) == 0: def
-    else: index.int
-
-  template checkedScan(fnc: untyped, x: typed, def: typed): int =
-    var index{.noinit.}: culong
-    discard fnc(index.addr, v)
-    index.int
-
   func countOnesBuiltin(v: uint8|uint16): int = builtin_popcnt16(v.uint16).int
   func countOnesBuiltin(v: uint32): int = builtin_popcnt32(v).int
   func countOnesBuiltin(v: uint64): int =
@@ -214,12 +204,17 @@ elif defined(vcc) and useBuiltins:
       builtin_popcnt32((v and 0xFFFFFFFF'u64).uint32).int +
         builtin_popcnt32((v shr 32'u64).uint32).int
 
+  template checkedScan(fnc: untyped, x: typed, def: typed): int =
+    var index{.noinit.}: culong
+    if fnc(index.addr, v) == cuchar(0): def
+    else: index.int
+
   func firstOneBuiltin(v: uint8|uint16|uint32): int =
     1 + checkedScan(bitScanForward, v.culong, -1)
 
   func firstOneBuiltin(v: uint64): int =
     when arch64:
-      1 + checkedScan(bitScanForward64, v.culong, -1)
+      1 + checkedScan(bitScanForward64, v.culonglong, -1)
     else:
       firstOneNim(v)
 
