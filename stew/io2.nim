@@ -1116,15 +1116,12 @@ proc writeFile*(pathName: string, data: openArray[byte],
   ## If file is not exists it will be created with permissions mask
   ## ``createMode`` (default value is 0o644).
   ##
-  ## If file is already exists, but file permissions are not equal to
-  ## ``createMode`` procedure will change permissions first and only after
-  ## success it will write data to file.
-  if fileAccessible(pathName, {AccessFlags.Find, AccessFlags.Write}):
-    let permissions = ? getPermissions(pathName)
-    if permissions != createMode:
-      ? setPermissions(pathName, createMode)
+  ## If file is already exists, it will be truncated to 0 size first,
+  ## after it will try to set permissions to ``createMode`` and only
+  ## after success it will write data ``data`` to file.
   let flags = {OpenFlags.Write, OpenFlags.Truncate, OpenFlags.Create}
   let handle = ? openFile(pathName, flags, createMode)
+  ? setPermissions(handle, createMode)
   var offset = 0
   while offset < len(data):
     let res = writeFile(handle, data.toOpenArray(offset, len(data) - 1))
