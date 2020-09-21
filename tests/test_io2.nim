@@ -436,14 +436,14 @@ suite "OS Input/Output procedures test suite":
       {UserRead .. OtherExec}.toInt() == 0o777
       emptyMask.toInt() == 0o000
 
-  test "set[Permission].toSet(int) test":
+  test "set[Permission].toPermissions(int) test":
     check:
-      0o700.toSet() == {UserRead, UserWrite, UserExec}
-      0o070.toSet() == {GroupRead, GroupWrite, GroupExec}
-      0o007.toSet() == {OtherRead, OtherWrite, OtherExec}
-      0o111.toSet() == {UserExec, GroupExec, OtherExec}
-      0o777.toSet() == {UserRead .. OtherExec}
-      0o000.toSet() == {}
+      0o700.toPermissions() == {UserRead, UserWrite, UserExec}
+      0o070.toPermissions() == {GroupRead, GroupWrite, GroupExec}
+      0o007.toPermissions() == {OtherRead, OtherWrite, OtherExec}
+      0o111.toPermissions() == {UserExec, GroupExec, OtherExec}
+      0o777.toPermissions() == {UserRead .. OtherExec}
+      0o000.toPermissions() == {}
 
   test "getFileSize(handle)/getFileSize(path) test":
     proc performTest(path: string): IoResult[

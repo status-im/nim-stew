@@ -613,7 +613,7 @@ proc createPath*(path: string, createMode: int = 0o755): IoResult[void] =
       return err(res.error)
   ok()
 
-proc toSet*(mask: int): Permissions =
+proc toPermissions*(mask: int): Permissions =
   ## Converts permissions mask's integer to set of ``Permission``.
   var res: Permissions
   when defined(posix):
@@ -735,14 +735,14 @@ proc getPermissionsSet*(pathName: string): IoResult[Permissions] =
   ## ``Permission`.
   let mask = ? getPermissions(pathName)
   when defined(windows) or defined(posix):
-    ok(mask.toSet())
+    ok(mask.toPermissions())
   else:
     ok({UserRead .. OtherExec})
 
 proc getPermissionsSet*(handle: IoHandle): IoResult[Permissions] =
   let mask = ? getPermissions(handle)
   when defined(windows) or defined(posix):
-    ok(mask.toSet())
+    ok(mask.toPermissions())
   else:
     ok({UserRead .. OtherExec})
 
