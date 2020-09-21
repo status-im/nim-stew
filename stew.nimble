@@ -12,6 +12,7 @@ requires "nim >= 1.2.0"
 task test, "Run all tests":
   exec "nim c -r --threads:off tests/all_tests"
   exec "nim c -r --threads:on -d:nimTypeNames tests/all_tests"
+  exec "nim c -r --threads:on -d:noIntrinsicsBitOpts -d:noIntrinsicsEndians tests/all_tests"
 
 task testvcc, "Run all tests with vcc compiler":
   exec "nim c -r --cc:vcc --threads:off tests/all_tests"
