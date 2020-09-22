@@ -21,4 +21,5 @@ import
   test_ptrops,
   test_results,
   test_varints,
-  test_ctops
+  test_ctops,
+  test_io2
