@@ -498,12 +498,18 @@ func expect*[T: not void, E](self: Result[T, E], m: string): T =
   ## echo r.expect("r was just set to ok(42)")
   ## ```
   if not self.o:
-    raiseResultDefect(m, self.e)
+    when E isnot void:
+      raiseResultDefect(m, self.e)
+    else:
+      raiseResultDefect(m)
   self.v
 
 func expect*[T: not void, E](self: var Result[T, E], m: string): var T =
   if not self.o:
-    raiseResultDefect(m, self.e)
+    when E isnot void:
+      raiseResultDefect(m, self.e)
+    else:
+      raiseResultDefect(m)
   self.v
 
 func `$`*(self: Result): string =
