@@ -109,12 +109,12 @@ when defined(windows):
        importc: "DeleteFileW", dynlib: "kernel32", stdcall.}
   proc closeHandle(hobj: uint): int32 {.
        importc: "CloseHandle", dynlib: "kernel32", stdcall, sideEffect.}
-  proc writeFile(hFile: uint32, lpBuffer: pointer,
+  proc writeFile(hFile: uint, lpBuffer: pointer,
                  nNumberOfBytesToWrite: uint32,
                  lpNumberOfBytesWritten: var uint32,
                  lpOverlapped: pointer): int32 {.
        importc: "WriteFile", dynlib: "kernel32", stdcall, sideEffect.}
-  proc readFile(hFile: uint32, lpBuffer: pointer,
+  proc readFile(hFile: uint, lpBuffer: pointer,
                 nNumberOfBytesToRead: uint32,
                 lpNumberOfBytesRead: var uint32,
                 lpOverlapped: pointer): int32 {.
