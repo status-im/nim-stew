@@ -260,12 +260,9 @@ elif defined(posix):
   proc isConsoleRedirected(consoleFd: cint): bool =
     ## Returns ``true`` if console handle was redirected.
     var mode: Termios
+    # This is how `isatty()` checks for TTY.
     if tcGetAttr(consoleFd, addr mode) != cint(0):
-      let errCode = ioLastError()
-      if errCode == ENOTTY:
-        true
-      else:
-        false
+      true
     else:
       false
 
