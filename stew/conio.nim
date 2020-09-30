@@ -63,7 +63,7 @@ when defined(windows):
     ENABLE_ECHO_INPUT = 0x0004'u32
     FILE_TYPE_CHAR = 0x0002'u32
 
-  proc isConsoleRedirected(hConsole: uint): bool =
+  proc isConsoleRedirected*(hConsole: uint): bool =
     ## Returns ``true`` if console handle was redirected.
     let res = getFileType(hConsole)
     if res == FILE_TYPE_CHAR:
@@ -257,7 +257,7 @@ when defined(windows):
 elif defined(posix):
   import posix, termios
 
-  proc isConsoleRedirected(consoleFd: cint): bool =
+  proc isConsoleRedirected*(consoleFd: cint): bool =
     ## Returns ``true`` if console handle was redirected.
     var mode: Termios
     # This is how `isatty()` checks for TTY.
