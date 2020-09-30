@@ -51,6 +51,8 @@ when defined(windows):
                            lpDefaultChar: pointer,
                            lpUsedDefaultChar: pointer): cint {.
        importc: "WideCharToMultiByte", stdcall, dynlib: "kernel32", sideEffect.}
+  proc getFileType(hFile: uint): uint32 {.
+       importc: "GetFileType", stdcall, dynlib: "kernel32", sideEffect.}
 
   const
     CP_UTF8 = 65001'u32
@@ -59,20 +61,17 @@ when defined(windows):
     INVALID_HANDLE_VALUE = cast[uint](-1)
     ENABLE_PROCESSED_INPUT = 0x0001'u32
     ENABLE_ECHO_INPUT = 0x0004'u32
-    ERROR_INVALID_HANDLE = 0x0006'u32
+    FILE_TYPE_CHAR = 0x0002'u32
 
   proc isConsoleRedirected(hConsole: uint): bool =
     ## Returns ``true`` if console handle was redirected.
-    var mode: uint32
-    let res = getConsoleMode(hConsole, mode)
-    if res == 0:
-      let errCode = ioLastError()
-      if errCode == ERROR_INVALID_HANDLE:
-        true
-      else:
-        false
-    else:
+    let res = getFileType(hConsole)
+    if res == FILE_TYPE_CHAR:
+      # The specified handle is a character device, typically an LPT device or a
+      # console.
       false
+    else:
+      true
 
   proc readConsoleInput(maxBytes: int): IoResult[string] =
     let hConsoleInput =
