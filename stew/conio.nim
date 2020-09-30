@@ -305,8 +305,9 @@ elif defined(posix):
         let res = read(STDIN_FILENO, cast[pointer](addr buffer[0]),
                        len(buffer))
         if res < 0:
+          let errCode = ioLastError()
           discard tcSetAttr(STDIN_FILENO, TCSADRAIN, addr(old))
-          return err(ioLastError())
+          return err(errCode)
 
         if tcSetAttr(STDIN_FILENO, TCSADRAIN, addr(old)) != cint(0):
           return err(ioLastError())
