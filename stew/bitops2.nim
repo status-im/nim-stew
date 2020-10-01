@@ -158,15 +158,15 @@ when (defined(gcc) or defined(llvm_gcc) or defined(clang)) and useBuiltins:
 
   func countOnesBuiltin(x: SomeUnsignedInt): int =
     when bitsof(x) == bitsof(culonglong):
-      builtin_popcountll(x).int
+      builtin_popcountll(x.culonglong).int
     else:
-      builtin_popcount(x).int
+      builtin_popcount(x.cuint).int
 
   func parityBuiltin(x: SomeUnsignedInt): int =
     when bitsof(x) == bitsof(culonglong):
-      builtin_parityll(x)
+      builtin_parityll(x.culonglong).int
     else:
-      builtin_parity(x)
+      builtin_parity(x.cuint).int
 
   func firstOneBuiltin(x: SomeUnsignedInt): int =
     when bitsof(x) == bitsof(clonglong):
