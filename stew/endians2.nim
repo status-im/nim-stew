@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2019 Status Research & Development GmbH
+# Copyright (c) 2018-2020 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
@@ -21,10 +21,9 @@
 {.push raises: [].}
 
 type
-  SomeEndianInt* = uint8|uint16|uint32|uint64
+  SomeEndianInt* = uint|uint8|uint16|uint32|uint64
     ## types that we support endian conversions for - uint8 is there for
     ## for syntactic / generic convenience. Other candidates:
-    ## * int/uint - uncertain size, thus less suitable for binary interop
     ## * intX - over and underflow protection in nim might easily cause issues -
     ##          need to consider before adding here
 
@@ -75,6 +74,19 @@ func swapBytesNim(x: uint64): uint64 =
 
   ((v and 0x00ff00ff00ff00ff'u64) shl 8) or
     ((v and 0xff00ff00ff00ff00'u64) shr 8)
+
+when sizeof(uint) == 4:
+  static: doAssert sizeof(uint) == sizeof(uint32)
+  type UintType = uint32
+elif sizeof(uint) == 8:
+  static: doAssert sizeof(uint) == sizeof(uint64)
+  type UintType = uint64
+else:
+  static: doAssert false, "requires a 32-bit or 64-bit platform"
+
+func swapBytesNim(x: uint): uint = swapBytesNim(x.UintType).uint
+when declared(swapBytesBuiltin):
+  func swapBytesBuiltin(x: uint): uint = swapBytesBuiltin(x.UintType).uint
 
 func swapBytes*[T: SomeEndianInt](x: T): T {.inline.} =
   ## Reverse the bytes within an integer, such that the most significant byte
