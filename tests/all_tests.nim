@@ -23,4 +23,5 @@ import
   test_varints,
   test_ctops,
   test_io2,
-  test_winacl
+  test_winacl,
+  test_utf8
