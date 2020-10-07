@@ -32,29 +32,29 @@ proc toUTF1(value: uint32): array[1, byte] =
 suite "UTF-8 validation test suite":
   test "Values [U+0000, U+007F] are allowed":
     for i in 0x00'u32 .. 0x7F'u32:
-      check validateUtf8(toUTF1(i)) == true
+      check utf8Validate(toUTF1(i)) == true
   test "Values [U+0080, U+07FF] are allowed":
     for i in 0x80'u32 .. 0x7FF'u32:
-      check validateUtf8(toUTF2(i)) == true
+      check utf8Validate(toUTF2(i)) == true
   test "Values [U+0800, U+D7FF] are allowed":
     for i in 0x800'u32 .. 0xD7FF'u32:
-      check validateUtf8(toUTF3(i)) == true
+      check utf8Validate(toUTF3(i)) == true
   test "Values [U+D800, U+DFFF] (UTF-16 surrogates) are not allowed":
     for i in 0xD800'u32 .. 0xDFFF'u32:
-      check validateUtf8(toUTF3(i)) == false
+      check utf8Validate(toUTF3(i)) == false
   test "Values [U+E000, U+FFFD] are allowed":
     for i in 0xE000'u32 .. 0xFFFD'u32:
-      check validateUtf8(toUTF3(i)) == true
+      check utf8Validate(toUTF3(i)) == true
   test "Values U+FFFE and U+FFFF are not allowed":
     check:
-      validateUtf8(toUTF3(0xFFFE'u32)) == false
-      validateUtf8(toUTF3(0xFFFF'u32)) == false
+      utf8Validate(toUTF3(0xFFFE'u32)) == false
+      utf8Validate(toUTF3(0xFFFF'u32)) == false
   test "Values [U+10000, U10FFFF] are allowed":
     for i in 0x10000'u32 .. 0x10FFFF'u32:
-      check validateUtf8(toUTF4(i)) == true
+      check utf8Validate(toUTF4(i)) == true
   test "Values bigger U+10FFFF are not allowed":
     for i in 0x11_0000'u32 .. 0x1F_FFFF'u32:
-      check validateUtf8(toUTF4(i)) == false
+      check utf8Validate(toUTF4(i)) == false
   test "fastvalidate-utf-8 bad sequences":
     # https://github.com/lemire/fastvalidate-utf-8 test vectors
     const
@@ -95,9 +95,9 @@ suite "UTF-8 validation test suite":
         "\xef\xbf"
       ]
     for item in BadSequences:
-      check validateUtf8(item) == false
+      check utf8Validate(item) == false
     for item in GoodSequences:
-      check validateUtf8(item) == true
+      check utf8Validate(item) == true
   test "UTF-8 decoder capability and stress test":
     # https://www.cl.cam.ac.uk/~mgk25/ucs/examples/UTF-8-test.txt
     const Tests2 = [
@@ -184,10 +184,136 @@ suite "UTF-8 validation test suite":
     ]
 
     for item in Tests2:
-      check validateUtf8(item[0]) == item[1]
+      check utf8Validate(item[0]) == item[1]
     for item in Tests3:
-      check validateUtf8(item[0]) == item[1]
+      check utf8Validate(item[0]) == item[1]
     for item in Tests4:
-      check validateUtf8(item[0]) == item[1]
+      check utf8Validate(item[0]) == item[1]
     for item in Tests5:
-      check validateUtf8(item[0]) == item[1]
+      check utf8Validate(item[0]) == item[1]
+
+  test "UTF-8 length() test":
+    const
+      Cyrillic = "\xd0\x9f\xd1\x80\xd0\xbe\xd0\xb3" &
+                 "\xd1\x80\xd0\xb0\xd0\xbc\xd0\xbc\xd0\xb0"
+    check:
+      utf8Length("Программа").tryGet() == 9
+      utf8Length("Программ").tryGet() == 8
+      utf8Length("Програм").tryGet() == 7
+      utf8Length("Програ").tryGet() == 6
+      utf8Length("Прогр").tryGet() == 5
+      utf8Length("Прог").tryGet() == 4
+      utf8Length("Про").tryGet() == 3
+      utf8Length("Пр").tryGet() == 2
+      utf8Length("П").tryGet() == 1
+      utf8Length("").tryGet() == 0
+      utf8Length("П⠯🤗").tryGet() == 3
+      utf8Length("⠯🤗").tryGet() == 2
+      utf8Length("🤗").tryGet() == 1
+
+    check:
+      utf8Length(Cyrillic).tryGet() == 9
+      utf8Length(Cyrillic.toOpenArray(0, len(Cyrillic) - 2)).isErr() == true
+
+  test "UTF-8 substr() test":
+    check:
+      utf8Substr("Программа", -1, -1).tryGet() == "Программа"
+      utf8Substr("Программа", 0, 0).tryGet() == "П"
+      utf8Substr("Программа", 0, 1).tryGet() == "Пр"
+      utf8Substr("Программа", 0, 2).tryGet() == "Про"
+      utf8Substr("Программа", 0, 3).tryGet() == "Прог"
+      utf8Substr("Программа", 0, 4).tryGet() == "Прогр"
+      utf8Substr("Программа", 0, 5).tryGet() == "Програ"
+      utf8Substr("Программа", 0, 6).tryGet() == "Програм"
+      utf8Substr("Программа", 0, 7).tryGet() == "Программ"
+      utf8Substr("Программа", 0, 8).tryGet() == "Программа"
+      utf8Substr("Программа", 0, 9).tryGet() == "Программа"
+      utf8Substr("Программа", 0, 10).tryGet() == "Программа"
+      utf8Substr("Программа", 0, 18).tryGet() == "Программа"
+      utf8Substr("Программа", 0, 19).tryGet() == "Программа"
+      utf8Substr("Программа", 0, 100).tryGet() == "Программа"
+      utf8Substr("Программа", 100, 0).tryGet() == ""
+      utf8Substr("Программа", 100, 100).tryGet() == ""
+      utf8Substr("Программа", 1, 1).tryGet() == "р"
+      utf8Substr("Программа", 2, 2).tryGet() == "о"
+      utf8Substr("Программа", 3, 3).tryGet() == "г"
+      utf8Substr("Программа", 4, 4).tryGet() == "р"
+      utf8Substr("Программа", 5, 5).tryGet() == "а"
+      utf8Substr("Программа", 6, 6).tryGet() == "м"
+      utf8Substr("Программа", 7, 7).tryGet() == "м"
+      utf8Substr("Программа", 8, 8).tryGet() == "а"
+      utf8Substr("Программа", 9, 9).tryGet() == ""
+      utf8Substr("Программа", 0, -1).tryGet() == "Программа"
+      utf8Substr("Программа", 1, -1).tryGet() == "рограмма"
+      utf8Substr("Программа", 2, -1).tryGet() == "ограмма"
+      utf8Substr("Программа", 3, -1).tryGet() == "грамма"
+      utf8Substr("Программа", 4, -1).tryGet() == "рамма"
+      utf8Substr("Программа", 5, -1).tryGet() == "амма"
+      utf8Substr("Программа", 6, -1).tryGet() == "мма"
+      utf8Substr("Программа", 7, -1).tryGet() == "ма"
+      utf8Substr("Программа", 8, -1).tryGet() == "а"
+      utf8Substr("Программа", 9, -1).tryGet() == ""
+
+      utf8Substr("⠯⠰⠱⠲⠳⠴⠵⠶", -1, -1).tryGet() == "⠯⠰⠱⠲⠳⠴⠵⠶"
+      utf8Substr("⠯⠰⠱⠲⠳⠴⠵⠶", 0, 0).tryGet() == "⠯"
+      utf8Substr("⠯⠰⠱⠲⠳⠴⠵⠶", 0, 1).tryGet() == "⠯⠰"
+      utf8Substr("⠯⠰⠱⠲⠳⠴⠵⠶", 0, 2).tryGet() == "⠯⠰⠱"
+      utf8Substr("⠯⠰⠱⠲⠳⠴⠵⠶", 0, 3).tryGet() == "⠯⠰⠱⠲"
+      utf8Substr("⠯⠰⠱⠲⠳⠴⠵⠶", 0, 4).tryGet() == "⠯⠰⠱⠲⠳"
+      utf8Substr("⠯⠰⠱⠲⠳⠴⠵⠶", 0, 5).tryGet() == "⠯⠰⠱⠲⠳⠴"
+      utf8Substr("⠯⠰⠱⠲⠳⠴⠵⠶", 0, 6).tryGet() == "⠯⠰⠱⠲⠳⠴⠵"
+      utf8Substr("⠯⠰⠱⠲⠳⠴⠵⠶", 0, 7).tryGet() == "⠯⠰⠱⠲⠳⠴⠵⠶"
+      utf8Substr("⠯⠰⠱⠲⠳⠴⠵⠶", 0, 8).tryGet() == "⠯⠰⠱⠲⠳⠴⠵⠶"
+      utf8Substr("⠯⠰⠱⠲⠳⠴⠵⠶", 0, 9).tryGet() == "⠯⠰⠱⠲⠳⠴⠵⠶"
+      utf8Substr("⠯⠰⠱⠲⠳⠴⠵⠶", 0, 23).tryGet() == "⠯⠰⠱⠲⠳⠴⠵⠶"
+      utf8Substr("⠯⠰⠱⠲⠳⠴⠵⠶", 0, 24).tryGet() == "⠯⠰⠱⠲⠳⠴⠵⠶"
+      utf8Substr("⠯⠰⠱⠲⠳⠴⠵⠶", 0, 100).tryGet() == "⠯⠰⠱⠲⠳⠴⠵⠶"
+      utf8Substr("⠯⠰⠱⠲⠳⠴⠵⠶", 100, 0).tryGet() == ""
+      utf8Substr("⠯⠰⠱⠲⠳⠴⠵⠶", 100, 100).tryGet() == ""
+
+      utf8Substr("🤗🤘🤙🤚🤛🤜🤝🤞🤟", -1, -1).tryGet() ==
+        "🤗🤘🤙🤚🤛🤜🤝🤞🤟"
+      utf8Substr("🤗🤘🤙🤚🤛🤜🤝🤞🤟", 0, 0).tryGet() ==
+        "🤗"
+      utf8Substr("🤗🤘🤙🤚🤛🤜🤝🤞🤟", 0, 1).tryGet() ==
+        "🤗🤘"
+      utf8Substr("🤗🤘🤙🤚🤛🤜🤝🤞🤟", 0, 2).tryGet() ==
+        "🤗🤘🤙"
+      utf8Substr("🤗🤘🤙🤚🤛🤜🤝🤞🤟", 0, 3).tryGet() ==
+        "🤗🤘🤙🤚"
+      utf8Substr("🤗🤘🤙🤚🤛🤜🤝🤞🤟", 0, 4).tryGet() ==
+        "🤗🤘🤙🤚🤛"
+      utf8Substr("🤗🤘🤙🤚🤛🤜🤝🤞🤟", 0, 5).tryGet() ==
+        "🤗🤘🤙🤚🤛🤜"
+      utf8Substr("🤗🤘🤙🤚🤛🤜🤝🤞🤟", 0, 6).tryGet() ==
+        "🤗🤘🤙🤚🤛🤜🤝"
+      utf8Substr("🤗🤘🤙🤚🤛🤜🤝🤞🤟", 0, 7).tryGet() ==
+        "🤗🤘🤙🤚🤛🤜🤝🤞"
+      utf8Substr("🤗🤘🤙🤚🤛🤜🤝🤞🤟", 0, 8).tryGet() ==
+        "🤗🤘🤙🤚🤛🤜🤝🤞🤟"
+      utf8Substr("🤗🤘🤙🤚🤛🤜🤝🤞🤟", 0, 9).tryGet() ==
+        "🤗🤘🤙🤚🤛🤜🤝🤞🤟"
+      utf8Substr("🤗🤘🤙🤚🤛🤜🤝🤞🤟", 0, 31).tryGet() ==
+        "🤗🤘🤙🤚🤛🤜🤝🤞🤟"
+      utf8Substr("🤗🤘🤙🤚🤛🤜🤝🤞🤟", 0, 32).tryGet() ==
+        "🤗🤘🤙🤚🤛🤜🤝🤞🤟"
+      utf8Substr("🤗🤘🤙🤚🤛🤜🤝🤞🤟", 0, 100).tryGet() ==
+        "🤗🤘🤙🤚🤛🤜🤝🤞🤟"
+      utf8Substr("🤗🤘🤙🤚🤛🤜🤝🤞🤟", 100, 0).tryGet() == ""
+      utf8Substr("🤗🤘🤙🤚🤛🤜🤝🤞🤟", 100, 100).tryGet() == ""
+
+  test "wcharToUtf8() tests":
+    for i in 0 ..< 0x11_0000:
+      if i != 0xFFFE and i != 0xFFFF:
+        if i < 0x10000:
+          var data16 = [uint16(i)]
+          let res = wcharToUtf8(data16)
+          check:
+            res.isOk() == true
+            utf8Validate(res.get()) == true
+
+        var data32 = [uint32(i)]
+        let res = wcharToUtf8(data32)
+        check:
+          res.isOk() == true
+          utf8Validate(res.get()) == true

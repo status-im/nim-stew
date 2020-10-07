@@ -7,8 +7,21 @@
 ## those terms.
 
 ## This module implements UTF-8 related procedures.
+import results, io2
+export results
 
-proc validateUtf8*[T: byte|char](data: openarray[T]): bool =
+type
+  UResult*[T] = Result[T, cstring]
+  Wides* = int16 | uint16 | int32 | uint32
+  Bytes* = int8 | char | uint8 | byte
+
+const
+  ErrorBufferOverflow* = cstring"Buffer is not large enough"
+  ErrorInvalidSequence* = cstring"Invalid Unicode sequence found"
+  ErrorInvalidLocale* = cstring"Could not obtain system locale"
+  ErrorNotEnoughCharacters* = cstring"Not enough characters in string"
+
+proc utf8Validate*[T: Bytes](data: openarray[T]): bool =
   ## Returns ``true`` if ``data`` is correctly UTF-8 encoded string.
   var index = 0
 
@@ -89,3 +102,236 @@ proc validateUtf8*[T: byte|char](data: openarray[T]): bool =
 
     else:
       return false
+
+proc utf8Length*[T: Bytes](data: openarray[T]): UResult[int] =
+  ## Returns number of UTF-8 encoded characters in array ``data``.
+  ##
+  ## NOTE: Validate data with `utf8Validate()` before using this procedure,
+  ## otherwise length returned by this procedure could be incorrect.
+  var index = 0
+  var size = 0
+  while index < len(data):
+    let ch = uint(data[index])
+    if ch < 0x80:
+      inc(index, 1)
+    elif (ch and 0xE0'u8) == 0xC0'u8:
+      inc(index, 2)
+    elif (ch and 0xF0'u8) == 0xE0'u8:
+      inc(index, 3)
+    elif (ch and 0xF8'u8) == 0xF0'u8:
+      inc(index, 4)
+    else:
+      return err(ErrorInvalidSequence)
+    inc(size)
+  if index == len(data):
+    ok(size)
+  else:
+    err(ErrorInvalidSequence)
+
+proc utf8Offset*[T: Bytes](data: openarray[T], index: int): UResult[int] =
+  ## Return offset in UTF-8 encoded string ``data`` for character position
+  ## ``index``.
+  if index <= 0:
+    return ok(0)
+
+  var byteIndex = 0
+  var charIndex = 0
+
+  while (byteIndex < len(data)) and (charIndex < index):
+    let ch = uint(data[byteIndex])
+    if ch < 0x80:
+      inc(byteIndex, 1)
+    elif (ch and 0xE0'u8) == 0xC0'u8:
+      inc(byteIndex, 2)
+    elif (ch and 0xF0'u8) == 0xE0'u8:
+      inc(byteIndex, 3)
+    elif (ch and 0xF8'u8) == 0xF0'u8:
+      inc(byteIndex, 4)
+    else:
+      return err(ErrorInvalidSequence)
+    inc(charIndex)
+
+  if charIndex == index:
+    ok(byteIndex)
+  else:
+    err(ErrorNotEnoughCharacters)
+
+proc utf8Substr*[T: Bytes](data: openarray[T],
+                           start, finish: int): UResult[string] =
+  ## Substring string ``data`` using starting character (not byte) index
+  ## ``start`` and terminating character (not byte) index ``finish`` and return
+  ## result string.
+  ##
+  ## ``data`` should be correct UTF-8 encoded string, because only initial
+  ## octets got validated.
+  ##
+  ## ``start`` - The starting index of the substring, any value BELOW or EQUAL
+  ## to zero will be considered as zero. If ``start`` index is not present in
+  ## string ``data`` empty string will be returned as result.
+  ##
+  ## ``finish`` - The terminating index of the substring, any value BELOW
+  ## zero will be considered as `len(data)`.
+  let soffset =
+    if start <= 0:
+      0
+    elif start >= len(data):
+      return ok("")
+    else:
+      let res = utf8Offset(data, start)
+      if res.isErr():
+        if res.error != ErrorNotEnoughCharacters:
+          return err(res.error)
+        return ok("")
+      else:
+        res.get()
+
+  let eoffset =
+    if finish < 0:
+      len(data)
+    elif finish >= len(data):
+      len(data)
+    else:
+      let res = utf8Offset(data, finish + 1)
+      if res.isErr():
+        if res.error != ErrorNotEnoughCharacters:
+          return err(res.error)
+        len(data)
+      else:
+        res.get()
+
+  var res = newString(eoffset - soffset)
+  var k = 0
+  for i in soffset ..< eoffset:
+    res[k] = cast[char](data[i])
+    inc(k)
+  ok(res)
+
+proc wcharToUtf8*[A: Wides, B: Bytes](input: openarray[A],
+                                      output: var openarray[B]): UResult[int] =
+  ## Converts WCHAR sequence ``input`` to UTF-8 array of octets ``output``.
+  ##
+  ## Procedure supports 4-byte (Linux) and 2-byte sequences (Windows) as input.
+  var offset = 0
+  for item in input:
+    let uitem = uint(item)
+    let codepoint =
+      if uitem >= 0xD800'u and uitem <= 0xDBFF'u:
+        0x10000'u + ((uitem - 0xD800'u) shl 10)
+      else:
+        if uitem >= 0xDC00'u and uitem <= 0xDFFF'u:
+          uitem - 0xDC00'u
+        else:
+          uitem
+    if codepoint <= 0x7F'u:
+      if len(output) > 0:
+        if offset < len(output):
+          output[offset] = cast[B](codepoint and 0x7F'u)
+        else:
+          return err(ErrorBufferOverflow)
+      inc(offset, 1)
+    elif codepoint <= 0x7FF'u:
+      if len(output) > 0:
+        if offset + 1 < len(output):
+          output[offset + 0] = cast[B](0xC0'u8 or
+                                       byte((codepoint shr 6) and 0x1F'u))
+          output[offset + 1] = cast[B](0x80'u8 or byte(codepoint and 0x3F'u))
+        else:
+          return err(ErrorBufferOverflow)
+      inc(offset, 2)
+    elif codepoint <= 0xFFFF'u:
+      if len(output) > 0:
+        if offset + 2 < len(output):
+          output[offset + 0] = cast[B](0xE0'u8 or
+                                       byte((codepoint shr 12) and 0x0F'u))
+          output[offset + 1] = cast[B](0x80'u8 or
+                                       byte((codepoint shr 6) and 0x3F'u))
+          output[offset + 2] = cast[B](0x80'u8 or byte(codepoint and 0x3F'u))
+        else:
+          return err(ErrorBufferOverflow)
+      inc(offset, 3)
+    elif codepoint <= 0x10FFFF'u:
+      if len(output) > 0:
+        if offset + 3 < len(output):
+          output[offset + 0] = cast[B](0xF0'u8 or
+                                       byte((codepoint shr 18) and 0x07'u))
+          output[offset + 1] = cast[B](0x80'u8 or
+                                       byte((codepoint shr 12) and 0x3F'u))
+          output[offset + 2] = cast[B](0x80'u8 or
+                                       byte((codepoint shr 6) and 0x3F'u))
+          output[offset + 3] = cast[B](0x80'u8 or byte(codepoint and 0x3F'u))
+        else:
+          return err("")
+      inc(offset, 4)
+    else:
+      return err(ErrorInvalidSequence)
+  ok(offset)
+
+proc wcharToUtf8*[T: Wides](input: openarray[T]): UResult[string] {.inline.} =
+  ## Converts wide character
+  var empty: array[0, char]
+  let size = ? wcharToUtf8(input, empty)
+  var output = newString(size)
+  let res {.used.} = ? wcharToUtf8(input, output)
+  ok(output)
+
+when defined(posix):
+  import posix
+
+  type
+    Mbstate {.importc: "mbstate_t",
+              header: "<wchar.h>", pure, final.} = object
+
+  proc mbsrtowcs(dest: pointer, src: pointer, n: csize_t,
+                 ps: ptr Mbstate): csize_t {.
+       importc, header: "<wchar.h>".}
+
+  proc mbstowcs*[A: Bytes, B: Wides](t: typedesc[B],
+                                     input: openarray[A]): UResult[seq[B]] =
+    ## Converts multibyte encoded string to OS specific wide char string.
+    ##
+    ## Note, that `input` should be `0` terminated.
+    ##
+    ## Encoding is made using `mbsrtowcs`, so procedure supports invalid
+    ## sequences and able to decoded all the characters before first invalid
+    ## character encountered.
+
+    # Without explicitely setting locale because `mbsrtowcs` will fail with
+    # EILSEQ.
+    # If locale is an empty string, "", each part of the locale that should
+    # be modified is set according to the environment variables.
+    let sres = setlocale(LC_ALL, cstring"")
+    if isNil(sres):
+      return err(ErrorInvalidLocale)
+
+    var buffer = newSeq[B](len(input))
+    if len(input) == 0:
+      return ok(buffer)
+
+    doAssert(input[^1] == A(0), "Input array should be zero-terminated")
+    var data = @input
+    var ostr = addr data[0]
+    var pstr = ostr
+    var mstate = Mbstate()
+
+    while true:
+      let res = mbsrtowcs(addr buffer[0], addr pstr, csize_t(len(buffer)),
+                          addr mstate)
+      if res == cast[csize_t](-1):
+        # If invalid multibyte sequence has been encountered, ``pstr`` is left
+        ## pointing to the invalid multibyte sequence, ``-1`` is returned, and
+        ## errno is set to EILSEQ.
+        let diff = cast[uint](pstr) - cast[uint](ostr)
+        if diff == 0:
+          return err(ErrorInvalidSequence)
+        else:
+          # We have partially decoded sequence, `diff` is position of first
+          # invalid character in sequence.
+          data[diff] = A(0x00)
+          ostr = addr data[0]
+          pstr = ostr
+          mstate = Mbstate()
+      else:
+        # Its safe to convert `csize_t` to `int` here because `len(input)`
+        # is also `int`.
+        buffer.setLen(res)
+        return ok(buffer)

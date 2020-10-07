@@ -7,7 +7,7 @@
 ## those terms.
 
 ## This module implements cross-platform console procedures.
-import io2
+import io2, utf8
 export io2
 
 when defined(windows):
@@ -62,6 +62,7 @@ when defined(windows):
     ENABLE_PROCESSED_INPUT = 0x0001'u32
     ENABLE_ECHO_INPUT = 0x0004'u32
     FILE_TYPE_CHAR = 0x0002'u32
+    ERROR_NO_UNICODE_TRANSLATION = 1113'u32
 
   proc isConsoleRedirected*(hConsole: uint): bool =
     ## Returns ``true`` if console handle was redirected.
@@ -73,7 +74,7 @@ when defined(windows):
     else:
       true
 
-  proc readConsoleInput(maxBytes: int): IoResult[string] =
+  proc readConsoleInput(maxChars: int): IoResult[string] =
     let hConsoleInput =
       block:
         let res = getStdHandle(STD_INPUT_HANDLE)
@@ -94,8 +95,9 @@ when defined(windows):
       if setConsoleCP(CP_UTF8) == 0'i32:
         return err(ioLastError())
 
-      # Allocating buffer with size equal to `maxBytes` + len(CRLF)
-      var buffer = newString(maxBytes + 2)
+      # Allocating buffer with size equal to `(maxChars + len(CRLF)) * 4`,
+      # where 4 is maximum expected size of one character (UTF8 encoding).
+      var buffer = newString((maxChars + 2) * 4)
       let bytesToRead = uint32(len(buffer))
       var bytesRead: uint32
       let rres = readFile(hConsoleInput, cast[pointer](addr buffer[0]),
@@ -109,7 +111,7 @@ when defined(windows):
         return err(ioLastError())
 
       # Truncate additional bytes from buffer.
-      buffer.setLen(int(min(bytesRead, uint32(maxBytes))))
+      buffer.setLen(int(bytesRead))
 
       # Trim CR/CRLF from buffer.
       if len(buffer) > 0:
@@ -123,7 +125,13 @@ when defined(windows):
             buffer.setLen(len(buffer) - 1)
         elif buffer[^1] == char(0x0D):
           buffer.setLen(len(buffer) - 1)
-      ok(buffer)
+
+      # Check if buffer is valid UTF-8 encoded string.
+      if utf8Validate(buffer):
+        # Cut result buffer to `maxChars` characters.
+        ok(utf8Substr(buffer, 0, maxChars - 1).get())
+      else:
+        err(IoErrorCode(ERROR_NO_UNICODE_TRANSLATION))
     else:
       let prevMode =
         block:
@@ -147,8 +155,8 @@ when defined(windows):
         discard setConsoleCP(prevInputCP)
         return err(errCode)
 
-      # Allocating buffer with size equal to `maxBytes` + len(CRLF)
-      var buffer = newSeq[Utf16Char](maxBytes + 2)
+      # Allocating buffer with size equal to `maxChars` + len(CRLF).
+      var buffer = newSeq[Utf16Char](maxChars + 2)
       let charsToRead = uint32(len(buffer))
       var charsRead: uint32
       let rres = readConsole(hConsoleInput, cast[pointer](addr buffer[0]),
@@ -170,7 +178,8 @@ when defined(windows):
         return err(ioLastError())
 
       # Truncate additional bytes from buffer.
-      buffer.setLen(int(min(charsRead, uint32(maxBytes))))
+      buffer.setLen(int(min(charsRead, uint32(maxChars))))
+
       # Truncate CRLF in result wide string.
       if len(buffer) > 0:
         if int16(buffer[^1]) == int16(0x0A):
@@ -184,7 +193,7 @@ when defined(windows):
         elif int16(buffer[^1]) == int16(0x0D):
           buffer.setLen(len(buffer) - 1)
 
-      # Convert Windows UTF-16 encoded string to UTF-8 encoded string.
+      # Convert Windows UCS-2 encoded string to UTF-8 encoded string.
       if len(buffer) > 0:
         var pwd = ""
         let bytesNeeded = wideCharToMultiByte(CP_UTF8, 0'u32, addr buffer[0],
@@ -277,61 +286,101 @@ elif defined(posix):
       else:
         ok()
 
-  proc readConsoleInput(maxBytes: int): IoResult[string] =
-    # Allocating buffer with size equal to `maxBytes` + len(LF)
-    var buffer = newString(maxBytes + 1)
-    let bytesRead =
-      if isConsoleRedirected(STDIN_FILENO):
-        let res = posix.read(STDIN_FILENO, cast[pointer](addr buffer[0]),
-                             len(buffer))
-        if res < 0:
-          return err(ioLastError())
-        res
+  proc readConsoleInput(maxChars: int): IoResult[string] =
+    # Allocating buffer with size equal to `(maxChars + len(LF)) * 4`, where
+    # 4 is maximum expected size of one character (UTF8 encoding).
+    var buffer = newString((maxChars + 1) * 4)
+
+    if isConsoleRedirected(STDIN_FILENO):
+      let bytesRead =
+        block:
+          let res = posix.read(STDIN_FILENO, cast[pointer](addr buffer[0]),
+                               len(buffer))
+          if res < 0:
+            return err(ioLastError())
+          res
+
+      # Truncate additional bytes from buffer.
+      buffer.setLen(bytesRead)
+
+      # Trim LF in result string
+      if len(buffer) > 0:
+        if buffer[^1] == char(0x0A):
+          buffer.setLen(len(buffer) - 1)
+
+      # Check if buffer is valid UTF-8 encoded string.
+      if utf8Validate(buffer):
+        # Cut result buffer to `maxChars` characters.
+        ok(utf8Substr(buffer, 0, maxChars - 1).get())
       else:
-        var cur, old: Termios
-        if tcGetAttr(STDIN_FILENO, addr cur) != cint(0):
-          return err(ioLastError())
+        err(IoErrorCode(EILSEQ))
+    else:
+      let bytesRead =
+        block:
+          var cur, old: Termios
+          if tcGetAttr(STDIN_FILENO, addr cur) != cint(0):
+            return err(ioLastError())
 
-        old = cur
-        cur.c_lflag = cur.c_lflag and not(Cflag(ECHO))
+          old = cur
+          cur.c_lflag = cur.c_lflag and not(Cflag(ECHO))
 
-        if tcSetAttr(STDIN_FILENO, TCSADRAIN, addr(cur)) != cint(0):
-          return err(ioLastError())
+          if tcSetAttr(STDIN_FILENO, TCSADRAIN, addr(cur)) != cint(0):
+            return err(ioLastError())
 
-        let res = read(STDIN_FILENO, cast[pointer](addr buffer[0]),
-                       len(buffer))
-        if res < 0:
-          let errCode = ioLastError()
-          discard tcSetAttr(STDIN_FILENO, TCSADRAIN, addr(old))
-          return err(errCode)
+          let res = read(STDIN_FILENO, cast[pointer](addr buffer[0]),
+                         len(buffer))
+          if res < 0:
+            let errCode = ioLastError()
+            discard tcSetAttr(STDIN_FILENO, TCSADRAIN, addr(old))
+            return err(errCode)
 
-        if tcSetAttr(STDIN_FILENO, TCSADRAIN, addr(old)) != cint(0):
-          return err(ioLastError())
-        res
+          if tcSetAttr(STDIN_FILENO, TCSADRAIN, addr(old)) != cint(0):
+            return err(ioLastError())
+          res
 
-    # Truncate additional bytes from buffer.
-    buffer.setLen(min(maxBytes, bytesRead))
-    # Trim LF in result string
-    if len(buffer) > 0:
-      if buffer[^1] == char(0x0A):
-        buffer.setLen(len(buffer) - 1)
-    ok(buffer)
+      # Truncate additional bytes from buffer.
+      buffer.setLen(bytesRead)
+
+      # Trim LF in result string
+      if len(buffer) > 0:
+        if buffer[^1] == char(0x0A):
+          buffer.setLen(len(buffer) - 1)
+      buffer.add(char(0x00))
+
+      # Conversion of console input into wide characters sequence.
+      let wres = mbstowcs(uint32, buffer)
+      if wres.isOk():
+        # Trim wide character sequence to `maxChars` number of characters.
+        var wbuffer = wres.get()
+        if maxChars < len(wbuffer):
+          wbuffer.setLen(maxChars)
+        # Conversion of wide characters sequence to UTF-8 encoded string.
+        let ures = wbuffer.wcharToUtf8()
+        if ures.isOk():
+          ok(ures.get())
+        else:
+          err(IoErrorCode(EILSEQ))
+      else:
+        err(IoErrorCode(EILSEQ))
 
 proc readConsolePassword*(prompt: string,
-                          maxBytes = 32768): IoResult[string] =
-  ## Reads a password from stdin without printing it with length in bytes up to
-  ## ``maxBytes``.
+                          maxChars = 32768): IoResult[string] =
+  ## Reads a password from stdin without printing it with length in characters
+  ## up to ``maxChars``.
   ##
   ## This procedure supports reading of UTF-8 encoded passwords from console or
-  ## redirected pipe. But ``maxBytes`` will limit
+  ## redirected pipe.
   ##
   ## Before reading password ``prompt`` will be printed.
   ##
-  ## Please note that ``maxBytes`` should be in range (0, 32768].
-  doAssert(maxBytes > 0 and maxBytes <= 32768,
-           "maxBytes should be integer in (0, 32768]")
+  ## Please note that ``maxChars`` should be in range (0, 32768].
+  doAssert(maxChars > 0 and maxChars <= 32768,
+           "maxChars should be integer in (0, 32768]")
   ? writeConsoleOutput(prompt)
-  let res = ? readConsoleInput(maxBytes)
+  let res = ? readConsoleInput(maxChars)
   # `\p` is platform specific newline: CRLF on Windows, LF on Unix
   ? writeConsoleOutput("\p")
   ok(res)
+
+when isMainModule:
+  echo readConsolePassword("Enter password: ", 4)
