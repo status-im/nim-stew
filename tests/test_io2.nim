@@ -508,3 +508,24 @@ suite "OS Input/Output procedures test suite":
       positions[2] == 0'i64
       positions[3] == 10'i64
       positions[4] == 20'i64
+
+  test "Windows security descriptor tests":
+    when defined(windows):
+      proc performTest(path1: string, path2: string): IoResult[bool] =
+        var sd = ? createCurrentUserOnlySecurityDescriptor()
+        # Create directory
+        ? createPath(path1, secDescriptor = sd.getDescriptor())
+        # Create file
+        ? writeFile(path2, "TESTBLOB", secDescriptor = sd.getDescriptor())
+        let res1 = ? checkCurrentUserOnlyACL(path1)
+        let res2 = ? checkCurrentUserOnlyACL(path2)
+        ? removeFile(path2)
+        ? removeDir(path1)
+        if res1 and res2:
+          ok(true)
+        else:
+          err(IoErrorCode(UserErrorCode))
+      check:
+        performTest("testblob14", "testblob15").isOk()
+    else:
+      skip()

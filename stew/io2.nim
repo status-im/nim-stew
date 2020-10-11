@@ -49,6 +49,22 @@ when defined(windows):
 
     FileBasicInfoClass = 0'u32
 
+    ERROR_INSUFFICIENT_BUFFER = 122'u32
+    TOKEN_QUERY = 0x0008'u32
+    ACL_REVISION = 0x0002'u32
+
+    STANDARD_RIGHTS_REQUIRED = 0x000F_0000'u32
+    SYNCHRONIZE = 0x0010_0000'u32
+    FILE_ALL_ACCESS = STANDARD_RIGHTS_REQUIRED or SYNCHRONIZE or 0x01FF'u32
+    OBJECT_INHERIT_ACE = 0x0000_0001'u32
+    CONTAINER_INHERIT_ACE = 0x0000_0002'u32
+    DACL_SECURITY_INFORMATION = 0x0000_0004'u32
+    PROTECTED_DACL_SECURITY_INFORMATION = 0x8000_0000'u32
+    SE_FILE_OBJECT = 0x0000_0001'u32
+    ERROR_SUCCESS = 0x0000_0000'u32
+    SECURITY_DESCRIPTOR_MIN_LENGTH = 40
+    SECURITY_DESCRIPTOR_REVISION = 1'u32
+
   type
     IoErrorCode* = distinct uint32
     IoHandle* = distinct uint
@@ -92,6 +108,39 @@ when defined(windows):
       lastWriteTime: uint64
       changeTime: uint64
       fileAttributes: uint32
+
+    ACL {.pure, final.} = object
+      aclRevision: uint8
+      sbz1: uint8
+      aclSize: uint16
+      aceCount: uint16
+      sbz2: uint16
+
+    PACL* = ptr ACL
+
+    SID* = object
+      data: seq[byte]
+
+    SD* = object
+      sddata: seq[byte]
+      acldata: seq[byte]
+
+    SID_AND_ATTRIBUTES {.pure, final.} = object
+      sid: pointer
+      attributes: uint32
+
+    TOKEN_USER {.pure, final.} = object
+      user: SID_AND_ATTRIBUTES
+
+    ACE_HEADER {.pure, final.} = object
+      aceType: byte
+      aceFlags: byte
+      aceSize: uint16
+
+    ACCESS_ALLOWED_ACE {.pure, final.} = object
+      header: ACE_HEADER
+      mask: uint32
+      sidStart: uint32
 
   proc getLastError(): uint32 {.
        importc: "GetLastError", stdcall, dynlib: "kernel32", sideEffect.}
@@ -159,7 +208,54 @@ when defined(windows):
                         lpNewFilePointer: ptr int64,
                         dwMoveMethod: uint32): int32 {.
        importc: "SetFilePointerEx", dynlib: "kernel32", stdcall.}
-
+  proc getCurrentProcess(): uint {.
+       importc: "GetCurrentProcess", stdcall, dynlib: "kernel32", sideEffect.}
+  proc getTokenInformation(tokenHandle: uint, tokenInformationClass: uint32,
+                         tokenInfo: pointer, tokenInfoLen: uint32,
+                         returnLength: var uint32): int32 {.
+       importc: "GetTokenInformation", stdcall, dynlib: "advapi32", sideEffect.}
+  proc openProcessToken(processHandle: uint, desiredAccess: uint32,
+                        tokenHandle: var uint): int32 {.
+       importc: "OpenProcessToken", stdcall, dynlib: "advapi32", sideEffect.}
+  proc equalSid(pSid1: pointer, pSid2: pointer): int32 {.
+       importc: "EqualSid", dynlib: "advapi32", stdcall, sideEffect.}
+  proc getLengthSid(pSid: pointer): uint32 {.
+       importc: "GetLengthSid", dynlib: "advapi32", stdcall, sideEffect.}
+  proc copySid(sidLength: uint32, dest: pointer, src: pointer): int32 {.
+       importc: "CopySid", dynlib: "advapi32", stdcall, sideEffect.}
+  proc isValidSid(sid: pointer): int32 {.
+       importc: "IsValidSid", dynlib: "advapi32", stdcall, sideEffect.}
+  proc setNamedSecurityInfo(pObjectName: WideCString, objectType: uint32,
+                            securityInfo: uint32, psidOwner: pointer,
+                            psidGroup: pointer, pDacl: PACL,
+                            pSacl: PACL): uint32 {.
+       importc: "SetNamedSecurityInfoW", dynlib: "advapi32", stdcall,
+       sideEffect.}
+  proc getNamedSecurityInfo(pObjectName: WideCString, objectType: uint32,
+                            securityInfo: uint32, ppsidOwner: ptr pointer,
+                            ppsidGroup: ptr pointer, ppDacl: ptr PACL,
+                            ppSacl: ptr PACL,
+                            ppSecurityDescriptor: ptr pointer): uint32 {.
+       importc: "GetNamedSecurityInfoW", stdcall, dynlib: "advapi32",
+       sideEffect.}
+  proc setSecurityDescriptorDacl(pSD: pointer, bDaclPresent: int32,
+                                 pDacl: pointer,
+                                 bDaclDefaulted: int32): int32 {.
+       importc: "SetSecurityDescriptorDacl", dynlib: "advapi32", stdcall,
+       sideEffect.}
+  proc initializeAcl(pAcl: PACL, nAclLength: uint32,
+                     dwAclRevision: uint32): int32 {.
+       importc: "InitializeAcl", dynlib: "advapi32", stdcall, sideEffect.}
+  proc initializeSecurityDescriptor(pSD: pointer, dwRevision: uint32): int32 {.
+       importc: "InitializeSecurityDescriptor", dynlib: "advapi32", stdcall,
+       sideEffect.}
+  proc addAccessAllowedAceEx(pAcl: PACL, dwAceRevision: uint32,
+                             aceFlags: uint32, accessMask: uint32,
+                             psid: pointer): int32 {.
+       importc: "AddAccessAllowedAceEx", dynlib: "advapi32", stdcall,
+       sideEffect.}
+  proc getAce(pAcl: PACL, dwAceIndex: uint32, pAce: pointer): int32 {.
+       importc: "GetAce", dynlib: "advapi32", stdcall, sideEffect.}
   const
     NO_ERROR = IoErrorCode(0)
 
@@ -402,6 +498,174 @@ when defined(windows):
           buffer.setLen(res)
           continue
 
+  proc len*(sid: SID): int = len(sid.data)
+
+  proc getTokenInformation(token: uint,
+                           information: uint32): IoResult[seq[byte]] =
+    var tlength: uint32
+    var buffer = newSeq[byte]()
+    while true:
+      let res =
+        if len(buffer) == 0:
+          getTokenInformation(token, information, nil, 0, tlength)
+        else:
+          getTokenInformation(token, information, cast[pointer](addr buffer[0]),
+                              uint32(len(buffer)), tlength)
+      if res != 0:
+        return ok(buffer)
+      else:
+        let errCode = ioLastError()
+        if errCode == ERROR_INSUFFICIENT_BUFFER:
+          when sizeof(int) == 8:
+            buffer.setLen(int(tlength))
+          elif sizeof(int) == 4:
+            if tlength > uint32(high(int)):
+              return err(errCode)
+            else:
+              buffer.setLen(int(tlength))
+        else:
+          return err(errCode)
+
+  proc getCurrentUserSid*(): IoResult[SID] =
+    ## Returns current process user's security identifier (SID).
+    var token: uint
+    let ores = openProcessToken(getCurrentProcess(), TOKEN_QUERY, token)
+    if ores == 0:
+      err(ioLastError())
+    else:
+      let tres = getTokenInformation(token, 1'u32)
+      if tres.isErr():
+        discard closeHandle(token)
+        err(tres.error)
+      else:
+        var buffer = tres.get()
+        var utoken = cast[ptr TOKEN_USER](addr buffer[0])
+        let psid = utoken[].user.sid
+        if isValidSid(psid) != 0:
+          var ssid = newSeq[byte](getLengthSid(psid))
+          if copySid(uint32(len(ssid)), addr ssid[0], psid) != 0:
+            if closeHandle(token) != 0:
+              ok(SID(data: ssid))
+            else:
+              err(ioLastError())
+          else:
+            let errCode = ioLastError()
+            discard closeHandle(token)
+            err(errCode)
+        else:
+          let errCode = ioLastError()
+          discard closeHandle(token)
+          err(errCode)
+
+  template getAddr*(sid: SID): pointer =
+    ## Obtain Windows specific SID pointer.
+    unsafeAddr sid.data[0]
+
+  proc createCurrentUserOnlyAcl(): IoResult[seq[byte]] =
+    let aceMask = FILE_ALL_ACCESS
+    var userSid = ? getCurrentUserSid()
+    let size =
+      ((sizeof(ACL) + sizeof(ACCESS_ALLOWED_ACE) + len(userSid)) +
+        (sizeof(uint32) - 1)) and 0xFFFF_FFFC
+
+    var buffer = newSeq[byte](size)
+    var pdacl = cast[PACL](addr buffer[0])
+    if initializeAcl(pdacl, uint32(size), ACL_REVISION) == 0:
+      err(ioLastError())
+    else:
+      let aceFlags = OBJECT_INHERIT_ACE or CONTAINER_INHERIT_ACE
+      if addAccessAllowedAceEx(pdacl, ACL_REVISION, aceFlags,
+                               aceMask, userSid.getAddr()) == 0:
+        err(ioLastError())
+      else:
+        ok(buffer)
+
+  proc setCurrentUserOnlyAccess*(path: string): IoResult[void] =
+    ## Set file or folder with path ``path`` to be accessed only by current
+    ## process' user. All other user's and user's group access will be
+    ## prohibited.
+    var buffer = ? createCurrentUserOnlyAcl()
+    var pdacl = cast[PACL](addr buffer[0])
+
+    let dflags = DACL_SECURITY_INFORMATION or
+                 PROTECTED_DACL_SECURITY_INFORMATION
+    let sres = setNamedSecurityInfo(newWideCString(path), SE_FILE_OBJECT,
+                                    dflags, nil, nil, pdacl, nil)
+    if sres != ERROR_SUCCESS:
+      err(IoErrorCode(sres))
+    else:
+      ok()
+
+  proc createCurrentUserOnlySecurityDescriptor*(): IoResult[SD] =
+    ## Create security descriptor which can be used to limit access to resource
+    ## to current process user.
+    var dacl = ? createCurrentUserOnlyAcl()
+    var buffer = newSeq[byte](SECURITY_DESCRIPTOR_MIN_LENGTH)
+    if initializeSecurityDescriptor(addr buffer[0],
+                                    SECURITY_DESCRIPTOR_REVISION) == 0:
+      err(ioLastError())
+    else:
+      var res = SD(sddata: buffer, acldata: dacl)
+      if setSecurityDescriptorDacl(addr res.sddata[0], 1'i32,
+                                   addr res.acldata[0], 0'i32) == 0:
+        err(ioLastError())
+      else:
+        ok(res)
+
+  proc isEmpty*(sd: SD): bool =
+    ## Returns ``true`` is security descriptor ``sd`` is not initialized.
+    (len(sd.sddata) == 0) or (len(sd.acldata) == 0)
+
+  template getDescriptor*(sd: SD): pointer =
+    ## Returns pointer to Windows specific security descriptor.
+    cast[pointer](unsafeAddr sd.sddata[0])
+
+  proc checkCurrentUserOnlyACL*(path: string): IoResult[bool] =
+    ## Check if specified file or folder ``path`` can be accessed and modified
+    ## by current process' user only.
+    var
+      sdesc: pointer
+      pdacl: PACL
+
+    let aceFlags = OBJECT_INHERIT_ACE or CONTAINER_INHERIT_ACE
+    let userSid = ? getCurrentUserSid()
+    let gres = getNamedSecurityInfo(newWideCString(path), SE_FILE_OBJECT,
+                                    DACL_SECURITY_INFORMATION, nil, nil,
+                                    addr pdacl, nil, addr sdesc)
+    if gres != ERROR_SUCCESS:
+      return err(IoErrorCode(gres))
+    if isNil(pdacl):
+      # Empty ACL
+      if not(isNil(sdesc)):
+        discard localFree(sdesc)
+      ok(false)
+    else:
+      let aceCount = pdacl[].aceCount
+      if aceCount != 1:
+        if not(isNil(sdesc)):
+          discard localFree(sdesc)
+        ok(false)
+      else:
+        var ace: ptr ACCESS_ALLOWED_ACE
+        if getAce(pdacl, uint32(0), cast[pointer](addr ace)) == 0:
+          let errCode = ioLastError()
+          if not(isNil(sdesc)):
+            discard localFree(sdesc)
+          err(errCode)
+        else:
+          var psid = cast[pointer](addr ace.sidStart)
+          if isValidSid(psid) != 0:
+            if equalSid(psid, userSid.getAddr()) != 0:
+              if ace[].header.aceFlags == aceFlags and
+                 ace[].mask == FILE_ALL_ACCESS:
+                ok(true)
+              else:
+                ok(false)
+            else:
+              ok(false)
+          else:
+            ok(false)
+
 proc getCurrentDir*(): IoResult[string] =
   ## Returns string containing an absolute pathname that is the current working
   ## directory of the calling process.
@@ -444,7 +708,8 @@ proc setUmask*(mask: int): int {.inline.} =
   else:
     int(posix.umask(Mode(mask)))
 
-proc rawCreateDir(dir: string, mode: int = 0o755): IoResult[bool] =
+proc rawCreateDir(dir: string, mode: int = 0o755,
+                  secDescriptor: pointer = nil): IoResult[bool] =
   ## Attempts to create a directory named ``dir``.
   ##
   ## The argument ``mode`` specifies the mode for the new directory.
@@ -479,6 +744,7 @@ proc rawCreateDir(dir: string, mode: int = 0o755): IoResult[bool] =
   elif defined(windows):
     var sa = SECURITY_ATTRIBUTES(
       nLength: uint32(sizeof(SECURITY_ATTRIBUTES)),
+      lpSecurityDescriptor: secDescriptor,
       bInheritHandle: 0
     )
     let res = createDirectoryW(newWideCString(dir), sa)
@@ -598,7 +864,8 @@ proc getPathItems(path: string, reverse: bool): seq[string] =
     paths.reverse()
   paths
 
-proc createPath*(path: string, createMode: int = 0o755): IoResult[void] =
+proc createPath*(path: string, createMode: int = 0o755,
+                 secDescriptor: pointer = nil): IoResult[void] =
   ## Creates the full path ``path`` with mode ``createMode``.
   ##
   ## Path may contain several subfolders that do not exist yet.
@@ -608,7 +875,7 @@ proc createPath*(path: string, createMode: int = 0o755): IoResult[void] =
   ## most usages this does not indicate an error.
   let paths = getPathItems(path, true)
   for item in paths:
-    let res = rawCreateDir(item, createMode)
+    let res = rawCreateDir(item, createMode, secDescriptor)
     if res.isErr():
       return err(res.error)
   ok()
@@ -907,7 +1174,8 @@ proc checkPermissions*(pathName: string, mask: int): bool =
     true
 
 proc openFile*(pathName: string, flags: set[OpenFlags],
-               createMode: int = 0o644): IoResult[IoHandle] =
+               createMode: int = 0o644,
+               secDescriptor: pointer = nil): IoResult[IoHandle] =
   when defined(posix):
     var cflags: cint
 
@@ -972,6 +1240,7 @@ proc openFile*(pathName: string, flags: set[OpenFlags],
 
     var sa = SECURITY_ATTRIBUTES(
       nLength: uint32(sizeof(SECURITY_ATTRIBUTES)),
+      lpSecurityDescriptor: secDescriptor,
       bInheritHandle: 0
     )
 
@@ -1109,7 +1378,8 @@ proc readFile*(handle: IoHandle,
   readFile(handle, data.toOpenArrayByte(0, len(data) - 1))
 
 proc writeFile*(pathName: string, data: openArray[byte],
-                createMode: int = 0o644): IoResult[void] =
+                createMode: int = 0o644,
+                secDescriptor: pointer = nil): IoResult[void] =
   ## Opens a file named ``pathName`` for writing. Then writes the
   ## content ``data`` completely to the file and closes the file afterwards.
   ##
@@ -1120,7 +1390,7 @@ proc writeFile*(pathName: string, data: openArray[byte],
   ## after it will try to set permissions to ``createMode`` and only
   ## after success it will write data ``data`` to file.
   let flags = {OpenFlags.Write, OpenFlags.Truncate, OpenFlags.Create}
-  let handle = ? openFile(pathName, flags, createMode)
+  let handle = ? openFile(pathName, flags, createMode, secDescriptor)
   ? setPermissions(handle, createMode)
   var offset = 0
   while offset < len(data):
@@ -1140,13 +1410,15 @@ when defined(windows):
     (int64(a and 0x7FFF_FFFF'u32) shl 32) or int64(b and 0xFFFF_FFFF'u32)
 
 proc writeFile*(pathName: string, data: openArray[char],
-                createMode: int = 0o644): IoResult[void] {.inline.} =
+                createMode: int = 0o644,
+                secDescriptor: pointer = nil): IoResult[void] {.inline.} =
   ## Opens a file named ``pathName`` for writing. Then writes the
   ## content ``data`` completely to the file and closes the file afterwards.
   ##
   ## If file is not exists it will be created with permissions mask
   ## ``createMode`` (default value is 0o644).
-  writeFile(pathName, data.toOpenArrayByte(0, len(data) - 1), createMode)
+  writeFile(pathName, data.toOpenArrayByte(0, len(data) - 1), createMode,
+            secDescriptor)
 
 proc getFileSize*(pathName: string): IoResult[int64] =
   ## Returns size in bytes of the specified file ``pathName``.
