@@ -302,18 +302,40 @@ suite "UTF-8 validation test suite":
       utf8Substr("🤗🤘🤙🤚🤛🤜🤝🤞🤟", 100, 0).tryGet() == ""
       utf8Substr("🤗🤘🤙🤚🤛🤜🤝🤞🤟", 100, 100).tryGet() == ""
 
-  test "wcharToUtf8() tests":
+  test "UTF-32 -> UTF-8 conversion test":
     for i in 0 ..< 0x11_0000:
-      if i != 0xFFFE and i != 0xFFFF:
-        if i < 0x10000:
-          var data16 = [uint16(i)]
-          let res = wcharToUtf8(data16)
-          check:
-            res.isOk() == true
-            utf8Validate(res.get()) == true
-
+      var data32 = [uint32(i)]
+      if i >= 0xD800 and i <= 0xDFFF:
+        check utf32toUtf8(data32).isErr()
+      elif i == 0xFFFE:
+        check utf32toUtf8(data32).isErr()
+      elif i == 0xFFFF:
+        check utf32toUtf8(data32).isErr()
+      elif i == 0x11_0000:
+        check utf32toUtf8(data32).isErr()
+      else:
         var data32 = [uint32(i)]
-        let res = wcharToUtf8(data32)
+        let res = utf32toUtf8(data32)
         check:
           res.isOk() == true
           utf8Validate(res.get()) == true
+
+  test "UTF-8 -> UTF-32 conversion test":
+    for i in 0 ..< 0x11_0001:
+      var data32 = [uint32(i)]
+      if i >= 0xD800 and i <= 0xDFFF:
+        check utf32toUtf8(data32).isErr()
+      elif i == 0xFFFE:
+        check utf32toUtf8(data32).isErr()
+      elif i == 0xFFFF:
+        check utf32toUtf8(data32).isErr()
+      elif i == 0x11_0000:
+        check utf32toUtf8(data32).isErr()
+      else:
+        var data32 = [uint32(i)]
+        let res8 = utf32toUtf8(data32)
+        check res8.isOk()
+        let res32 = utf8toUtf32(uint32, res8.get())
+        check:
+          res32.isOk()
+          res32.get() == data32

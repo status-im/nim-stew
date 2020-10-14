@@ -355,7 +355,7 @@ elif defined(posix):
         if maxChars < len(wbuffer):
           wbuffer.setLen(maxChars)
         # Conversion of wide characters sequence to UTF-8 encoded string.
-        let ures = wbuffer.wcharToUtf8()
+        let ures = wbuffer.utf32toUtf8()
         if ures.isOk():
           ok(ures.get())
         else:
