@@ -414,8 +414,8 @@ when defined(posix):
                  ps: ptr Mbstate): csize_t {.
        importc, header: "<wchar.h>".}
 
-  proc mbstowcs*[A: Bytes, B: Wides](t: typedesc[B],
-                                     input: openarray[A]): UResult[seq[B]] =
+  proc mbstowcs*[A: Bytes, B: Wides32](t: typedesc[B],
+                                       input: openarray[A]): UResult[seq[B]] =
     ## Converts multibyte encoded string to OS specific wide char string.
     ##
     ## Note, that `input` should be `0` terminated.
