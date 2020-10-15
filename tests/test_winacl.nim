@@ -1,5 +1,8 @@
 import std/unittest
-import ../stew/[io2, windows/acl]
+import ../stew/io2
+
+when defined(windows):
+  import ../stew/windows/acl
 
 suite "Windows security descriptor tests suite":
   test "File/Folder user-only ACL create/verify test":
