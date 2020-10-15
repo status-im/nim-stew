@@ -22,4 +22,5 @@ import
   test_results,
   test_varints,
   test_ctops,
-  test_io2
+  test_io2,
+  test_winacl
