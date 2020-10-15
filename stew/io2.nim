@@ -444,7 +444,8 @@ proc setUmask*(mask: int): int {.inline.} =
   else:
     int(posix.umask(Mode(mask)))
 
-proc rawCreateDir(dir: string, mode: int = 0o755): IoResult[bool] =
+proc rawCreateDir(dir: string, mode: int = 0o755,
+                  secDescriptor: pointer = nil): IoResult[bool] =
   ## Attempts to create a directory named ``dir``.
   ##
   ## The argument ``mode`` specifies the mode for the new directory.
@@ -479,6 +480,7 @@ proc rawCreateDir(dir: string, mode: int = 0o755): IoResult[bool] =
   elif defined(windows):
     var sa = SECURITY_ATTRIBUTES(
       nLength: uint32(sizeof(SECURITY_ATTRIBUTES)),
+      lpSecurityDescriptor: secDescriptor,
       bInheritHandle: 0
     )
     let res = createDirectoryW(newWideCString(dir), sa)
@@ -598,7 +600,8 @@ proc getPathItems(path: string, reverse: bool): seq[string] =
     paths.reverse()
   paths
 
-proc createPath*(path: string, createMode: int = 0o755): IoResult[void] =
+proc createPath*(path: string, createMode: int = 0o755,
+                 secDescriptor: pointer = nil): IoResult[void] =
   ## Creates the full path ``path`` with mode ``createMode``.
   ##
   ## Path may contain several subfolders that do not exist yet.
@@ -608,7 +611,7 @@ proc createPath*(path: string, createMode: int = 0o755): IoResult[void] =
   ## most usages this does not indicate an error.
   let paths = getPathItems(path, true)
   for item in paths:
-    let res = rawCreateDir(item, createMode)
+    let res = rawCreateDir(item, createMode, secDescriptor)
     if res.isErr():
       return err(res.error)
   ok()
@@ -907,7 +910,8 @@ proc checkPermissions*(pathName: string, mask: int): bool =
     true
 
 proc openFile*(pathName: string, flags: set[OpenFlags],
-               createMode: int = 0o644): IoResult[IoHandle] =
+               createMode: int = 0o644,
+               secDescriptor: pointer = nil): IoResult[IoHandle] =
   when defined(posix):
     var cflags: cint
 
@@ -972,6 +976,7 @@ proc openFile*(pathName: string, flags: set[OpenFlags],
 
     var sa = SECURITY_ATTRIBUTES(
       nLength: uint32(sizeof(SECURITY_ATTRIBUTES)),
+      lpSecurityDescriptor: secDescriptor,
       bInheritHandle: 0
     )
 
@@ -1109,7 +1114,8 @@ proc readFile*(handle: IoHandle,
   readFile(handle, data.toOpenArrayByte(0, len(data) - 1))
 
 proc writeFile*(pathName: string, data: openArray[byte],
-                createMode: int = 0o644): IoResult[void] =
+                createMode: int = 0o644,
+                secDescriptor: pointer = nil): IoResult[void] =
   ## Opens a file named ``pathName`` for writing. Then writes the
   ## content ``data`` completely to the file and closes the file afterwards.
   ##
@@ -1120,7 +1126,7 @@ proc writeFile*(pathName: string, data: openArray[byte],
   ## after it will try to set permissions to ``createMode`` and only
   ## after success it will write data ``data`` to file.
   let flags = {OpenFlags.Write, OpenFlags.Truncate, OpenFlags.Create}
-  let handle = ? openFile(pathName, flags, createMode)
+  let handle = ? openFile(pathName, flags, createMode, secDescriptor)
   ? setPermissions(handle, createMode)
   var offset = 0
   while offset < len(data):
@@ -1140,13 +1146,15 @@ when defined(windows):
     (int64(a and 0x7FFF_FFFF'u32) shl 32) or int64(b and 0xFFFF_FFFF'u32)
 
 proc writeFile*(pathName: string, data: openArray[char],
-                createMode: int = 0o644): IoResult[void] {.inline.} =
+                createMode: int = 0o644,
+                secDescriptor: pointer = nil): IoResult[void] {.inline.} =
   ## Opens a file named ``pathName`` for writing. Then writes the
   ## content ``data`` completely to the file and closes the file afterwards.
   ##
   ## If file is not exists it will be created with permissions mask
   ## ``createMode`` (default value is 0o644).
-  writeFile(pathName, data.toOpenArrayByte(0, len(data) - 1), createMode)
+  writeFile(pathName, data.toOpenArrayByte(0, len(data) - 1), createMode,
+            secDescriptor)
 
 proc getFileSize*(pathName: string): IoResult[int64] =
   ## Returns size in bytes of the specified file ``pathName``.
