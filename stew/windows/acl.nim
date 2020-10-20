@@ -28,8 +28,11 @@ const
   PROTECTED_DACL_SECURITY_INFORMATION = 0x8000_0000'u32
   SE_FILE_OBJECT = 0x0000_0001'u32
   ERROR_SUCCESS = 0x0000_0000'u32
+  ERROR_PATH_NOT_FOUND = 0x0000_0003'u32
   SECURITY_DESCRIPTOR_MIN_LENGTH = 40
   SECURITY_DESCRIPTOR_REVISION = 1'u32
+  ACCESS_ALLOWED_ACE_TYPE = 0x00'u8
+  SE_DACL_PROTECTED = 0x1000'u16
 
 type
   ACL {.pure, final.} = object
@@ -64,6 +67,9 @@ type
     header: ACE_HEADER
     mask: uint32
     sidStart: uint32
+
+  SecDescriptorKind = enum
+    File, Folder
 
 proc closeHandle(hobj: uint): int32 {.
      importc: "CloseHandle", dynlib: "kernel32", stdcall, sideEffect.}
@@ -117,6 +123,10 @@ proc addAccessAllowedAceEx(pAcl: PACL, dwAceRevision: uint32,
      sideEffect.}
 proc getAce(pAcl: PACL, dwAceIndex: uint32, pAce: pointer): int32 {.
      importc: "GetAce", dynlib: "advapi32", stdcall, sideEffect.}
+proc setSecurityDescriptorControl(pSD: pointer, bitsOfInterest: uint16,
+                                  bitsToSet: uint16): int32 {.
+     importc: "SetSecurityDescriptorControl", dynlib: "advapi32", stdcall,
+     sideEffect.}
 
 proc len*(sid: SID): int = len(sid.data)
 
@@ -181,7 +191,7 @@ template getAddr*(sid: SID): pointer =
   ## Obtain Windows specific SID pointer.
   unsafeAddr sid.data[0]
 
-proc createCurrentUserOnlyAcl(): IoResult[seq[byte]] =
+proc createCurrentUserOnlyAcl(kind: SecDescriptorKind): IoResult[seq[byte]] =
   let aceMask = FILE_ALL_ACCESS
   var userSid = ? getCurrentUserSid()
   let size =
@@ -193,7 +203,11 @@ proc createCurrentUserOnlyAcl(): IoResult[seq[byte]] =
   if initializeAcl(pdacl, uint32(size), ACL_REVISION) == 0:
     err(ioLastError())
   else:
-    let aceFlags = OBJECT_INHERIT_ACE or CONTAINER_INHERIT_ACE
+    let aceFlags =
+      if kind == Folder:
+        OBJECT_INHERIT_ACE or CONTAINER_INHERIT_ACE
+      else:
+        0'u32
     if addAccessAllowedAceEx(pdacl, ACL_REVISION, aceFlags,
                              aceMask, userSid.getAddr()) == 0:
       err(ioLastError())
@@ -204,7 +218,16 @@ proc setCurrentUserOnlyAccess*(path: string): IoResult[void] =
   ## Set file or folder with path ``path`` to be accessed only by current
   ## process' user. All other user's and user's group access will be
   ## prohibited.
-  var buffer = ? createCurrentUserOnlyAcl()
+  if not(fileAccessible(path, {})):
+    return err(IoErrorCode(ERROR_PATH_NOT_FOUND))
+
+  let descriptorKind =
+    if isDir(path):
+      Folder
+    else:
+      File
+
+  var buffer = ? createCurrentUserOnlyAcl(descriptorKind)
   var pdacl = cast[PACL](addr buffer[0])
 
   let dflags = DACL_SECURITY_INFORMATION or
@@ -216,21 +239,33 @@ proc setCurrentUserOnlyAccess*(path: string): IoResult[void] =
   else:
     ok()
 
-proc createCurrentUserOnlySecurityDescriptor*(): IoResult[SD] =
-  ## Create security descriptor which can be used to limit access to resource
-  ## to current process user.
-  var dacl = ? createCurrentUserOnlyAcl()
+proc createUserOnlySecurityDescriptor(kind: SecDescriptorKind): IoResult[SD] =
+  var dacl = ? createCurrentUserOnlyAcl(kind)
   var buffer = newSeq[byte](SECURITY_DESCRIPTOR_MIN_LENGTH)
   if initializeSecurityDescriptor(addr buffer[0],
                                   SECURITY_DESCRIPTOR_REVISION) == 0:
     err(ioLastError())
   else:
     var res = SD(sddata: buffer, acldata: dacl)
-    if setSecurityDescriptorDacl(addr res.sddata[0], 1'i32,
-                                 addr res.acldata[0], 0'i32) == 0:
+    let bits = SE_DACL_PROTECTED
+    if setSecurityDescriptorControl(addr res.sddata[0], bits, bits) == 0:
       err(ioLastError())
     else:
-      ok(res)
+      if setSecurityDescriptorDacl(addr res.sddata[0], 1'i32,
+                                   addr res.acldata[0], 0'i32) == 0:
+        err(ioLastError())
+      else:
+        ok(res)
+
+proc createFoldersUserOnlySecurityDescriptor*(): IoResult[SD] {.inline.} =
+  ## Create security descriptor which can be used to restrict folder access to
+  ## only the current process user.
+  createUserOnlySecurityDescriptor(Folder)
+
+proc createFilesUserOnlySecurityDescriptor*(): IoResult[SD] {.inline.} =
+  ## Create security descriptor which can be used to restrict file access to
+  ## only the current process user.
+  createUserOnlySecurityDescriptor(File)
 
 proc isEmpty*(sd: SD): bool =
   ## Returns ``true`` is security descriptor ``sd`` is not initialized.
@@ -247,7 +282,6 @@ proc checkCurrentUserOnlyACL*(path: string): IoResult[bool] =
     sdesc: pointer
     pdacl: PACL
 
-  let aceFlags = OBJECT_INHERIT_ACE or CONTAINER_INHERIT_ACE
   let userSid = ? getCurrentUserSid()
   let gres = getNamedSecurityInfo(newWideCString(path), SE_FILE_OBJECT,
                                   DACL_SECURITY_INFORMATION, nil, nil,
@@ -273,10 +307,17 @@ proc checkCurrentUserOnlyACL*(path: string): IoResult[bool] =
           discard localFree(sdesc)
         err(errCode)
       else:
+        let expectedFlags =
+          if isDir(path):
+            OBJECT_INHERIT_ACE or CONTAINER_INHERIT_ACE
+          else:
+            0x00'u32
+
         var psid = cast[pointer](addr ace.sidStart)
         if isValidSid(psid) != 0:
           if equalSid(psid, userSid.getAddr()) != 0:
-            if ace[].header.aceFlags == aceFlags and
+            if ace[].header.aceType == ACCESS_ALLOWED_ACE_TYPE and
+               ace[].header.aceFlags == expectedFlags and
                ace[].mask == FILE_ALL_ACCESS:
               ok(true)
             else:
