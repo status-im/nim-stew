@@ -3,7 +3,10 @@ import ../stew/io2
 
 suite "OS Input/Output procedures test suite":
   test "getCurrentDir() test":
-    check getCurrentDir().isOk() == true
+    let res = getCurrentDir()
+    check:
+      res.isOk() == true
+      len(res.get()) > 0
   test "splitDrive() test":
     when defined(windows):
       check:
