@@ -2,6 +2,8 @@ import unittest
 import ../stew/io2
 
 suite "OS Input/Output procedures test suite":
+  test "getCurrentDir() test":
+    check getCurrentDir().isOk() == true
   test "splitDrive() test":
     when defined(windows):
       check:
