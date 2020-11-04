@@ -208,10 +208,10 @@ elif defined(posix):
        importc, header: "<unistd.h>".}
   proc read(a1: cint, a2: pointer, a3: csize_t): int {.
        importc, header: "<unistd.h>".}
-  proc c_strlen(a: cstring): cint {.
-       importc: "strlen", header: "<string.h>", noSideEffect.}
   proc c_strerror(errnum: cint): cstring {.
        importc: "strerror", header: "<string.h>".}
+  proc c_free(p: pointer) {.
+       importc: "free", header: "<stdlib.h>".}
   proc getcwd(a1: cstring, a2: int): cstring {.
        importc, header: "<unistd.h>", sideEffect.}
   proc `==`*(a: IoErrorCode, b: cint): bool {.inline.} =
@@ -406,21 +406,18 @@ proc getCurrentDir*(): IoResult[string] =
   ## Returns string containing an absolute pathname that is the current working
   ## directory of the calling process.
   when defined(posix):
-    var bufsize = 1024
-    var buffer = newString(bufsize)
     while true:
-      if getcwd(buffer, bufsize) != nil:
-        buffer.setLen(c_strlen(buffer))
-        return ok(buffer)
-      else:
+      let res = getcwd(nil, 0)
+      if isNil(res):
         let errCode = ioLastError()
         if errCode == EINTR:
           continue
-        elif errCode == ERANGE:
-          bufsize = bufsize shl 1
-          buffer = newString(bufsize)
         else:
           return err(errCode)
+      else:
+        var buffer = $res
+        c_free(res)
+        return ok(buffer)
   elif defined(windows):
     var bufsize = uint32(MAX_PATH)
     var buffer = newWideCString("", int(bufsize))
