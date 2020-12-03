@@ -266,3 +266,12 @@ func voidF2(): VoidRes =
   ok()
 
 doAssert voidF2().isOk
+
+
+type CSRes = Result[void, cstring]
+
+func cstringF(s: string): CSRes =
+  when compiles(err(s)):
+    doAssert false
+
+discard cstringF("test")

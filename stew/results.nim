@@ -304,6 +304,12 @@ template err*[T, E](R: type Result[T, E], x: auto): R =
   ## Example: `Result[int, string].err("uh-oh")`
   R(o: false, e: x)
 
+template err*[T](R: type Result[T, cstring], x: string): R =
+  ## Initialize the result to an error
+  ## Example: `Result[int, string].err("uh-oh")`
+  const s = x
+  R(o: false, e: cstring(s))
+
 template err*[T](R: type Result[T, void]): R =
   R(o: false)
 
@@ -311,6 +317,10 @@ template err*[T, E](self: var Result[T, E], x: auto) =
   ## Set the result as an error
   ## Example: `result.err("uh-oh")`
   self = err(type self, x)
+
+template err*[T](self: var Result[T, cstring], x: string) =
+  const s = x # Make sure we don't return a dangling pointer
+  self = err(type self, cstring(s))
 
 template err*[T](self: var Result[T, void]) =
   ## Set the result as an error
