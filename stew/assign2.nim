@@ -1,7 +1,17 @@
 import
-  std/typetraits
+  std/typetraits,
+  ./shims/macros
 
 {.push raises: [Defect].}
+
+func assignImpl[T](tgt: var openArray[T], src: openArray[T]) =
+  mixin assign
+  when supportsCopyMem(T):
+    if tgt.len > 0:
+      copyMem(addr tgt[0], unsafeAddr src[0], sizeof(tgt[0]) * tgt.len)
+  else:
+    for i in 0..<tgt.len:
+      assign(tgt[i], src[i])
 
 func assign*[T](tgt: var openArray[T], src: openArray[T]) =
   mixin assign
@@ -10,18 +20,16 @@ func assign*[T](tgt: var openArray[T], src: openArray[T]) =
     raiseAssert "Target and source lengths don't match: " &
       $tgt.len & " vs " & $src.len
 
-  when supportsCopyMem(T):
-    if tgt.len > 0:
-      copyMem(addr tgt[0], unsafeAddr src[0], sizeof(tgt[0]) * tgt.len)
-  else:
-    for i in 0..<tgt.len:
-      assign(tgt[i], src[i])
+  assignImpl(tgt, src)
 
 func assign*[T](tgt: var seq[T], src: openArray[T]) =
   mixin assign
-  tgt.setLen(src.len)
 
-  assign(tgt.toOpenArray(0, tgt.high), src)
+  tgt.setLen(src.len)
+  assignImpl(tgt.toOpenArray(0, tgt.high), src)
+
+macro unsupported(T: typed): untyped =
+  error "SSZ serialization of the type " & humaneTypeName(T) & " is not supported"
 
 func assign*[T](tgt: var T, src: T) =
   # The default `genericAssignAux` that gets generated for assignments in nim
@@ -44,7 +52,7 @@ func assign*[T](tgt: var T, src: T) =
     assign(tgt, src.toOpenArray(0, src.high))
   elif T is ref:
     tgt = src
-  elif compiles(distincBase(T)):
+  elif compiles(distinctBase(tgt)):
     assign(distinctBase tgt, distinctBase src)
   else:
-    {.error: "Unsupported type for assignment".}
+    unsupported T

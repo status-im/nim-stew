@@ -4,6 +4,7 @@ import
 
 suite "assign2":
   test "basic":
+    type X = distinct int
     var
       a = 5
       b = [2, 3]
@@ -19,3 +20,10 @@ suite "assign2":
 
     assign(c.toOpenArray(0, 1), [2, 2])
     check: c == [2, 2]
+
+    var
+      dis = X(53)
+
+    assign(dis, X(55))
+
+    check: int(dis) == 55
