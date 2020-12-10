@@ -4,6 +4,10 @@ import
 
 {.push raises: [Defect].}
 
+func assign*[T](tgt: var seq[T], src: openArray[T]) {.gcsafe.}
+func assign*[T](tgt: var openArray[T], src: openArray[T]) {.gcsafe.}
+func assign*[T](tgt: var T, src: T) {.gcsafe.}
+
 func assignImpl[T](tgt: var openArray[T], src: openArray[T]) =
   mixin assign
   when supportsCopyMem(T):
