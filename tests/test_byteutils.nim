@@ -5,8 +5,9 @@
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import  unittest,
-        ../stew/byteutils
+import
+  std/unittest,
+  ../stew/byteutils
 
 proc compilationTest {.exportc: "compilationTest".} =
   var bytes = @[1.byte, 2, 3, 4]
