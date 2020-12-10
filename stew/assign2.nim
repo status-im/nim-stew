@@ -29,7 +29,7 @@ func assign*[T](tgt: var seq[T], src: openArray[T]) =
   assignImpl(tgt.toOpenArray(0, tgt.high), src)
 
 macro unsupported(T: typed): untyped =
-  error "SSZ serialization of the type " & humaneTypeName(T) & " is not supported"
+  error "Assignment of the type " & humaneTypeName(T) & " is not supported"
 
 func assign*[T](tgt: var T, src: T) =
   # The default `genericAssignAux` that gets generated for assignments in nim
