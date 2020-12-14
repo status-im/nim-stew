@@ -1,8 +1,9 @@
-## Low-level little-endian base 128 variable length integer operators, as
+## Low-level little-endian base 128 variable length integer/byte converters, as
 ## described in https://en.wikipedia.org/wiki/LEB128 - up to 64 bits supported.
 ##
-## Used in formats like DWARF, WASM - unsigned variant identical to protobuf/go
-## varint.
+## Used in formats like DWARF, WASM - the encoding is fully compatible with
+## unsigned protobuf, go varint:s and can therefore directly be used for them -
+## signed varint:s can easily be implemented on top.
 ##
 ## This implementation contains low-level primitives suitable for building
 ## more easy-to-use API.
@@ -51,7 +52,7 @@ type
 template write7(next: untyped) =
   # write 7 bits of data
   if v > type(v)(127):
-    result.data[result.len] = cast[byte](v) or 0x80'u8
+    result.data[result.len] = cast[byte](v and type(v)(0xff)) or 0x80'u8
     result.len += 1
     v = v shr 7
     next
@@ -84,7 +85,7 @@ func toBytes*[I: SomeUnsignedInt](v: I, T: type Leb128): Leb128Buf[I] {.noinit.}
                     discard
 
   # high bit not set since v <= 127 at this point!
-  result.data[result.len] = cast[byte](v)
+  result.data[result.len] = cast[byte](v and type(v)(0xff))
   result.len += 1
 
 template read7(shift: untyped) =
