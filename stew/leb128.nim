@@ -45,10 +45,6 @@ type
     data*: array[maxLen(Leb128, T), byte] # len(data) <= 10
     len*: int8 # >= 1 when holding valid protobuf
 
-  Leb128Error* = enum
-    incomplete = "End marker not found in given stream"
-    overflow = "Value would overflow"
-
 template write7(next: untyped) =
   # write 7 bits of data
   if v > type(v)(127):
