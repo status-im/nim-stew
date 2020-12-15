@@ -44,14 +44,18 @@ suite "leb128":
         toHex(leb.toOpenArray()) == hex
 
   test "roundtrip random values":
-    for i in 0..10000:
-      # TODO nim 1.0 random casts limits to int, so anything bigger will crash
-      #      * sigh *
-      #      https://github.com/nim-lang/Nim/issues/16360
-      let
-        v1 = rand(0'u64 .. cast[uint64](int.high))
-      roundtripTest v1
-
+    template testSome(T: type) =
+      for i in 0..10000:
+        # TODO nim 1.0 random casts limits to int, so anything bigger will crash
+        #      * sigh *
+        #      https://github.com/nim-lang/Nim/issues/16360
+        let
+          v1 = rand(T(0) .. cast[T](int.high))
+        roundtripTest v1
+    testSome(uint8)
+    testSome(uint16)
+    testSome(uint32)
+    testSome(uint64)
 
   test "lengths":
     const lengths = {
