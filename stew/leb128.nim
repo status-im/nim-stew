@@ -1,14 +1,31 @@
 ## Low-level little-endian base 128 variable length integer/byte converters, as
 ## described in https://en.wikipedia.org/wiki/LEB128 - up to 64 bits supported.
 ##
-## Used in formats like DWARF, WASM - the encoding is fully compatible with
-## unsigned protobuf, go varint:s and can therefore directly be used for them -
-## signed varint:s can easily be implemented on top.
+## The leb128 encoding is used in DWARF and WASM.
+##
+## It is also fully compatible with the unsigned varint encoding found in
+## `protobuf` and `go`, and can thus be used directly. It's easy to build
+## support for the two kinds (zig-zag and cast) of signed encodings on top.
+##
+## This is not the only way to encode variable length integers - variations
+## exist like sqlite and utf-8 - in particular, the `std/varints` module
+## implements the sqlite flavour.
 ##
 ## This implementation contains low-level primitives suitable for building
 ## more easy-to-use API.
 ##
 ## Exception/Defect free as of nim 1.2.
+##
+## Security notes:
+##
+## leb128 allows overlong byte sequences that decode into the same integer -
+## the library decodes these sequences to a certain extent, but will stop
+## decoding at the maximum length that a minimal encoder will produce. For
+## example, the byte sequence `[byte 0x80, 0x80, 0x00]`, when decoded as a
+## `uint64` is a valid encoding for `0` because the maximum length of a minimal
+## `uint64` encoding is 10 bytes - but because all minimal encodings
+## for `uint8` fit in 2 bytes, decoding the same byte sequence as `uint8` will
+## yield an error return.
 
 {.push raises: [].}
 
@@ -43,7 +60,7 @@ func maxLen*(T: type Leb128, I: type): int8 =
 type
   Leb128Buf*[T: SomeUnsignedInt] = object
     data*: array[maxLen(Leb128, T), byte] # len(data) <= 10
-    len*: int8 # >= 1 when holding valid protobuf
+    len*: int8 # >= 1 when holding valid leb128
 
 template write7(next: untyped) =
   # write 7 bits of data
@@ -87,19 +104,21 @@ func toBytes*[I: SomeUnsignedInt](v: I, T: type Leb128): Leb128Buf[I] {.noinit.}
 template read7(shift: untyped) =
   # Read 7 bits of data and return iff these are the last 7 bits
   if (shift div 7) >= xlen:
-    return (I(0), 0'i8)
+    return (I(0), 0'i8) # Not enough data - return 0 bytes read
+
   let
     b = x[shift div 7]
     valb = b and 0x7f'u8 # byte without high bit
     val = I(valb)
     vals = val shl shift
 
-  when shift >= (sizeof(val) * 8 - 7):
+  when shift > (sizeof(val) * 8 - 7):
+    # Check for overflow in the "unused" bits of the byte we just read
     if vals shr shift != val:
       return (I(0), -cast[int8]((shift div 7) + 1))
 
   res = res or vals
-  if b == valb: # High bit not set
+  if b == valb: # High bit not set, we're done
     return (res, cast[int8]((shift div 7) + 1))
 
 func fromBytes*(

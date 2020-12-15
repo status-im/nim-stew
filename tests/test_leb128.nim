@@ -83,11 +83,13 @@ suite "leb128":
 
   test "errors":
     check:
-      uint8.fromBytes([0x80'u8], Leb128).len == 0
-      uint8.fromBytes([0x80'u8, 0x80], Leb128).len == 0
+      uint8.fromBytes([0x80'u8], Leb128) == (0'u8, 0'i8)
+      uint8.fromBytes([0x80'u8, 0x80], Leb128) == (0'u8, 0'i8)
       uint8.fromBytes(toBytes(256'u16, Leb128).toOpenArray(), Leb128).len < 0
+      uint8.fromBytes([0x80'u8, 0x02], Leb128) == (0'u8, -2'i8) # 2 bytes consumed and overflow
+      uint8.fromBytes([0x80'u8, 0x02, 0x05], Leb128) == (0'u8, -2'i8) # 2 bytes consumed and overflow
       uint64.fromBytes([0xff'u8, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x02], Leb128).len < 0
-      uint64.fromBytes([0xff'u8, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff], Leb128).len == 0
+      uint64.fromBytes([0xff'u8, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff], Leb128) == (0'u64, 0'i8)
 
     check:
       uint8.scan([0x80'u8], Leb128) == 0
