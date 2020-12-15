@@ -17,6 +17,8 @@
 #   "common" way of encoding signed integers in protobuf is "zig-zag" which
 #   whose support is missing - above all, biasing towards one of the two signed
 #   integer formats is error-prone
+# * there is no detection of overlong sequences
+# * overflows in high bits of nibble are not detected
 
 import
   bitops2
