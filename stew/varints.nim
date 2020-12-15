@@ -1,5 +1,25 @@
 ## This module implements Variable Integer `VARINT`.
 
+{.deprecated: "use leb128 or a higher level decoder".}
+
+# There are better variations on this module around:
+# * stew/leb128 implements the core varint encoding
+# * nim-protobuf-serialization and nim-libp2p contain higher-level protobuf
+#   varint encoding/decoding
+#
+# This module has a couple of problems as written:
+# * Name conflict with std/varints which implements a _different_ varint
+#   encoding (sqlite-style)
+# * the `Stream` interface in this file is underdefined (ie there's a hidden
+#   implicit dependency on nim-serialization - the stateful byte-by-byte
+#   decoder should likely be moved there instead
+# * The signed integer support is biased towards casting, whereas the most
+#   "common" way of encoding signed integers in protobuf is "zig-zag" which
+#   whose support is missing - above all, biasing towards one of the two signed
+#   integer formats is error-prone
+# * there is no detection of overlong sequences
+# * overflows in high bits of nibble are not detected
+
 import
   bitops2
 
