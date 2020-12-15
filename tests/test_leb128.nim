@@ -47,6 +47,7 @@ suite "leb128":
     for i in 0..10000:
       # TODO nim 1.0 random casts limits to int, so anything bigger will crash
       #      * sigh *
+      #      https://github.com/nim-lang/Nim/issues/16360
       let
         v1 = rand(0'u64 .. cast[uint64](int.high))
       roundtripTest v1
