@@ -23,9 +23,12 @@
 ## decoding at the maximum length that a minimal encoder will produce. For
 ## example, the byte sequence `[byte 0x80, 0x80, 0x00]`, when decoded as a
 ## `uint64` is a valid encoding for `0` because the maximum length of a minimal
-## `uint64` encoding is 10 bytes - but because all minimal encodings
+## `uint64` encoding is 10 bytes - however, because all minimal encodings
 ## for `uint8` fit in 2 bytes, decoding the same byte sequence as `uint8` will
 ## yield an error return.
+##
+## To be strict about overlong encodings, compare the decoded number of bytes
+## with `Leb128.len(decoded_value)`.
 
 {.push raises: [].}
 
