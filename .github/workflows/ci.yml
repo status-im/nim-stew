@@ -191,7 +191,6 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1.5.0
         with:
           arch: amd64_x86
-          sdk: 8.1
 
       - name: Test using VCC (i386)
         if: runner.os == 'Windows' && matrix.target.cpu == 'i386'
@@ -204,7 +203,6 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1.5.0
         with:
           arch: x64
-          sdk: 8.1
 
       - name: Test using VCC (amd64)
         if: runner.os == 'Windows' && matrix.target.cpu == 'amd64'
