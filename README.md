@@ -5,6 +5,7 @@
 [![License: Apache](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 ![Stability: experimental](https://img.shields.io/badge/stability-experimental-orange.svg)
+![Github action](https://github.com/status-im/nim-stew/workflows/nim-stew%20CI/badge.svg)
 
 `stew` is collection of utilities, std library extensions and budding libraries
 that are frequently used at Status, but are too small to deserve their own
