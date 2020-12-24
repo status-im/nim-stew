@@ -182,8 +182,6 @@ jobs:
         shell: bash
         working-directory: nim-stew
         run: |
-          nimble install -y --depsOnly
-          nimble install -y stint
           env TEST_LANG="${{ matrix.target.TEST_LANG }}" nimble test
 
       - name: Setup VCC (i386)
@@ -192,20 +190,14 @@ jobs:
         with:
           arch: amd64_x86
 
-      - name: Test using VCC (i386)
-        if: runner.os == 'Windows' && matrix.target.cpu == 'i386'
-        shell: cmd
-        working-directory: nim-stew
-        run: nimble testvcc
-
       - name: Setup VCC (amd64)
         if: runner.os == 'Windows' && matrix.target.cpu == 'amd64'
         uses: ilammy/msvc-dev-cmd@v1.5.0
         with:
           arch: x64
 
-      - name: Test using VCC (amd64)
-        if: runner.os == 'Windows' && matrix.target.cpu == 'amd64'
+      - name: Test using VCC
+        if: runner.os == 'Windows'
         shell: cmd
         working-directory: nim-stew
         run: nimble testvcc
