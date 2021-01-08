@@ -9,11 +9,22 @@ skipDirs      = @["tests"]
 
 requires "nim >= 1.2.0"
 
+### Helper functions
+proc test(env, path: string) =
+  # Compilation language is controlled by TEST_LANG
+  var lang = "c"
+  if existsEnv"TEST_LANG":
+    lang = getEnv"TEST_LANG"
+
+  exec "nim " & lang & " " & env &
+    " -r --hints:off --warnings:off " & path
+
 task test, "Run all tests":
-  exec "nim c -r --threads:off tests/all_tests"
-  exec "nim c -r --threads:on -d:nimTypeNames tests/all_tests"
-  exec "nim c -r --threads:on -d:noIntrinsicsBitOpts -d:noIntrinsicsEndians tests/all_tests"
+  test "--threads:off", "tests/all_tests"
+  test "--threads:on -d:nimTypeNames", "tests/all_tests"
+  test "--threads:on -d:noIntrinsicsBitOpts -d:noIntrinsicsEndians", "tests/all_tests"
 
 task testvcc, "Run all tests with vcc compiler":
-  exec "nim c -r --cc:vcc --threads:off tests/all_tests"
-  exec "nim c -r --cc:vcc --threads:on -d:nimTypeNames tests/all_tests"
+  test "--cc:vcc --threads:off", "tests/all_tests"
+  test "--cc:vcc --threads:on -d:nimTypeNames", "tests/all_tests"
+  test "--cc:vcc --threads:on -d:noIntrinsicsBitOpts -d:noIntrinsicsEndians", "tests/all_tests"
