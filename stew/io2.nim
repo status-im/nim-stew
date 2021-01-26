@@ -8,6 +8,10 @@
 
 ## This module implements number cross-platform IO and OS procedures which do
 ## not use exceptions and using Result[T] for error handling.
+##
+
+{.push raises: [Defect].}
+
 import algorithm
 import results
 export results
