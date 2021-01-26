@@ -442,14 +442,11 @@ template capture*[E: Exception](T: type, someExceptionExpr: ref E): Result[T, re
     ret = R.err(caught)
   ret
 
-func `==`*[T, E](lhs: Result[T, E], rhs: Result[T, E]): bool {.inline.} =
+func `==`*[T0, E0, T1, E1](lhs: Result[T0, E0], rhs: Result[T1, E1]): bool {.inline.} =
   if lhs.o != rhs.o:
     false
   elif lhs.o: # and rhs.o implied
-    when T is void:
-      true
-    else:
-      lhs.v == rhs.v
+    lhs.v == rhs.v
   else:
     lhs.e == rhs.e
 
