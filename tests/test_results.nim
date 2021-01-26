@@ -275,3 +275,8 @@ func cstringF(s: string): CSRes =
     doAssert false
 
 discard cstringF("test")
+
+# Compare void
+block:
+  var a, b: Result[void, bool]
+  discard a == b
