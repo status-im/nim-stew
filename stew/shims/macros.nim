@@ -212,8 +212,19 @@ proc getPragma(T: NimNode, lookedUpField: string, pragma: NimNode): NimNode =
   error "The type " & $Tresolved & " doesn't have a field named " & lookedUpField
 
 macro getCustomPragmaFixed*(T: type, field: static string, pragma: typed{nkSym}): untyped =
+  result = nil
   let p = getPragma(T, field, pragma)
-  if p != nil and p.len == 2: p[1] else: p
+
+  if p != nil and p.len > 0:
+    if p.len == 2:
+      result = p[1]
+    else:
+      let def = p[0].getImpl[3]
+      result = newTree(nnkPar)
+      for i in 1 ..< def.len:
+        let key = def[i][0]
+        let val = p[i]
+        result.add newTree(nnkExprColonExpr, key, val)
 
 macro hasCustomPragmaFixed*(T: type, field: static string, pragma: typed{nkSym}): untyped =
   newLit(getPragma(T, field, pragma) != nil)
@@ -426,4 +437,3 @@ template genStmtList*(body: untyped) =
 template genSimpleExpr*(body: untyped): untyped =
   macro payload: untyped = body
   payload()
-
