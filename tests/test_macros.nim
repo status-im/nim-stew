@@ -9,8 +9,14 @@ template one(one: string) {.pragma.}
 template two(one: string, two: string) {.pragma.}
 
 type
-  MyType = object
+  MyType[T] = object
     myField {.zero, one("foo"), two("foo", "bar")}: string
+    myGeneric {.zero.}: T
+    case kind {.zero.}: bool
+      of true:
+        first {.zero.}: string
+      else:
+        second {.zero.}: string
 
   FieldKind = enum
     KindA
@@ -50,7 +56,7 @@ static:
     "anotherDerivedField"
   ]
 
-let myType = MyType(myField: "test")
+let myType = MyType[string](myField: "test", myGeneric: "test", kind: true, first: "test")
 
 suite "Macros":
   test "hasCustomPragmaFixed":
@@ -59,9 +65,20 @@ suite "Macros":
       myType.type.hasCustomPragmaFixed("myField", zero)
       myType.type.hasCustomPragmaFixed("myField", one)
       myType.type.hasCustomPragmaFixed("myField", two)
+
+      myType.type.hasCustomPragmaFixed("myGeneric", zero)
+      myType.type.hasCustomPragmaFixed("kind", zero)
+      myType.type.hasCustomPragmaFixed("first", zero)
+      myType.type.hasCustomPragmaFixed("second", zero)
+
   test "getCustomPragmaFixed":
     check:
       myType.type.getCustomPragmaFixed("myField", unknown).isNil
       myType.type.getCustomPragmaFixed("myField", zero).isNil
       myType.type.getCustomPragmaFixed("myField", one) is string
       myType.type.getCustomPragmaFixed("myField", two) is tuple[one: string, two: string]
+
+      myType.type.getCustomPragmaFixed("myGeneric", zero).isNil
+      myType.type.getCustomPragmaFixed("kind", zero).isNil
+      myType.type.getCustomPragmaFixed("first", zero).isNil
+      myType.type.getCustomPragmaFixed("second", zero).isNil
