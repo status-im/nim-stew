@@ -536,10 +536,10 @@ func `$`*(self: Result): string =
 func error*[T, E](self: Result[T, E]): E =
   ## Fetch error of result if set, or raise Defect
   if self.o:
-    when T is not void:
+    when T isnot void:
       raiseResultDefect("Trying to access error when value is set", self.v)
     else:
-      raise (ref ResultDefect)(msg: "Trying to access error when value is set")
+      raiseResultDefect("Trying to access error when value is set")
   self.e
 
 template value*[T, E](self: Result[T, E]): T =
@@ -628,7 +628,10 @@ template unsafeGet*[E](self: Result[void, E]) =
 
 func expect*[E](self: Result[void, E], msg: string) =
   if not self.o:
-    raise (ref ResultDefect)(msg: msg)
+    when E isnot void:
+      raiseResultDefect(msg, self.e)
+    else:
+      raiseResultDefect(msg)
 
 func `$`*[E](self: Result[void, E]): string =
   ## Returns string representation of `self`
