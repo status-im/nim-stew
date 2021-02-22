@@ -453,6 +453,8 @@ func `==`*[T0: not void, E0, T1: not void, E1](lhs: Result[T0, E0], rhs: Result[
 func `==`*[E0, E1](lhs: Result[void, E0], rhs: Result[void, E1]): bool {.inline.} =
   if lhs.o != rhs.o:
     false
+  elif lhs.o:
+    true
   else:
     lhs.e == rhs.e
 
