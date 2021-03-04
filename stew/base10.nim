@@ -10,7 +10,7 @@
 ##
 ## Encoding procedures are adopted versions of C functions described here:
 ## # https://www.facebook.com/notes/facebook-engineering/three-optimization-tips-for-c/10151361643253920
-import stew/results
+import results
 export results
 
 {.push raises: [Defect].}
