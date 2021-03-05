@@ -18,7 +18,6 @@ export results
 type
   Base10* = object
 
-{.push overflowChecks: off.}
 proc decode*[A: byte|char](B: typedesc[Base10], T: typedesc[SomeUnsignedInt],
                            src: openarray[A]): Result[T, cstring] =
   ## Convert base10 encoded string or array of bytes to unsigned integer.
@@ -30,23 +29,16 @@ proc decode*[A: byte|char](B: typedesc[Base10], T: typedesc[SomeUnsignedInt],
     return err("Missing decimal value")
   var v = T(0)
   for i in 0 ..< len(src):
-    let ch = src[i]
+    let ch = when A is char: byte(src[i]) else: src[i]
     let d =
-      when A is char:
-        if ch >= char(0x30'i8) and ch <= char(0x39'i8):
-          int(int8(ch) - 0x30'i8)
-        else:
-          return err("Non-decimal character encountered")
+      if (ch >= ord('0')) and (ch <= ord('9')):
+        T(ch - ord('0'))
       else:
-        if ch >= 0x30'u8 and ch <= 0x39'u8:
-          int(ch - 0x30'u8)
-        else:
-          return err("Non-decimal character encountered")
+        return err("Non-decimal character encountered")
     if (v > MaxValue) or (v == MaxValue and T(d) > MaxNumber):
       return err("Integer overflow")
     v = (v shl 3) + (v shl 1) + T(d)
   ok(v)
-{.pop.}
 
 proc encodedLength*(B: typedesc[Base10], value: SomeUnsignedInt): int =
   ## Procedure returns number of characters needed to encode integer ``value``.
