@@ -11,6 +11,7 @@ import
   ranges/all,
   test_assign2,
   test_arrayops,
+  test_base10,
   test_base32,
   test_base58,
   test_base64,
