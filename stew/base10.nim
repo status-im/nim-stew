@@ -18,6 +18,27 @@ export results
 type
   Base10* = object
 
+func maxLen*(T: typedesc[Base10], I: type): int8 =
+  ## The maximum number of bytes needed to encode any value of type I
+  when I is uint8:
+    3
+  elif I is uint16:
+    5
+  elif I is uint32:
+    10
+  elif I is uint64:
+    20
+  else:
+    when sizeof(uint) == 4:
+      10
+    else:
+      20
+
+type
+  Base10Buf*[T: SomeUnsignedInt] = object
+    data*: array[maxLen(Base10, T), byte]
+    len*: int8 # >= 1 when holding valid unsigned integer
+
 proc decode*[A: byte|char](B: typedesc[Base10], T: typedesc[SomeUnsignedInt],
                            src: openarray[A]): Result[T, cstring] =
   ## Convert base10 encoded string or array of bytes to unsigned integer.
@@ -40,24 +61,24 @@ proc decode*[A: byte|char](B: typedesc[Base10], T: typedesc[SomeUnsignedInt],
     v = (v shl 3) + (v shl 1) + T(d)
   ok(v)
 
-proc encodedLength*(B: typedesc[Base10], value: SomeUnsignedInt): int =
+proc encodedLength*(B: typedesc[Base10], value: SomeUnsignedInt): int8 =
   ## Procedure returns number of characters needed to encode integer ``value``.
   when type(value) is uint8:
     if value < 10'u8:
-      return 1
+      return 1'i8
     if value < 100'u8:
-      return 2
-    3
+      return 2'i8
+    3'i8
   elif type(value) is uint16:
     if value < 10'u16:
-      return 1
+      return 1'i8
     if value < 100'u16:
-      return 2
+      return 2'i8
     if value < 1000'u16:
-      return 3
+      return 3'i8
     if value < 10000'u16:
-      return 4
-    5
+      return 4'i8
+    5'i8
   elif type(value) is uint32:
     const
       P04 = 1_0000'u32
@@ -67,18 +88,18 @@ proc encodedLength*(B: typedesc[Base10], value: SomeUnsignedInt): int =
       P08 = 1_0000_0000'u32
       P09 = 1_0000_0000_0'u32
     if value < 10'u32:
-      return 1
+      return 1'i8
     if value < 100'u32:
-      return 2
+      return 2'i8
     if value < 1000'u32:
-      return 3
+      return 3'i8
     if value < P08:
       if value < P06:
         if value < P04:
-          return 4
-        return 5 + (if value >= P05: 1 else: 0)
-      return 7 + (if value >= P07: 1 else: 0)
-    9 + (if value >= P09: 1 else: 0)
+          return 4'i8
+        return 5'i8 + (if value >= P05: 1'i8 else: 0'i8)
+      return 7'i8 + (if value >= P07: 1'i8 else: 0'i8)
+    9'i8 + (if value >= P09: 1'i8 else: 0'i8)
   elif type(value) is uint64:
     const
       P04 = 1_0000'u64
@@ -91,26 +112,26 @@ proc encodedLength*(B: typedesc[Base10], value: SomeUnsignedInt): int =
       P11 = 1_0000_0000_000'u64
       P12 = 1_0000_0000_0000'u64
     if value < 10'u64:
-      return 1
+      return 1'i8
     if value < 100'u64:
-      return 2
+      return 2'i8
     if value < 1000'u64:
-      return 3
+      return 3'i8
     if value < P12:
       if value < P08:
         if value < P06:
           if value < P04:
-            return 4
-          return 5 + (if value >= P05: 1 else: 0)
-        return 7 + (if value >= P07: 1 else: 0)
+            return 4'i8
+          return 5'i8 + (if value >= P05: 1'i8 else: 0)
+        return 7'i8 + (if value >= P07: 1'i8 else: 0)
       if value < P10:
-        return 9 + (if value >= P09: 1 else: 0)
-      return 11 + (if value >= P11: 1 else: 0)
-    return 12 + B.encodedLength(value div P12)
+        return 9'i8 + (if value >= P09: 1'i8 else: 0)
+      return 11'i8 + (if value >= P11: 1'i8 else: 0)
+    return 12'i8 + B.encodedLength(value div P12)
 
 proc encode[A: byte|char](B: typedesc[Base10], value: SomeUnsignedInt,
                           output: var openarray[A],
-                          length: int): Result[int, cstring] =
+                          length: int8): Result[int8, cstring] =
   const Digits = cstring(
     "0001020304050607080910111213141516171819" &
     "2021222324252627282930313233343536373839" &
@@ -152,7 +173,7 @@ proc encode[A: byte|char](B: typedesc[Base10], value: SomeUnsignedInt,
   ok(length)
 
 proc encode*[A: byte|char](B: typedesc[Base10], value: SomeUnsignedInt,
-                           output: var openarray[A]): Result[int, cstring] =
+                           output: var openarray[A]): Result[int8, cstring] =
   ## Encode integer value to array of characters or bytes.
   B.encode(value, output, B.encodedLength(value))
 
@@ -160,12 +181,17 @@ proc toString*(B: typedesc[Base10], value: SomeUnsignedInt): string =
   ## Encode integer value ``value`` to string.
   var buf = newString(B.encodedLength(value))
   # Buffer of proper size is allocated, so error is not possible
-  discard B.encode(value, buf, len(buf))
+  discard B.encode(value, buf, int8(len(buf)))
   buf
 
-proc toBytes*(B: typedesc[Base10], value: SomeUnsignedInt): seq[byte] =
-  ## Encode integer value ``value`` to sequence of bytes.
-  var buf = newSeq[byte](B.encodedLength(value))
-  # Buffer of proper size is allocated, so error is not possible
-  discard B.encode(value, buf, len(buf))
-  buf
+proc toBytes*[I: SomeUnsignedInt](B: typedesc[Base10], v: I): Base10Buf[I] {.
+     noinit.} =
+  ## Encode integer value ``value`` to array of bytes.
+  let res = B.encode(v, result.data, B.encodedLength(v))
+  result.len = int8(res.get())
+
+proc toBytes*[I: SomeUnsignedInt](v: I, B: typedesc[Base10]): Base10Buf[I] {.
+     noinit.} =
+  ## Encode integer value ``value`` to array of bytes.
+  let res = B.encode(v, result.data, B.encodedLength(v))
+  result.len = int8(res.get())

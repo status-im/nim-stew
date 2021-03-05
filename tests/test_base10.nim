@@ -122,14 +122,19 @@ template testValues(T: typedesc[SomeUnsignedInt]) =
   let max = int(min(uint64(high(T)), 100000'u64)) + 1
   for i in 0 ..< max:
     let bufstr = Base10.toString(T(i))
-    let bufseq = Base10.toBytes(T(i))
+    let bufarr1 = Base10.toBytes(T(i))
+    let bufarr2 = T(i).toBytes(Base10)
     let r1 = Base10.decode(T, bufstr)
-    let r2 = Base10.decode(T, bufseq)
+    let r2 = Base10.decode(T, bufarr1.data.toOpenArray(0, bufarr1.len - 1))
+    let r3 = Base10.decode(T, bufarr2.data.toOpenArray(0, bufarr2.len - 1))
     check:
       r1.isOk()
       r2.isOk()
+      r3.isOk()
       r1.get() == T(i)
       r2.get() == T(i)
+      r3.get() == T(i)
+
 
 template testEdge(T: typedesc[SomeUnsignedInt]) =
   var bufstr: string
