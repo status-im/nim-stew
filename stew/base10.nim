@@ -147,7 +147,7 @@ proc encode[A: byte|char](B: typedesc[Base10], value: SomeUnsignedInt,
   var next = length - 1
 
   while v >= type(value)(100):
-    let index = int((v mod type(value)(100)) shl 1)
+    let index = uint8((v mod type(value)(100)) shl 1)
     v = v div type(value)(100)
     when A is char:
       output[next] = Digits[index + 1]
@@ -163,7 +163,7 @@ proc encode[A: byte|char](B: typedesc[Base10], value: SomeUnsignedInt,
     else:
       output[next] = byte('0') + byte(v and type(value)(0x0F))
   else:
-    let index = int(v) shl 1
+    let index = uint8(v) shl 1
     when A is char:
       output[next] = Digits[index + 1]
       output[next - 1] = Digits[index]
