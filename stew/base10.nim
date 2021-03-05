@@ -30,20 +30,19 @@ proc decode*[A: byte|char](B: typedesc[Base10], T: typedesc[SomeUnsignedInt],
     return err("Missing decimal value")
   var v = T(0)
   for i in 0 ..< len(src):
+    let ch = src[i]
     let d =
       when A is char:
-        if src[i] >= char(0x30'i8) and src[i] <= char(0x39'i8):
-          int(int8(src[i]) - 0x30'i8)
+        if ch >= char(0x30'i8) and ch <= char(0x39'i8):
+          int(int8(ch) - 0x30'i8)
         else:
-          -1
+          return err("Non-decimal character encountered")
       else:
-        if src[i] >= 0x30'u8 and src[i] <= 0x39'u8:
-          int(src[i] - 0x30'u8)
+        if ch >= 0x30'u8 and ch <= 0x39'u8:
+          int(ch - 0x30'u8)
         else:
-          -1
-    if d < 0:
-      return err("Non-decimal character encountered")
-    if v > MaxValue or (v == MaxValue and T(d) > MaxNumber):
+          return err("Non-decimal character encountered")
+    if (v > MaxValue) or (v == MaxValue and T(d) > MaxNumber):
       return err("Integer overflow")
     v = (v shl 3) + (v shl 1) + T(d)
   ok(v)
