@@ -168,14 +168,31 @@ template testHigh() =
     Base10.toString(high(uint32)) == "4294967295"
     Base10.toString(uint64(high(int64))) == "9223372036854775807"
     Base10.toString(high(uint64)) == "18446744073709551615"
+    Base10.decode(uint8, "127").tryGet() == 127'u8
+    Base10.decode(uint8, "255").tryGet() == 255'u8
+    Base10.decode(uint16, "32767").tryGet() == 32767'u16
+    Base10.decode(uint16, "65535").tryGet() == 65535'u16
+    Base10.decode(uint32, "2147483647").tryGet() == 2147483647'u32
+    Base10.decode(uint32, "4294967295").tryGet() == 4294967295'u32
+    Base10.decode(uint64, "9223372036854775807").tryGet() ==
+      9223372036854775807'u64
+    Base10.decode(uint64, "18446744073709551615").tryGet() ==
+      18446744073709551615'u64
+
   when sizeof(uint) == 8:
     check:
       Base10.toString(uint(high(int))) == "9223372036854775807"
       Base10.toString(high(uint)) == "18446744073709551615"
+      Base10.decode(uint, "9223372036854775807").tryGet() ==
+        9223372036854775807'u
+      Base10.decode(uint, "18446744073709551615").tryGet() ==
+        18446744073709551615'u
   elif sizeof(uint) == 4:
     check:
       Base10.toString(uint(high(int))) == "2147483647"
       Base10.toString(high(uint)) == "4294967295"
+      Base10.decode(uint, "2147483647").tryGet() == 2147483647'u
+      Base10.decode(uint, "4294967295").tryGet() == 4294967295'u
   else:
     skip()
 
