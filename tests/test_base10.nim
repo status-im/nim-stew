@@ -158,6 +158,27 @@ template testEdge(T: typedesc[SomeUnsignedInt]) =
         r3.isErr()
         r4.isErr()
 
+template testHigh() =
+  check:
+    Base10.toString(uint8(high(int8))) == "127"
+    Base10.toString(high(uint8)) == "255"
+    Base10.toString(uint16(high(int16))) == "32767"
+    Base10.toString(high(uint16)) == "65535"
+    Base10.toString(uint32(high(int32))) == "2147483647"
+    Base10.toString(high(uint32)) == "4294967295"
+    Base10.toString(uint64(high(int64))) == "9223372036854775807"
+    Base10.toString(high(uint64)) == "18446744073709551615"
+  when sizeof(uint) == 8:
+    check:
+      Base10.toString(uint(high(int))) == "9223372036854775807"
+      Base10.toString(high(uint)) == "18446744073709551615"
+  elif sizeof(uint) == 4:
+    check:
+      Base10.toString(uint(high(int))) == "2147483647"
+      Base10.toString(high(uint)) == "4294967295"
+  else:
+    skip()
+
 suite "Base10 (decimal) test suite":
   test "[uint8] encode/decode/length test":
     testVectors(uint8)
@@ -167,6 +188,8 @@ suite "Base10 (decimal) test suite":
     testVectors(uint32)
   test "[uint64] encode/decode/length test":
     testVectors(uint64)
+  test "[uint] encode/decode/length test":
+    testVectors(uint)
   test "[uint8] all values comparison test":
     testValues(uint8)
   test "[uint16] all values comparison test":
@@ -175,6 +198,8 @@ suite "Base10 (decimal) test suite":
     testValues(uint32)
   test "[uint64] 100,000 values comparison test":
     testValues(uint64)
+  test "[uint] 100,000 values comparison test":
+    testValues(uint)
   test "[uint8] edge cases":
     testEdge(uint8)
   test "[uint16] edge cases":
@@ -183,3 +208,7 @@ suite "Base10 (decimal) test suite":
     testEdge(uint32)
   test "[uint64] edge cases":
     testEdge(uint64)
+  test "[uint] edge cases":
+    testEdge(uint)
+  test "high() values test":
+    testHigh()
