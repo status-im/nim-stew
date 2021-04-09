@@ -79,7 +79,8 @@ proc encodedLength*(B: typedesc[Base10], value: SomeUnsignedInt): int8 =
     if value < 10000'u16:
       return 4'i8
     5'i8
-  elif type(value) is uint32:
+  elif (type(value) is uint32) or
+       ((type(value) is uint) and (sizeof(uint) == 4)):
     const
       P04 = 1_0000'u32
       P05 = 1_0000_0'u32
@@ -100,7 +101,8 @@ proc encodedLength*(B: typedesc[Base10], value: SomeUnsignedInt): int8 =
         return 5'i8 + (if value >= P05: 1'i8 else: 0'i8)
       return 7'i8 + (if value >= P07: 1'i8 else: 0'i8)
     9'i8 + (if value >= P09: 1'i8 else: 0'i8)
-  elif type(value) is uint64:
+  elif (type(value) is uint64) or
+       ((type(value) is uint) and (sizeof(uint) == 8)):
     const
       P04 = 1_0000'u64
       P05 = 1_0000_0'u64

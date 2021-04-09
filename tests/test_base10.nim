@@ -158,6 +158,44 @@ template testEdge(T: typedesc[SomeUnsignedInt]) =
         r3.isErr()
         r4.isErr()
 
+template testHigh() =
+  check:
+    Base10.toString(uint8(high(int8))) == "127"
+    Base10.toString(high(uint8)) == "255"
+    Base10.toString(uint16(high(int16))) == "32767"
+    Base10.toString(high(uint16)) == "65535"
+    Base10.toString(uint32(high(int32))) == "2147483647"
+    Base10.toString(high(uint32)) == "4294967295"
+    Base10.toString(uint64(high(int64))) == "9223372036854775807"
+    Base10.toString(high(uint64)) == "18446744073709551615"
+    Base10.decode(uint8, "127").tryGet() == 127'u8
+    Base10.decode(uint8, "255").tryGet() == 255'u8
+    Base10.decode(uint16, "32767").tryGet() == 32767'u16
+    Base10.decode(uint16, "65535").tryGet() == 65535'u16
+    Base10.decode(uint32, "2147483647").tryGet() == 2147483647'u32
+    Base10.decode(uint32, "4294967295").tryGet() == 4294967295'u32
+    Base10.decode(uint64, "9223372036854775807").tryGet() ==
+      9223372036854775807'u64
+    Base10.decode(uint64, "18446744073709551615").tryGet() ==
+      18446744073709551615'u64
+
+  when sizeof(uint) == 8:
+    check:
+      Base10.toString(uint(high(int))) == "9223372036854775807"
+      Base10.toString(high(uint)) == "18446744073709551615"
+      Base10.decode(uint, "9223372036854775807").tryGet() ==
+        9223372036854775807'u
+      Base10.decode(uint, "18446744073709551615").tryGet() ==
+        18446744073709551615'u
+  elif sizeof(uint) == 4:
+    check:
+      Base10.toString(uint(high(int))) == "2147483647"
+      Base10.toString(high(uint)) == "4294967295"
+      Base10.decode(uint, "2147483647").tryGet() == 2147483647'u
+      Base10.decode(uint, "4294967295").tryGet() == 4294967295'u
+  else:
+    skip()
+
 suite "Base10 (decimal) test suite":
   test "[uint8] encode/decode/length test":
     testVectors(uint8)
@@ -167,6 +205,8 @@ suite "Base10 (decimal) test suite":
     testVectors(uint32)
   test "[uint64] encode/decode/length test":
     testVectors(uint64)
+  test "[uint] encode/decode/length test":
+    testVectors(uint)
   test "[uint8] all values comparison test":
     testValues(uint8)
   test "[uint16] all values comparison test":
@@ -175,6 +215,8 @@ suite "Base10 (decimal) test suite":
     testValues(uint32)
   test "[uint64] 100,000 values comparison test":
     testValues(uint64)
+  test "[uint] 100,000 values comparison test":
+    testValues(uint)
   test "[uint8] edge cases":
     testEdge(uint8)
   test "[uint16] edge cases":
@@ -183,3 +225,7 @@ suite "Base10 (decimal) test suite":
     testEdge(uint32)
   test "[uint64] edge cases":
     testEdge(uint64)
+  test "[uint] edge cases":
+    testEdge(uint)
+  test "high() values test":
+    testHigh()
