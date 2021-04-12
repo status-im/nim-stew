@@ -11,6 +11,10 @@ template test() =
   doAssert countOnes(0b11111111'u64) == 8
   doAssert countOnes(0b11000001'u) == 3
 
+  doAssert countZeros(0b00000000'u8) == 8
+  doAssert countZeros(0b01000100'u8) == 6
+  doAssert countZeros(0b11111111'u64) == 56
+
   doAssert firstOne(0b00000000'u8) == 0
   doAssert firstOne(0b00000001'u64) == 1
   doAssert firstOne(0b00010010'u8) == 2
@@ -141,4 +145,3 @@ suite "bitops2":
   test "bitops2_test":
     test() # Cannot use unittest at compile time..
     runtimeTest()
-
