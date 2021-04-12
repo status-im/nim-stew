@@ -302,7 +302,7 @@ func countOnes*(x: SomeUnsignedInt): int {.inline.} =
       countOnesNim(x)
 
 func countZeros*(x: SomeUnsignedInt): int {.inline.} =
-  sizeof(x) - countOnes(x)
+  bitsof(x) - countOnes(x)
 
 func parity*(x: SomeUnsignedInt): int {.inline.} =
   ## Calculate the bit parity in integer. If number of 1-bit
