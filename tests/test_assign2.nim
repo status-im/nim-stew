@@ -9,6 +9,7 @@ suite "assign2":
       a = 5
       b = [2, 3]
       c = @[5, 6]
+      d = "hello"
 
     assign(c, b)
     check: c == b
@@ -20,6 +21,9 @@ suite "assign2":
 
     assign(c.toOpenArray(0, 1), [2, 2])
     check: c == [2, 2]
+
+    assign(d, "there!")
+    check: d == "there!"
 
     var
       dis = X(53)
