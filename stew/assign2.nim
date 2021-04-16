@@ -32,6 +32,10 @@ func assign*[T](tgt: var seq[T], src: openArray[T]) =
   tgt.setLen(src.len)
   assignImpl(tgt.toOpenArray(0, tgt.high), src)
 
+func assign*(tgt: var string, src: string) =
+  tgt.setLen(src.len)
+  assignImpl(tgt.toOpenArrayByte(0, tgt.high), src.toOpenArrayByte(0, tgt.high))
+
 macro unsupported(T: typed): untyped =
   error "Assignment of the type " & humaneTypeName(T) & " is not supported"
 
