@@ -1,4 +1,4 @@
-name: nim-stew CI
+name: CI
 on: [push, pull_request]
 
 jobs:
@@ -7,38 +7,18 @@ jobs:
       fail-fast: false
       max-parallel: 20
       matrix:
-        branch: [master]
+        test_lang: [c, cpp]
         target:
           - os: linux
             cpu: amd64
-            TEST_LANG: c
-          - os: linux
-            cpu: amd64
-            TEST_LANG: cpp
           - os: linux
             cpu: i386
-            TEST_LANG: c
-          - os: linux
-            cpu: i386
-            TEST_LANG: cpp
           - os: macos
             cpu: amd64
-            TEST_LANG: c
-          - os: macos
-            cpu: amd64
-            TEST_LANG: cpp
           - os: windows
             cpu: amd64
-            TEST_LANG: c
-          - os: windows
-            cpu: amd64
-            TEST_LANG: cpp
           - os: windows
             cpu: i386
-            TEST_LANG: c
-          - os: windows
-            cpu: i386
-            TEST_LANG: cpp
         include:
           - target:
               os: linux
@@ -50,7 +30,7 @@ jobs:
               os: windows
             builder: windows-2019
 
-    name: '${{ matrix.target.os }}-${{ matrix.target.cpu }}-${{ matrix.target.TEST_LANG }} (${{ matrix.branch }})'
+    name: '${{ matrix.target.os }}-${{ matrix.target.cpu }}-${{ matrix.test_lang }}'
     runs-on: ${{ matrix.builder }}
     steps:
       - name: Checkout nim-stew
@@ -145,11 +125,10 @@ jobs:
         id: nim-cache
         uses: actions/cache@v2
         with:
-          path: nim
-          key: 'nim-${{ matrix.target.os }}-${{ matrix.target.cpu }}-${{ steps.versions.outputs.nimbus_build_system }}'
+          path: NimBinaries
+          key: 'NimBinaries-${{ matrix.target.os }}-${{ matrix.target.cpu }}-${{ steps.versions.outputs.nimbus_build_system }}'
 
       - name: Build Nim and associated tools
-        if: steps.nim-cache.outputs.cache-hit != 'true'
         shell: bash
         run: |
           curl -O -L -s -S https://raw.githubusercontent.com/status-im/nimbus-build-system/master/scripts/build_nim.sh
@@ -164,25 +143,13 @@ jobs:
             MAKE_CMD="make"
           fi
           env MAKE="$MAKE_CMD -j2" ARCH_OVERRIDE=$PLATFORM CC=gcc bash build_nim.sh nim csources dist/nimble NimBinaries
-
-          # clean up to save cache space
-          cd nim
-          rm koch
-          rm -rf nimcache
-          rm -rf csources
-          rm -rf tests
-          rm -rf dist
-          rm -rf .git
-
-      - name: Setup environment
-        shell: bash
-        run: echo '${{ github.workspace }}/nim/bin' >> $GITHUB_PATH
+          echo '${{ github.workspace }}/nim/bin' >> $GITHUB_PATH
 
       - name: Run nim-stew tests
         shell: bash
         working-directory: nim-stew
         run: |
-          env TEST_LANG="${{ matrix.target.TEST_LANG }}" nimble test
+          env TEST_LANG="${{ matrix.test_lang }}" nimble test
 
       - name: Setup VCC (Windows-i386)
         if: runner.os == 'Windows' && matrix.target.cpu == 'i386'
@@ -201,4 +168,4 @@ jobs:
         shell: cmd
         working-directory: nim-stew
         run: |
-          env TEST_LANG="${{ matrix.target.TEST_LANG }}" nimble testvcc
+          env TEST_LANG="${{ matrix.test_lang }}" nimble testvcc
