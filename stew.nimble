@@ -17,7 +17,7 @@ proc test(env, path: string) =
     lang = getEnv"TEST_LANG"
 
   exec "nim " & lang & " " & env &
-    " -r --hints:off --warnings:off " & path
+    " -r --hints:off --skipParentCfg " & path
 
 task test, "Run all tests":
   test "--threads:off", "tests/all_tests"
