@@ -170,7 +170,7 @@ proc decode*[T: byte|char](btype: typedesc[Base64Types], instr: openarray[T],
   var inlen = len(instr)
   when (btype is Base64PadTypes):
     for i in countdown(inlen - 1, 0):
-      if instr[i] != '=':
+      if instr[i] != T('='):
         break
       dec(inlen)
 
