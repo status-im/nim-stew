@@ -279,4 +279,13 @@ discard cstringF("test")
 # Compare void
 block:
   var a, b: Result[void, bool]
-  discard a == b
+  doAssert a == b
+
+  a.ok()
+
+  doAssert not (a == b)
+  doAssert not (b == a)
+
+  b.ok()
+
+  doAssert a == b
