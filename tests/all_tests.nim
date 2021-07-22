@@ -27,4 +27,5 @@ import
   test_sequtils2,
   test_results,
   test_varints,
-  test_winacl
+  test_winacl,
+  test_utf

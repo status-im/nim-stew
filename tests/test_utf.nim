@@ -65,3 +65,32 @@ suite "UTF-8 DFA validator":
       Utf8.validate("foob\xc3\xa6r")
       Utf8.validate("foob\xf0\x9f\x99\x88r")
 
+  test "boundary test":
+    check:
+      Utf8.validate("κόσμε")
+      Utf8.validate("\xC2\x80")
+      Utf8.validate("\xE0\xA0\x80")
+      Utf8.validate("\xF0\x90\x80\x80")
+      Utf8.validate("\xF8\x88\x80\x80\x80") == false
+      Utf8.validate("\xFC\x84\x80\x80\x80\x80") == false
+      Utf8.validate("\x7F")
+      Utf8.validate("\xDF\xBF")
+      Utf8.validate("\xEF\xBF\xBF")
+      Utf8.validate("\xF4\x8F\xBF\xBF")
+      Utf8.validate("\xF4\x90\x80\x80") == false
+      Utf8.validate("\xFB\xBF\xBF\xBF\xBF") == false
+      Utf8.validate("\xFD\xBF\xBF\xBF\xBF\xBF") == false
+      Utf8.validate("\xed\x9f\xbf")
+      Utf8.validate("\xee\x80\x80")
+      Utf8.validate("\xef\xbf\xbd")
+
+#[
+import unicode, strutils
+func toHex(s: string): string =
+  for c in s:
+    result.add toHex(c.int, 2)
+
+
+echo toUTF8(0x110000.Rune).toHex
+
+]#
