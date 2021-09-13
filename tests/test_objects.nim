@@ -132,3 +132,67 @@ suite "Objects":
       not checkedEnumAssign(e2, 1)
       e2 == C2
 
+  test "isZeroMemory":
+    type
+      Foo = object
+        x: string
+        y: int
+      FooRef = ref Foo
+      Bar = object of RootObj
+      Baz = ref object of Bar
+
+    var
+      z0 = 0
+      z1: int
+      z2: FooRef
+      z3: Foo
+      z4: FooRef
+      z5: uint8
+      z6: array[10, int]
+      z7: array[10, Foo]
+      z8: string
+      z9: float
+      z10: seq[int]
+      z11: seq[Bar]
+      z12: Baz
+
+    check:
+      isZeroMemory z0
+      isZeroMemory z1
+      isZeroMemory z2
+      isZeroMemory z3
+      isZeroMemory z4
+      isZeroMemory z5
+      isZeroMemory z6
+      isZeroMemory z7
+      isZeroMemory z8
+      isZeroMemory z9
+      isZeroMemory z10
+      isZeroMemory z11
+      isZeroMemory z12
+
+    var
+      nz0 = 1
+      nz1: int = -100
+      nz2 = FooRef()
+      nz3 = Foo(y: 10)
+      nz4: Bar
+      nz5 = Baz()
+      nz6 = [1, 2, 3]
+      nz7 = [Foo(y: 20), Foo(y: 10)]
+      nz8 = "test"
+      nz9 = 1.23
+      nz10 = @[1, 2, 3]
+
+    check:
+      not isZeroMemory nz0
+      not isZeroMemory nz1
+      not isZeroMemory nz2
+      not isZeroMemory nz3
+      not isZeroMemory nz4
+      not isZeroMemory nz5
+      not isZeroMemory nz6
+      not isZeroMemory nz7
+      not isZeroMemory nz8
+      not isZeroMemory nz9
+      not isZeroMemory nz10

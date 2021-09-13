@@ -107,3 +107,10 @@ func checkedEnumAssign*[E: enum, I: SomeInteger](res: var E, value: I): bool =
   res = E value
   return true
 
+func isZeroMemory*[T](x: T): bool =
+  # TODO: iterate over words here
+  for b in cast[ptr array[sizeof(T), byte]](unsafeAddr x)[]:
+    if b != 0:
+      return false
+  return true
+
