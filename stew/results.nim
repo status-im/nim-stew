@@ -6,6 +6,9 @@
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+import
+  viewtypes
+
 type
   ResultError*[E] = object of ValueError
     ## Error raised when using `tryGet` value of result when error is set
@@ -458,21 +461,21 @@ func `==`*[E0, E1](lhs: Result[void, E0], rhs: Result[void, E1]): bool {.inline.
   else:
     lhs.e == rhs.e
 
-func get*[T: not void, E](self: Result[T, E]): T {.inline.} =
+func get*[T: not void, E](self: Result[T, E]): Lent[T] {.inline.} =
   ## Fetch value of result if set, or raise Defect
   ## Exception bridge mode: raise given Exception instead
   ## See also: Option.get
   assertOk(self)
   self.v
 
-func tryGet*[T: not void, E](self: Result[T, E]): T {.inline.} =
+func tryGet*[T: not void, E](self: Result[T, E]): Lent[T] {.inline.} =
   ## Fetch value of result if set, or raise
   ## When E is an Exception, raise that exception - otherwise, raise a ResultError[E]
   mixin raiseResultError
   if not self.o: self.raiseResultError()
   self.v
 
-func get*[T, E](self: Result[T, E], otherwise: T): T {.inline.} =
+func get*[T, E](self: Result[T, E], otherwise: T): Lent[T] {.inline.} =
   ## Fetch value of result if set, or return the value `otherwise`
   ## See `valueOr` for a template version that avoids evaluating `otherwise`
   ## unless necessary
@@ -486,7 +489,7 @@ func get*[T, E](self: var Result[T, E]): var T {.inline.} =
   assertOk(self)
   self.v
 
-template `[]`*[T: not void, E](self: Result[T, E]): T =
+template `[]`*[T: not void, E](self: Result[T, E]): Lent[T] =
   ## Fetch value of result if set, or raise Defect
   ## Exception bridge mode: raise given Exception instead
   mixin get
@@ -498,14 +501,14 @@ template `[]`*[T, E](self: var Result[T, E]): var T =
   mixin get
   self.get()
 
-template unsafeGet*[T, E](self: Result[T, E]): T =
+template unsafeGet*[T, E](self: Result[T, E]): Lent[T] =
   ## Fetch value of result if set, undefined behavior if unset
   ## See also: Option.unsafeGet
   assert self.o
 
   self.v
 
-func expect*[T: not void, E](self: Result[T, E], m: string): T =
+func expect*[T: not void, E](self: Result[T, E], m: string): Lent[T] =
   ## Return value of Result, or raise a `Defect` with the given message - use
   ## this helper to extract the value when an error is not expected, for example
   ## because the program logic dictates that the operation should never fail
@@ -535,7 +538,7 @@ func `$`*(self: Result): string =
   if self.o: "Ok(" & $self.v & ")"
   else: "Err(" & $self.e & ")"
 
-func error*[T, E](self: Result[T, E]): E =
+func error*[T, E](self: Result[T, E]): Lent[E] =
   ## Fetch error of result if set, or raise Defect
   if self.o:
     when T isnot void:
@@ -544,15 +547,15 @@ func error*[T, E](self: Result[T, E]): E =
       raiseResultDefect("Trying to access error when value is set")
   self.e
 
-template value*[T, E](self: Result[T, E]): T =
+template value*[T, E](self: Result[T, E]): Lent[T] =
   mixin get
   self.get()
 
-template value*[T, E](self: var Result[T, E]): T =
+template value*[T, E](self: var Result[T, E]): Lent[T] =
   mixin get
   self.get()
 
-template valueOr*[T, E](self: Result[T, E], def: T): T =
+template valueOr*[T, E](self: Result[T, E], def: T): Lent[T] =
   ## Fetch value of result if set, or supplied default
   ## default will not be evaluated iff value is set
   if self.o: self.v
@@ -656,10 +659,7 @@ template `?`*[T, E](self: Result[T, E]): auto =
   ## let v = ? funcWithResult()
   ## echo v # prints value, not Result!
   ## ```
-  ## Experimental
-  # TODO the v copy is here to prevent multiple evaluations of self - could
-  #      probably avoid it with some fancy macro magic..
-  let v = (self)
+  let v: Lent[Result[T, E]] = self
   if not v.o:
     when typeof(result) is typeof(v):
       return v
