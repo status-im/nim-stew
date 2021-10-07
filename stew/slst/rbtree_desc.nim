@@ -69,7 +69,7 @@
 
 import
   std/[tables],
-  stew/results
+  ../results
 
 const
   rbTreeReBalancedFlag* = 1

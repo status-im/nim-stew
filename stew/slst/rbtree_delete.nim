@@ -11,7 +11,7 @@
 import
   ./rbtree_desc,
   ./rbtree_rotate,
-  stew/results
+  ../results
 
 {.push raises: [Defect].}
 

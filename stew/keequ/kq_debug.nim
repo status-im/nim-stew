@@ -15,7 +15,7 @@
 import
   std/tables,
   ../keequ,
-  stew/results
+  ../results
 
 # ------------------------------------------------------------------------------
 # Public functions, debugging

@@ -40,7 +40,7 @@
 
 import
   std/[math, tables],
-  stew/results
+  ./results
 
 export
   results

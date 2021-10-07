@@ -10,7 +10,7 @@
 
 import
   ./rbtree_desc,
-  stew/results
+  ../results
 
 type
   RbLtFn*[C] = ##\

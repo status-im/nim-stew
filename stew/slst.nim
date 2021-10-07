@@ -50,6 +50,7 @@
 ##
 import
   std/[tables],
+  ./results,
   ./slst/[rbtree_delete,
           rbtree_desc,
           rbtree_find,
@@ -57,8 +58,7 @@ import
           rbtree_insert,
           rbtree_reset,
           rbtree_verify,
-          rbtree_walk],
-  stew/results
+          rbtree_walk]
 
 export
   RbInfo,
