@@ -26,6 +26,7 @@ import
   test_objects,
   test_ptrops,
   test_sequtils2,
+  test_slst,
   test_results,
   test_varints,
   test_winacl
