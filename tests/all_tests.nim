@@ -21,6 +21,7 @@ import
   test_ctops,
   test_endians2,
   test_io2,
+  test_keequ,
   test_macros,
   test_objects,
   test_ptrops,
