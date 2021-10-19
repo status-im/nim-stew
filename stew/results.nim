@@ -466,14 +466,14 @@ func get*[T: not void, E](self: Result[T, E]): Lent[T] {.inline.} =
   ## Exception bridge mode: raise given Exception instead
   ## See also: Option.get
   assertOk(self)
-  self.v
+  return self.v
 
 func tryGet*[T: not void, E](self: Result[T, E]): Lent[T] {.inline.} =
   ## Fetch value of result if set, or raise
   ## When E is an Exception, raise that exception - otherwise, raise a ResultError[E]
   mixin raiseResultError
   if not self.o: self.raiseResultError()
-  self.v
+  return self.v
 
 func get*[T, E](self: Result[T, E], otherwise: T): Lent[T] {.inline.} =
   ## Fetch value of result if set, or return the value `otherwise`
@@ -523,7 +523,7 @@ func expect*[T: not void, E](self: Result[T, E], m: string): Lent[T] =
       raiseResultDefect(m, self.e)
     else:
       raiseResultDefect(m)
-  self.v
+  return self.v
 
 func expect*[T: not void, E](self: var Result[T, E], m: string): var T =
   if not self.o:
@@ -545,7 +545,7 @@ func error*[T, E](self: Result[T, E]): Lent[E] =
       raiseResultDefect("Trying to access error when value is set", self.v)
     else:
       raiseResultDefect("Trying to access error when value is set")
-  self.e
+  return self.e
 
 template value*[T, E](self: Result[T, E]): Lent[T] =
   mixin get
@@ -651,6 +651,11 @@ template value*[E](self: var Result[void, E]) =
   mixin get
   self.get()
 
+template isBorrowable*(x: typed): bool =
+  type T = typeof(x)
+  compiles:
+    let v: Lent[T] = x
+
 template `?`*[T, E](self: Result[T, E]): auto =
   ## Early return - if self is an error, we will return from the current
   ## function, else we'll move on..
@@ -659,9 +664,14 @@ template `?`*[T, E](self: Result[T, E]): auto =
   ## let v = ? funcWithResult()
   ## echo v # prints value, not Result!
   ## ```
-  let v: Lent[Result[T, E]] = self
+  type S = typeof(self)
+  when isBorrowable(self):
+    let v: Lent[S] = self
+  else:
+    let v = self
+
   if not v.o:
-    when typeof(result) is typeof(v):
+    when typeof(result) is typeof(self):
       return v
     else:
       return err(typeof(result), v.e)
