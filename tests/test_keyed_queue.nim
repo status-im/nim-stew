@@ -10,8 +10,8 @@
 
 import
   std/[algorithm, sequtils, strformat, strutils, tables],
-  ../stew/keequ,
-  ../stew/keequ/kq_debug,
+  ../stew/keyed_queue,
+  ../stew/keyed_queue/kq_debug,
   unittest
 
 const
@@ -32,7 +32,7 @@ const
 
 type
   KUQueue = # mind the kqueue module from the nim standard lib
-    KeeQu[uint,uint]
+    KeyedQueue[uint,uint]
 
   LruCache = object
     size: int
@@ -45,10 +45,10 @@ let
 # Debugging
 # ------------------------------------------------------------------------------
 
-proc `$`(rc: KeeQuPair[uint,uint]): string =
+proc `$`(rc: KeyedQueuePair[uint,uint]): string =
   "(" & $rc.key & "," & $rc.data & ")"
 
-proc `$`(rc: Result[KeeQuPair[uint,uint],void]): string =
+proc `$`(rc: Result[KeyedQueuePair[uint,uint],void]): string =
   result = "<"
   if rc.isOK:
     result &= $rc.value.key & "," & $rc.value.data
@@ -163,7 +163,7 @@ let
   numUniqeKeys = keyList.toSeq.mapIt((it,false)).toTable.len
   numKeyDups = keyList.len - numUniqeKeys
 
-suite "KeeQu: Data queue with keyed random access":
+suite "KeyedQueue: Data queue with keyed random access":
 
   block:
     var
@@ -171,7 +171,7 @@ suite "KeeQu: Data queue with keyed random access":
       fwdRej, revRej: seq[int]
 
     test &"All functions smoke test":
-      var rq: KeeQu[uint,uint]
+      var rq: KeyedQueue[uint,uint]
       rq.compileGenericFunctions
 
     test &"Append/traverse {keyList.len} items, " &
@@ -184,7 +184,7 @@ suite "KeeQu: Data queue with keyed random access":
           rej.add n
         let check = rq.verify
         if check.isErr:
-          check check.error[2] == keeQuOk
+          check check.error[2] == kQOk
       check rq.len == numUniqeKeys
       check rej.len == numKeyDups
       check rq.len + rej.len == keyList.len
@@ -205,7 +205,7 @@ suite "KeeQu: Data queue with keyed random access":
           rej.add n
         let check = rq.verify
         if check.isErr:
-          check check.error[2] == keeQuOk
+          check check.error[2] == kQOk
       check rq.len == numUniqeKeys
       check rej.len == numKeyDups
       check rq.len + rej.len == keyList.len
@@ -258,10 +258,10 @@ suite "KeeQu: Data queue with keyed random access":
           seen.add key.fromKey
 
         if fwdRqCheck.isErr:
-          check fwdRqCheck.error[2] == keeQuOk
+          check fwdRqCheck.error[2] == kQOk
         check fwdData.isOk == canDeleteOk
         if revRqCheck.isErr:
-          check revRqCheck.error[2] == keeQuOk
+          check revRqCheck.error[2] == kQOk
         check revData.isOk == canDeleteOk
 
         if canDeleteOk:
@@ -440,7 +440,7 @@ suite "KeeQu: Data queue with keyed random access":
 
   # --------------------------------------
 
-  test &"Load/delete second entries from either queue end until only one left":
+  test &"Load/delete 2nd entries from either queue end until only one left":
     block:
       var rq = keyList.toQueue
       while true:
@@ -484,7 +484,7 @@ suite "KeeQu: Data queue with keyed random access":
     check rp.len + reduceLen == rq.len
 
 
-suite "KeeQu: Data queue as LRU cache":
+suite "KeyedQueue: Data queue as LRU cache":
 
   test "Fill Up":
     var

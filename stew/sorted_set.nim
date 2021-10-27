@@ -21,7 +21,7 @@
 ## Example:
 ## ::
 ##  # create new list with integer keys, and integer values
-##  var sl = newSLst[int,int]()
+##  var sl = SortedSet[int,int].init()
 ##
 ##  # add some entries
 ##  for key in [208, 127, 106, 117,  49,  40, 171]:
@@ -40,25 +40,25 @@
 ##  # print all key/value entries in natrual key order
 ##  block:
 ##    var
-##      walk = sl.newWalk
+##      walk = SortedSetWalkRef[K,V].init(sl)
 ##      rc = w.first
 ##    while rc.isOk:
 ##      echo "*** item ", rc.value.key, " ",  rc.value.data
 ##      rc = w.next
-##    # optional clan up, see comments on `rbWalkDestroy()`
+##    # optional clean up, see comments on the destroy() directive
 ##    walk.destroy
 ##
 import
   std/[tables],
-  ./results,
-  ./slst/[rbtree_delete,
-          rbtree_desc,
-          rbtree_find,
-          rbtree_flush,
-          rbtree_insert,
-          rbtree_reset,
-          rbtree_verify,
-          rbtree_walk]
+  ./sorted_set/[rbtree_delete,
+                rbtree_desc,
+                rbtree_find,
+                rbtree_flush,
+                rbtree_insert,
+                rbtree_reset,
+                rbtree_verify,
+                rbtree_walk],
+  ./results
 
 export
   RbInfo,
@@ -67,23 +67,23 @@ export
   results
 
 type
-  SLstItemRef*[K,V] = ref object ##\
+  SortedSetItemRef*[K,V] = ref object ##\
     ## Data value container as stored in the list/database
     key: K                    ## Sorter key, read-only
     data*: V                  ## Some data value, to be modified freely
 
-  SLst*[K,V] = object of RootObj ##\
+  SortedSet*[K,V] = object of RootObj ##\
     ## Sorted list descriptor
-    tree: RbTreeRef[SLstItemRef[K,V],K]
+    tree: RbTreeRef[SortedSetItemRef[K,V],K]
 
-  SLstWalkRef*[K,V] = ##\
+  SortedSetWalkRef*[K,V] = ##\
     ## Traversal/walk descriptor for sorted list
-    RbWalkRef[SLstItemRef[K,V],K]
+    RbWalkRef[SortedSetItemRef[K,V],K]
 
-  SLstResult*[K,V] = ##\
+  SortedSetResult*[K,V] = ##\
     ## Data value container or error code, typically used as value \
     ## returned from functions.
-    RbResult[SLstItemRef[K,V]]
+    RbResult[SortedSetItemRef[K,V]]
 
 {.push raises: [Defect].}
 
@@ -91,18 +91,18 @@ type
 # Private helpers
 # ------------------------------------------------------------------------------
 
-proc slstCmp[K,V](casket: SLstItemRef[K,V]; key: K): int =
+proc slstCmp[K,V](casket: SortedSetItemRef[K,V]; key: K): int =
   casket.key.cmp(key)
 
-proc slstMkc[K,V](key: K): SLstItemRef[K,V] =
-  SLstItemRef[K,V](key: key)
+proc slstMkc[K,V](key: K): SortedSetItemRef[K,V] =
+  SortedSetItemRef[K,V](key: key)
 
-proc slstClup[K,V](c: var SLstItemRef[K,V]) =
+proc slstClup[K,V](c: var SortedSetItemRef[K,V]) =
   # ... some smart stuff here?
   c = nil     # GC hint (if any, todo?)
 
 
-proc slstLt[K,V](a, b: SLstItemRef[K,V]): bool =
+proc slstLt[K,V](a, b: SortedSetItemRef[K,V]): bool =
   ## Debugging only
   a.slstCmp(b.key) < 0
 
@@ -114,93 +114,93 @@ proc slstPr(code: RbInfo; ctxInfo: string) =
 # Public functions, constructor
 # ------------------------------------------------------------------------------
 
-proc init*[K,V](sl: var SLst[K,V]) =
+proc init*[K,V](sl: var SortedSet[K,V]) =
   ## Constructor for sorted list with key type `K` and data type `V`
-  sl.tree = newRbTreeRef[SLstItemRef[K,V],K](
-    cmp = proc(c: SLstItemRef[K,V]; k: K): int = c.slstCmp(k),
-    mkc = proc(k: K): SLstItemRef[K,V] = slstMkc[K,V](k))
+  sl.tree = newRbTreeRef[SortedSetItemRef[K,V],K](
+    cmp = proc(c: SortedSetItemRef[K,V]; k: K): int = c.slstCmp(k),
+    mkc = proc(k: K): SortedSetItemRef[K,V] = slstMkc[K,V](k))
 
-proc init*[K,V](T: type SLst[K,V]): T =
+proc init*[K,V](T: type SortedSet[K,V]): T =
   ## Variant of `init()`
   result.init
 
-proc move*[K,V](sl: var SLst[K,V]): SLst[K,V] =
+proc move*[K,V](sl: var SortedSet[K,V]): SortedSet[K,V] =
   ## Return a shallow copy of the argument list `sl`, then reset `sl`.
   result.tree = sl.tree
   sl.init
 
-proc reset*[K,V](sl: var SLst[K,V]) =
+proc reset*[K,V](sl: var SortedSet[K,V]) =
   ## Reset list descriptor to its inital value. This function also de-registers
-  ## and flushes all traversal descriptors of type `SLstWalkRef`.
-  sl.tree.rbTreeReset(clup = proc(c: var SLstItemRef[K,V]) = c.slstClup)
+  ## and flushes all traversal descriptors of type `SortedSetWalkRef`.
+  sl.tree.rbTreeReset(clup = proc(c: var SortedSetItemRef[K,V]) = c.slstClup)
 
 # ------------------------------------------------------------------------------
 # Public functions, getter, converter
 # ------------------------------------------------------------------------------
 
-proc key*[K,V](data: SLstItemRef[K,V]): K =
+proc key*[K,V](data: SortedSetItemRef[K,V]): K =
   ## Getter, extracts the key from the data container item.
   data.key
 
-proc len*[K,V](sl: var SLst[K,V]): int =
+proc len*[K,V](sl: var SortedSet[K,V]): int =
   ## Number of list elements
   sl.tree.size
 
-proc toSLstResult*[K,V](key: K; data: V): SLstResult[K,V] =
+proc toSortedSetResult*[K,V](key: K; data: V): SortedSetResult[K,V] =
   ## Helper, chreate `ok()` result
-  ok(SLstItemRef[K,V](key: key, data: data))
+  ok(SortedSetItemRef[K,V](key: key, data: data))
 
 # ------------------------------------------------------------------------------
 # Public functions, list operations
 # ------------------------------------------------------------------------------
 
-proc insert*[K,V](sl: var SLst[K,V]; key: K): SLstResult[K,V] =
+proc insert*[K,V](sl: var SortedSet[K,V]; key: K): SortedSetResult[K,V] =
   ## Insert `key`, returns data container item with the `key`. Function fails
   ## if `key` exists in the list.
   sl.tree.rbTreeInsert(key)
 
-proc findOrInsert*[K,V](sl: var SLst[K,V]; key: K): SLstResult[K,V] =
+proc findOrInsert*[K,V](sl: var SortedSet[K,V]; key: K): SortedSetResult[K,V] =
   ## Insert or find `key`, returns data container item with the `key`. This
   ## function always succeeds (unless there is s problem with the list.)
   result = sl.tree.rbTreeInsert(key)
   if result.isErr:
     return sl.tree.rbTreeFindEq(key)
 
-proc delete*[K,V](sl: var SLst[K,V]; key: K): SLstResult[K,V] =
+proc delete*[K,V](sl: var SortedSet[K,V]; key: K): SortedSetResult[K,V] =
   ## Delete `key` from list and return the data container item that was
   ## holding the `key` if it was deleted.
   sl.tree.rbTreeDelete(key)
 
-proc flush*[K,V](sl: var SLst[K,V]) =
+proc flush*[K,V](sl: var SortedSet[K,V]) =
   ## Flush the sorted list, i.e. delete all entries. This function is
   ## more efficient than running a `delete()` loop.
-  sl.tree.rbTreeFlush(clup = proc(c: var SLstItemRef[K,V]) = c.slstClup)
+  sl.tree.rbTreeFlush(clup = proc(c: var SortedSetItemRef[K,V]) = c.slstClup)
 
 # ------------------------------------------------------------------------------
 # Public functions, query functions
 # ------------------------------------------------------------------------------
 
-proc eq*[K,V](sl: var SLst[K,V]; key: K): SLstResult[K,V] =
+proc eq*[K,V](sl: var SortedSet[K,V]; key: K): SortedSetResult[K,V] =
   ## Find `key` in list, returns data container item with the `key` if it
   ## exists.
   sl.tree.rbTreeFindEq(key)
 
-proc le*[K,V](sl: var SLst[K,V]; key: K): SLstResult[K,V] =
+proc le*[K,V](sl: var SortedSet[K,V]; key: K): SortedSetResult[K,V] =
   ## Find data container iten with *largest* key *less or equal* the argument
   ## `key` in list and return it if found.
   sl.tree.rbTreeFindLe(key)
 
-proc lt*[K,V](sl: var SLst[K,V]; key: K): SLstResult[K,V] =
+proc lt*[K,V](sl: var SortedSet[K,V]; key: K): SortedSetResult[K,V] =
   ## Find data container item with *largest* key *less than* the argument
   ## `key` in list and return it if found.
   sl.tree.rbTreeFindLt(key)
 
-proc ge*[K,V](sl: var SLst[K,V]; key: K): SLstResult[K,V] =
+proc ge*[K,V](sl: var SortedSet[K,V]; key: K): SortedSetResult[K,V] =
   ## Find data container item with *smallest* key *greater or equal* the
   ## argument `key` in list and return it if found.
   sl.tree.rbTreeFindGe(key)
 
-proc gt*[K,V](sl: var SLst[K,V]; key: K): SLstResult[K,V] =
+proc gt*[K,V](sl: var SortedSet[K,V]; key: K): SortedSetResult[K,V] =
   ## Find data container item with *smallest* key *greater than* the argument
   ## `key` in list and return it if found.
   sl.tree.rbTreeFindGt(key)
@@ -209,12 +209,12 @@ proc gt*[K,V](sl: var SLst[K,V]; key: K): SLstResult[K,V] =
 # Public functions, walk/traversal functions
 # ------------------------------------------------------------------------------
 
-proc newWalk*[K,V](sl: var SLst[K,V]): SLstWalkRef[K,V] =
-  ## Open traversal descriptor on list and register it on the 'SLst`
+proc init*[K,V](T: type SortedSetWalkRef[K,V]; sl: var SortedSet[K,V]): T =
+  ## Open traversal descriptor on list and register it on the 'SortedSet`
   ## descriptor.
   sl.tree.newRbWalk
 
-proc destroy*[K,V](w: SLstWalkRef[K,V]) =
+proc destroy*[K,V](w: SortedSetWalkRef[K,V]) =
   ## De-register and close the traversal descriptor. This function renders
   ## the descriptor unusable, so it must be disposed of.
   ##
@@ -225,7 +225,7 @@ proc destroy*[K,V](w: SLstWalkRef[K,V]) =
   ## rewound or destroyed.
   w.rbWalkDestroy
 
-proc first*[K,V](w: SLstWalkRef[K,V]): SLstResult[K,V] =
+proc first*[K,V](w: SortedSetWalkRef[K,V]): SortedSetResult[K,V] =
   ## Rewind the traversal descriptor to the *least* list key and return
   ## the corresponding data container item.
   ##
@@ -233,7 +233,7 @@ proc first*[K,V](w: SLstWalkRef[K,V]): SLstResult[K,V] =
   ## list operations are reset.
   w.rbWalkFirst
 
-proc last*[K,V](w: SLstWalkRef[K,V]): SLstResult[K,V] =
+proc last*[K,V](w: SortedSetWalkRef[K,V]): SortedSetResult[K,V] =
   ## Rewind the traversal descriptor to the *greatest* list key and return
   ## the corresponding data container item.
   ##
@@ -241,14 +241,14 @@ proc last*[K,V](w: SLstWalkRef[K,V]): SLstResult[K,V] =
   ## list operations are reset.
   w.rbWalkLast
 
-proc this*[K,V](w: SLstWalkRef[K,V]): SLstResult[K,V] =
+proc this*[K,V](w: SortedSetWalkRef[K,V]): SortedSetResult[K,V] =
   ## Retrieve the *current* data container item. This is the same one retrieved
   ## last with any of the traversal functions returning the data container item.
   ##
   ## Note that the current node becomes unavailable if it was recently deleted.
   w.rbWalkCurrent
 
-proc next*[K,V](w: SLstWalkRef[K,V]): SLstResult[K,V] =
+proc next*[K,V](w: SortedSetWalkRef[K,V]): SortedSetResult[K,V] =
   ## Move the traversal descriptor to the next *greater* key and return the
   ## corresponding data container item. If this is the first call after
   ## `newWalk()`, then `w.first` is called implicitly.
@@ -257,7 +257,7 @@ proc next*[K,V](w: SLstWalkRef[K,V]): SLstResult[K,V] =
   ## causing this function to fail so that a rewind is needed.
   w.rbWalkNext
 
-proc prev*[K,V](w: SLstWalkRef[K,V]): SLstResult[K,V] =
+proc prev*[K,V](w: SortedSetWalkRef[K,V]): SortedSetResult[K,V] =
   ## Move the traversal descriptor to the next *smaller* key and return the
   ## corresponding data container item . If this is the first call after
   ## `newWalk()`, then `w.last` is called implicitly.
@@ -267,10 +267,10 @@ proc prev*[K,V](w: SLstWalkRef[K,V]): SLstResult[K,V] =
   w.rbWalkPrev
 
 # ------------------------------------------------------------------------------
-# Public functions, debugging
+# Public helpers, debugging
 # ------------------------------------------------------------------------------
 
-proc `$`*[K,V](casket: SLstItemRef[K,V]): string =
+proc `$`*[K,V](casket: SortedSetItemRef[K,V]): string =
   ## Pretty printer
   ##
   ## :CAVEAT:
@@ -282,7 +282,7 @@ proc `$`*[K,V](casket: SLstItemRef[K,V]): string =
     return "nil"
   "(" & $casket.key & "," & $casket.data & ")"
 
-proc `$`*[K,V](rc: SLstResult[K,V]): string =
+proc `$`*[K,V](rc: SortedSetResult[K,V]): string =
   ## Pretty printer
   ##
   ## :CAVEAT:
@@ -294,11 +294,13 @@ proc `$`*[K,V](rc: SLstResult[K,V]): string =
     return $rc.error
   $rc.value
 
-proc verify*[K,V](sl: var SLst[K,V]):
-                  Result[void,(SLstItemRef[K,V],RbInfo)]
+proc verify*[K,V](sl: var SortedSet[K,V]):
+                  Result[void,(SortedSetItemRef[K,V],RbInfo)]
                     {.gcsafe, raises: [Defect,CatchableError].} =
-  ## Check for consistency, may print an error message. Returns `rbOk` if
-  ## the argument list `sl` is consistent.
+  ## Checks for consistency, may print an error message. Returns `rbOk` if
+  ## the argument list `sl` is consistent. This function traverses all the
+  ## internal data nodes which might be time consuming. So it would not be
+  ## used in production code.
   ##
   ## :CAVEAT:
   ##   This function needs a working definition for the `data` item:
@@ -306,7 +308,7 @@ proc verify*[K,V](sl: var SLst[K,V]):
   ##    proc `$`*[V](data: V): string {.gcsafe,raises:[Defect,CatchableError].}
   ##
   sl.tree.rbTreeVerify(
-    lt = proc(a, b: SLstItemRef[K,V]): bool = a.sLstLt(b),
+    lt = proc(a, b: SortedSetItemRef[K,V]): bool = a.sLstLt(b),
     pr = proc(c: RbInfo; s: string) = c.slstPr(s))
 
 # ------------------------------------------------------------------------------
