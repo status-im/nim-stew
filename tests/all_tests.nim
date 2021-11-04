@@ -21,10 +21,12 @@ import
   test_ctops,
   test_endians2,
   test_io2,
+  test_keyed_queue,
   test_macros,
   test_objects,
   test_ptrops,
   test_sequtils2,
+  test_sorted_set,
   test_results,
   test_varints,
   test_winacl
