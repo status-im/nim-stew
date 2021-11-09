@@ -403,7 +403,7 @@ iterator baseTypes*(exceptionType: NimNode): NimNode =
     typ = objType[1][0]
     yield typ
 
-macro unpackArgs*(callee: typed, args: untyped): untyped =
+macro unpackArgs*(callee: untyped, args: untyped): untyped =
   result = newCall(callee)
   for arg in args:
     let arg = if arg.kind == nnkHiddenStdConv: arg[1]
