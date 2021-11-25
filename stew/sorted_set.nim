@@ -64,6 +64,8 @@ export
   RbInfo,
   RbResult,
   `isRed=`, # no need to export all of `rbtree_desc`
+  `linkLeft=`,
+  `linkRight=`,
   results
 
 type
@@ -129,7 +131,7 @@ proc move*[K,V](sl: var SortedSet[K,V]): SortedSet[K,V] =
   result.tree = sl.tree
   sl.init
 
-proc reset*[K,V](sl: var SortedSet[K,V]) =
+proc clear*[K,V](sl: var SortedSet[K,V]) =
   ## Reset list descriptor to its inital value. This function also de-registers
   ## and flushes all traversal descriptors of type `SortedSetWalkRef`.
   sl.tree.rbTreeReset(clup = proc(c: var SortedSetItemRef[K,V]) = c.slstClup)
