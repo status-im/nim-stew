@@ -36,7 +36,7 @@ proc writeMacroResultsNow* {.compileTime.} =
     file.add newCommentStmtNode("Generated at line " & $location.line)
     file.add macroOutput
 
-  for i in 0..< macroLocations.len:
+  for i in 0 ..< macroLocations.len:
     addToFile files.mgetOrPut(macroLocations[i].filename, nil),
               macroLocations[i], macroOutputs[i]
 
@@ -408,7 +408,7 @@ macro unpackArgs*(callee: untyped, args: untyped): untyped =
   for arg in args:
     let arg = if arg.kind == nnkHiddenStdConv: arg[1]
               else: arg
-    if arg.kind == nnkArgList:
+    if arg.kind == nnkArglist:
       for subarg in arg:
         result.add subarg
     else:

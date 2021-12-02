@@ -1,4 +1,4 @@
-proc add*(str: var string, chars: openarray[char]) =
+proc add*(str: var string, chars: openArray[char]) =
   for c in chars:
     str.add c
 

@@ -24,7 +24,7 @@ type
     ## Type to use Bitcoin alphabet
   FLCBase58* = object
     ## Type to use Flickr alphabet
-  Base58* = BtcBase58
+  Base58* = BTCBase58
     ## By default we are using Bitcoin alphabet
   Base58C* = BTCBase58 | FLCBase58
     ## Supported types
@@ -57,8 +57,8 @@ proc decodedLength*(btype: typedesc[Base58C], length: int): int =
   ## ``length``.
   result = length + 4
 
-proc encode*(btype: typedesc[Base58C], inbytes: openarray[byte],
-             outstr: var openarray[char], outlen: var int): Base58Status =
+proc encode*(btype: typedesc[Base58C], inbytes: openArray[byte],
+             outstr: var openArray[char], outlen: var int): Base58Status =
   ## Encode array of bytes ``inbytes`` using BASE58 encoding and store
   ## result to ``outstr``. On success ``Base58Status.Success`` will be returned
   ## and ``outlen`` will be set to number of characters stored inside of
@@ -112,7 +112,7 @@ proc encode*(btype: typedesc[Base58C], inbytes: openarray[byte],
     result = Base58Status.Success
 
 proc encode*(btype: typedesc[Base58C],
-             inbytes: openarray[byte]): string {.inline.} =
+             inbytes: openArray[byte]): string {.inline.} =
   ## Encode array of bytes ``inbytes`` using BASE58 encoding and return
   ## encoded string.
   var size = (len(inbytes) * 138) div 100 + 1
@@ -123,8 +123,8 @@ proc encode*(btype: typedesc[Base58C],
   else:
     result = ""
 
-proc decode*[T: byte|char](btype: typedesc[Base58C], instr: openarray[T],
-             outbytes: var openarray[byte], outlen: var int): Base58Status =
+proc decode*[T: byte|char](btype: typedesc[Base58C], instr: openArray[T],
+             outbytes: var openArray[byte], outlen: var int): Base58Status =
   ## Decode BASE58 string and store array of bytes to ``outbytes``. On success
   ## ``Base58Status.Success`` will be returned and ``outlen`` will be set
   ## to number of bytes stored.

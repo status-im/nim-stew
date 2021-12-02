@@ -40,7 +40,7 @@ type
     len*: int8 # >= 1 when holding valid unsigned integer
 
 proc decode*[A: byte|char](B: typedesc[Base10], T: typedesc[SomeUnsignedInt],
-                           src: openarray[A]): Result[T, cstring] =
+                           src: openArray[A]): Result[T, cstring] =
   ## Convert base10 encoded string or array of bytes to unsigned integer.
   const
     MaxValue = T(high(T) div 10)
@@ -132,7 +132,7 @@ proc encodedLength*(B: typedesc[Base10], value: SomeUnsignedInt): int8 =
     return 12'i8 + B.encodedLength(value div P12)
 
 proc encode[A: byte|char](B: typedesc[Base10], value: SomeUnsignedInt,
-                          output: var openarray[A],
+                          output: var openArray[A],
                           length: int8): Result[int8, cstring] =
   const Digits = cstring(
     "0001020304050607080910111213141516171819" &
@@ -175,7 +175,7 @@ proc encode[A: byte|char](B: typedesc[Base10], value: SomeUnsignedInt,
   ok(length)
 
 proc encode*[A: byte|char](B: typedesc[Base10], value: SomeUnsignedInt,
-                           output: var openarray[A]): Result[int8, cstring] =
+                           output: var openArray[A]): Result[int8, cstring] =
   ## Encode integer value to array of characters or bytes.
   B.encode(value, output, B.encodedLength(value))
 

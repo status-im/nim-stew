@@ -50,13 +50,13 @@ proc `$`(rc: KeyedQueuePair[uint,uint]): string =
 
 proc `$`(rc: Result[KeyedQueuePair[uint,uint],void]): string =
   result = "<"
-  if rc.isOK:
+  if rc.isOk:
     result &= $rc.value.key & "," & $rc.value.data
   result &= ">"
 
 proc `$`(rc: Result[uint,void]): string =
   result = "<"
-  if rc.isOK:
+  if rc.isOk:
     result &= $rc.value
   result &= ">"
 
@@ -93,7 +93,7 @@ proc lruValue(lru: var LruCache; n: int): uint =
   let
     key = n.toKey
     rc = lru.q.lruFetch(key)
-  if rc.isOK:
+  if rc.isOk:
     return rc.value
   lru.q.lruAppend(key, key.fromKey.toValue, lru.size)
 
@@ -223,7 +223,7 @@ suite "KeyedQueue: Data queue with keyed random access":
     test "Delete corresponding entries by keyed access from previous queues":
       var seen: seq[int]
       let sub7 = keyList.len div 7
-      for n in toSeq(countUp(0,sub7)).concat(toSeq(countUp(3*sub7,4*sub7))):
+      for n in toSeq(countup(0,sub7)).concat(toSeq(countup(3*sub7,4*sub7))):
         let
           key = keyList[n].toKey
           canDeleteOk = (key.fromKey notin seen)
@@ -285,12 +285,12 @@ suite "KeyedQueue: Data queue with keyed random access":
           seen: seq[int]
           all: seq[uint]
           rc = rq.first
-        while rc.isOK:
+        while rc.isOk:
           let key = rc.value.key
           all.add key
           rc = rq.next(key)
           rq.addOrFlushGroupwise(groupLen, seen, key.fromKey, veryNoisy)
-          check rq.verify.isOK
+          check rq.verify.isOk
         check seen.len == rq.len
         check seen.len < groupLen
         check uniqueKeys == all
@@ -303,7 +303,7 @@ suite "KeyedQueue: Data queue with keyed random access":
         for w in rq.nextKeys:
           all.add w
           rq.addOrFlushGroupwise(groupLen, seen, w.fromKey, veryNoisy)
-          check rq.verify.isOK
+          check rq.verify.isOk
         check seen.len == rq.len
         check seen.len < groupLen
         check uniqueKeys == all
@@ -315,7 +315,7 @@ suite "KeyedQueue: Data queue with keyed random access":
         for w in rq.nextPairs:
           all.add w.key
           rq.addOrFlushGroupwise(groupLen, seen, w.key.fromKey, veryNoisy)
-          check rq.verify.isOK
+          check rq.verify.isOk
         check seen.len == rq.len
         check seen.len < groupLen
         check uniqueKeys == all
@@ -328,7 +328,7 @@ suite "KeyedQueue: Data queue with keyed random access":
           let w = v.fromValue.toKey
           all.add w
           rq.addOrFlushGroupwise(groupLen, seen, w.fromKey, veryNoisy)
-          check rq.verify.isOK
+          check rq.verify.isOk
         check seen.len == rq.len
         check seen.len < groupLen
         check uniqueKeys == all
@@ -340,12 +340,12 @@ suite "KeyedQueue: Data queue with keyed random access":
           seen: seq[int]
           all: seq[uint]
           rc = rq.last
-        while rc.isOK:
+        while rc.isOk:
           let key = rc.value.key
           all.add key
           rc = rq.prev(key)
           rq.addOrFlushGroupwise(groupLen, seen, key.fromKey, veryNoisy)
-          check rq.verify.isOK
+          check rq.verify.isOk
         check seen.len == rq.len
         check seen.len < groupLen
         check uniqueKeys == all.reversed
@@ -358,7 +358,7 @@ suite "KeyedQueue: Data queue with keyed random access":
         for w in rq.prevKeys:
           all.add w
           rq.addOrFlushGroupwise(groupLen, seen, w.fromKey, veryNoisy)
-          check rq.verify.isOK
+          check rq.verify.isOk
         check seen.len == rq.len
         check seen.len < groupLen
         check uniqueKeys == all.reversed
@@ -370,7 +370,7 @@ suite "KeyedQueue: Data queue with keyed random access":
         for w in rq.prevPairs:
           all.add w.key
           rq.addOrFlushGroupwise(groupLen, seen, w.key.fromKey, veryNoisy)
-          check rq.verify.isOK
+          check rq.verify.isOk
         check seen.len == rq.len
         check seen.len < groupLen
         check uniqueKeys == all.reversed
@@ -383,7 +383,7 @@ suite "KeyedQueue: Data queue with keyed random access":
           let w = v.fromValue.toKey
           all.add w
           rq.addOrFlushGroupwise(groupLen, seen, w.fromKey, veryNoisy)
-          check rq.verify.isOK
+          check rq.verify.isOk
         check seen.len == rq.len
         check seen.len < groupLen
         check uniqueKeys == all.reversed
@@ -400,7 +400,7 @@ suite "KeyedQueue: Data queue with keyed random access":
           check uniqueKeys[count] == rc.value
           rc = rq.nextKey(rc.value)
           count.inc
-        check rq.verify.isOK
+        check rq.verify.isOk
         check count == uniqueKeys.len
       block:
         var
@@ -411,7 +411,7 @@ suite "KeyedQueue: Data queue with keyed random access":
           check uniqueKeys[count] == rc.value.data.fromValue.toKey
           rc = rq.next(rc.value.key)
           count.inc
-        check rq.verify.isOK
+        check rq.verify.isOk
         check count == uniqueKeys.len
 
       # reverse ...
@@ -424,7 +424,7 @@ suite "KeyedQueue: Data queue with keyed random access":
           count.dec
           check uniqueKeys[count] == rc.value
           rc = rq.prevKey(rc.value)
-        check rq.verify.isOK
+        check rq.verify.isOk
         check count == 0
       block:
         var
@@ -435,7 +435,7 @@ suite "KeyedQueue: Data queue with keyed random access":
           count.dec
           check uniqueKeys[count] == rc.value.data.fromValue.toKey
           rc = rq.prev(rc.value.key)
-        check rq.verify.isOK
+        check rq.verify.isOk
         check count == 0
 
   # --------------------------------------
@@ -450,8 +450,8 @@ suite "KeyedQueue: Data queue with keyed random access":
           break
         let key = rc.value
         check rq.second.value.data == rq[key]
-        check rq.delete(key).isOK
-        check rq.verify.isOK
+        check rq.delete(key).isOk
+        check rq.verify.isOk
       check rq.len == 1
 
     block:
@@ -463,8 +463,8 @@ suite "KeyedQueue: Data queue with keyed random access":
           break
         let key = rc.value
         check rq.beforeLast.value.data == rq[key]
-        check rq.delete(key).isOK
-        check rq.verify.isOK
+        check rq.delete(key).isOk
+        check rq.verify.isOk
       check rq.len == 1
 
   # --------------------------------------
@@ -499,7 +499,7 @@ suite "KeyedQueue: Data queue as LRU cache":
         values = toSeq(cache.q.nextPairs).mapIt(it.data)
         infoPfx = if reSched: ">>> rotate" else: "+++ append"
       noisy.say infoPfx, &"{value} => {queue}"
-      check cache.q.verify.isOK
+      check cache.q.verify.isOk
       check queue.mapIt($it) == values.mapIt($it.fromValue)
       check item.toKey == cache.q.lastKey.value
     check toSeq(cache.q.nextPairs) == toSeq(cExpected.q.nextPairs)
@@ -512,8 +512,8 @@ suite "KeyedQueue: Data queue as LRU cache":
     check c1 == c2
     check c1.lruValue(77) == 77.toValue
 
-    check c1.q.verify.isOK
-    check c2.q.verify.isOK
+    check c1.q.verify.isOk
+    check c2.q.verify.isOk
 
     noisy.say &"c1Specs: {c1.size} {c1.q.firstKey} {c1.q.lastKey} ..."
     noisy.say &"c2Specs: {c2.size} {c2.q.firstKey} {c2.q.lastKey} ..."
