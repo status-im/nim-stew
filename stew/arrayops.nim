@@ -54,13 +54,13 @@ func copyFrom*[T](
   assign(v.toOpenArray(0, elems - 1), src.toOpenArray(0, elems - 1))
   elems
 
-func initArrayWith*[N: static[int], T](value: T): array[N, T] {.noInit, inline.}=
+func initArrayWith*[N: static[int], T](value: T): array[N, T] {.noinit, inline.}=
   result.fill(value)
 
 func `&`*[N1, N2: static[int], T](
     a: array[N1, T],
     b: array[N2, T]
-    ): array[N1 + N2, T] {.inline, noInit.}=
+    ): array[N1 + N2, T] {.inline, noinit.}=
   ## Array concatenation
   assign(result.toOpenArray(0, N1 - 1), a)
   assign(result.toOpenArray(N1, result.high), b)

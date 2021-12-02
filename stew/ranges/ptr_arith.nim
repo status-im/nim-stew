@@ -1,7 +1,7 @@
 import ../ptrops
 export ptrops
 
-proc baseAddr*[T](x: openarray[T]): pointer = cast[pointer](x)
+proc baseAddr*[T](x: openArray[T]): pointer = cast[pointer](x)
 
 # Please note that we use templates here on purpose.
 # As much as I believe in the power of optimizing compilers, it turned

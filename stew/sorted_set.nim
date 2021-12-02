@@ -308,7 +308,7 @@ proc verify*[K,V](sl: var SortedSet[K,V]):
   ##    proc `$`*[V](data: V): string {.gcsafe,raises:[Defect,CatchableError].}
   ##
   sl.tree.rbTreeVerify(
-    lt = proc(a, b: SortedSetItemRef[K,V]): bool = a.sLstLt(b),
+    lt = proc(a, b: SortedSetItemRef[K,V]): bool = a.slstLt(b),
     pr = proc(c: RbInfo; s: string) = c.slstPr(s))
 
 # ------------------------------------------------------------------------------

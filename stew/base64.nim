@@ -68,8 +68,8 @@ proc decodedLength*(btype: typedesc[Base64Types],
   elif (btype is Base64) or (btype is Base64Url):
     result = (length * 4 + 3 - 1) div 3
 
-proc encode*(btype: typedesc[Base64Types], inbytes: openarray[byte],
-             outstr: var openarray[char], outlen: var int): Base64Status =
+proc encode*(btype: typedesc[Base64Types], inbytes: openArray[byte],
+             outstr: var openArray[char], outlen: var int): Base64Status =
   ## Encode array of bytes ``inbytes`` using BASE64 encoding and store
   ## result to ``outstr``.
   ##
@@ -127,7 +127,7 @@ proc encode*(btype: typedesc[Base64Types], inbytes: openarray[byte],
     result = Base64Status.Success
 
 proc encode*(btype: typedesc[Base64Types],
-             inbytes: openarray[byte]): string {.inline.} =
+             inbytes: openArray[byte]): string {.inline.} =
   ## Encode array of bytes ``inbytes`` using BASE64 encoding and return
   ## encoded string.
   var size = btype.encodedLength(len(inbytes))
@@ -138,8 +138,8 @@ proc encode*(btype: typedesc[Base64Types],
   else:
     result = ""
 
-proc decode*[T: byte|char](btype: typedesc[Base64Types], instr: openarray[T],
-             outbytes: var openarray[byte], outlen: var int): Base64Status =
+proc decode*[T: byte|char](btype: typedesc[Base64Types], instr: openArray[T],
+             outbytes: var openArray[byte], outlen: var int): Base64Status =
   ## Decode BASE64 string and store array of bytes to ``outbytes``. On success
   ## ``Base64Status.Success`` will be returned and ``outlen`` will be set
   ## to number of bytes stored.
@@ -224,7 +224,7 @@ proc decode*[T: byte|char](btype: typedesc[Base64Types], instr: openarray[T],
   result = Base64Status.Success
 
 proc decode*[T: byte|char](btype: typedesc[Base64Types],
-                           instr: openarray[T]): seq[byte] =
+                           instr: openArray[T]): seq[byte] =
   ## Decode BASE64 string ``instr`` and return sequence of bytes as result.
   if len(instr) == 0:
     result = newSeq[byte]()

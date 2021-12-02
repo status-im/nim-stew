@@ -144,7 +144,7 @@ func getResult*[IntType, F](p: VarintParser[IntType, F]): IntType {.inline.} =
   else:
     p.res
 
-func readVarint*(input: openarray[byte],
+func readVarint*(input: openArray[byte],
                  outVal: var SomeInteger,
                  flavour: static VarintFlavour = ProtoBuf): int =
   ## Reads a varint from a buffer and stores it in `outVal`.

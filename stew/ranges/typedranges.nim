@@ -36,31 +36,31 @@ proc toImmutableRange[T](a: seq[T]): Range[T] =
     result.mLen = a.len
 
 when unsafeAPIEnabled:
-  proc toImmutableRangeNoGCHold[T](a: openarray[T]): Range[T] =
+  proc toImmutableRangeNoGCHold[T](a: openArray[T]): Range[T] =
     if a.len != 0:
       result.start = unsafeAddr a[0]
       result.mLen = a.len
 
-  proc toImmutableRange[T](a: openarray[T]): Range[T] {.inline.} =
+  proc toImmutableRange[T](a: openArray[T]): Range[T] {.inline.} =
     toImmutableRangeNoGCHold(a)
 
 proc toRange*[T](a: var seq[T]): MutRange[T] {.inline.} =
   MutRange[T](toImmutableRange(a))
 
 when unsafeAPIEnabled:
-  proc toRange*[T](a: var openarray[T]): MutRange[T] {.inline.} =
+  proc toRange*[T](a: var openArray[T]): MutRange[T] {.inline.} =
     MutRange[T](toImmutableRange(a))
 
   template initStackRange*[T](sz: static[int]): MutRange[T] =
     var data: array[sz, T]
     data.toRange()
 
-  proc toRange*[T](a: openarray[T]): Range[T] {.inline.} = toImmutableRange(a)
+  proc toRange*[T](a: openArray[T]): Range[T] {.inline.} = toImmutableRange(a)
 
-  proc unsafeRangeConstruction*[T](a: var openarray[T]): MutRange[T] {.inline.} =
+  proc unsafeRangeConstruction*[T](a: var openArray[T]): MutRange[T] {.inline.} =
     MutRange[T](toImmutableRange(a))
 
-  proc unsafeRangeConstruction*[T](a: openarray[T]): Range[T] {.inline.} =
+  proc unsafeRangeConstruction*[T](a: openArray[T]): Range[T] {.inline.} =
     toImmutableRange(a)
 
 proc newRange*[T](sz: int): MutRange[T] {.inline.} =
@@ -152,7 +152,7 @@ proc `[]`*[T, U, V](r: Range[T], s: HSlice[U, V]): Range[T] {.inline.} =
 proc `[]`*[T, U, V](r: MutRange[T], s: HSlice[U, V]): MutRange[T] {.inline.} =
   MutRange[T](sliceNormalized(r, r ^^ s.a, r ^^ s.b))
 
-proc `[]=`*[T, U, V](r: MutRange[T], s: HSlice[U, V], v: openarray[T]) =
+proc `[]=`*[T, U, V](r: MutRange[T], s: HSlice[U, V], v: openArray[T]) =
   let a = r ^^ s.a
   let b = r ^^ s.b
   let L = b - a + 1

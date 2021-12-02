@@ -3,7 +3,7 @@ import ../stew/base58
 
 when defined(nimHasUsed): {.used.}
 
-proc hexToBytes*(a: string, result: var openarray[byte]) =
+proc hexToBytes*(a: string, result: var openArray[byte]) =
   doAssert(len(a) == 2 * len(result))
   var i = 0
   var k = 0
