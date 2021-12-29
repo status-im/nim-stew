@@ -98,9 +98,11 @@ func toBytes*(x: SomeEndianInt, endian: Endianness = system.cpuEndian):
     if endian == system.cpuEndian: x
     else: swapBytes(x)
 
-  # Loop since vm can't copymem - let's hope optimizer is smart here :)
-  for i in 0..<sizeof(result):
-    result[i] = byte((v shr (i * 8)) and 0xff)
+  when nimvm: # No copyMem in vm
+    for i in 0..<sizeof(result):
+      result[i] = byte((v shr (i * 8)) and 0xff)
+  else:
+    copyMem(addr result, unsafeAddr v, sizeof(result))
 
 func toBytesLE*(x: SomeEndianInt):
     array[sizeof(x), byte] {.inline.} =
@@ -118,8 +120,11 @@ func fromBytes*(
     endian: Endianness = system.cpuEndian): T {.inline.} =
   ## Convert a byte sequence to a native endian integer. By default, native
   ## endianness is used which is not portable!
-  for i in 0..<sizeof(result): # No copymem in vm
-    result = result or T(x[i]) shl (i * 8)
+  when nimvm: # No copyMem in vm
+    for i in 0..<sizeof(result):
+      result = result or (T(x[i]) shl (i * 8))
+  else:
+    copyMem(addr result, unsafeAddr x[0], sizeof(result))
 
   if endian != system.cpuEndian:
     result = swapBytes(result)
@@ -129,18 +134,23 @@ func fromBytes*(
     x: openArray[byte],
     endian: Endianness = system.cpuEndian): T {.inline.} =
   ## Read bytes and convert to an integer according to the given endianness. At
-  ## runtime, v must contain at least sizeof(T) bytes. By default, native
+  ## runtime, x must contain at least sizeof(T) bytes. By default, native
   ## endianness is used which is not portable!
+  ## TODO Evaluate if underlong byte sequences should be interpreted - in
+  ##      particular, there exists a moderately reasonable semantic for little
+  ##      endian, but less so for big endian - for now, it's easier to enforce
+  ##      the length on both
   ##
-  ## REVIEW COMMENT (zah)
-  ## This API is very strange. Why can't I pass an open array of 3 bytes
-  ## to be interpreted as a LE number? Also, why is `endian` left as a
-  ## run-time parameter (with such short functions, it could easily be static).
+  doAssert x.len >= sizeof(tmp), "Not enough bytes for endian conversion"
 
   const ts = sizeof(T) # Nim bug: can't use sizeof directly
   var tmp: array[ts, byte]
-  for i in 0..<tmp.len: # Loop since vm can't copymem
-    tmp[i] = x[i]
+  when nimvm: # No copyMem in vm
+    for i in 0..<tmp.len:
+      tmp[i] = x[i]
+  else:
+    copyMem(addr tmp[0], unsafeAddr x[0], sizeof(tmp))
+
   fromBytes(T, tmp, endian)
 
 func fromBytesBE*(
