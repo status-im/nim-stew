@@ -141,7 +141,9 @@ func fromBytes*(
   ##      endian, but less so for big endian - for now, it's easier to enforce
   ##      the length on both
   ##
+  # compilers can usually prove this check is not needed and remove it
   doAssert x.len >= sizeof(tmp), "Not enough bytes for endian conversion"
+
 
   const ts = sizeof(T) # Nim bug: can't use sizeof directly
   var tmp: array[ts, byte]
