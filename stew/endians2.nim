@@ -142,11 +142,12 @@ func fromBytes*(
   ##      the length on both
   ##
   # compilers can usually prove this check is not needed and remove it
-  doAssert x.len >= sizeof(tmp), "Not enough bytes for endian conversion"
-
 
   const ts = sizeof(T) # Nim bug: can't use sizeof directly
   var tmp: array[ts, byte]
+
+  doAssert x.len >= sizeof(tmp), "Not enough bytes for endian conversion"
+
   when nimvm: # No copyMem in vm
     for i in 0..<tmp.len:
       tmp[i] = x[i]
