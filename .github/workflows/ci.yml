@@ -11,7 +11,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        test_lang: [c, cpp]
         target:
           - os: linux
             cpu: amd64
@@ -23,7 +22,7 @@ jobs:
             cpu: amd64
           #- os: windows
             #cpu: i386
-        branch: [version-1-2, version-1-4]
+        branch: [version-1-2, version-1-4, version-1-6, devel]
         include:
           - target:
               os: linux
@@ -42,14 +41,12 @@ jobs:
       run:
         shell: ${{ matrix.shell }}
 
-    name: '${{ matrix.target.os }}-${{ matrix.target.cpu }}-${{ matrix.test_lang }} (Nim ${{ matrix.branch }})'
+    name: '${{ matrix.target.os }}-${{ matrix.target.cpu }} (Nim ${{ matrix.branch }})'
     runs-on: ${{ matrix.builder }}
     continue-on-error: ${{ matrix.branch == 'version-1-6' || matrix.branch == 'devel' }}
     steps:
-      - name: Checkout nim-stew
+      - name: Checkout
         uses: actions/checkout@v2
-        with:
-          submodules: false
 
       - name: Install build dependencies (Linux i386)
         if: runner.os == 'Linux' && matrix.target.cpu == 'i386'
@@ -150,9 +147,16 @@ jobs:
             bash build_nim.sh nim csources dist/nimble NimBinaries
           echo '${{ github.workspace }}/nim/bin' >> $GITHUB_PATH
 
-      - name: Run nim-stew tests
+      - name: Run tests
         run: |
-          env TEST_LANG="${{ matrix.test_lang }}" nimble test
+          if [[ "${{ matrix.target.os }}" == "windows" ]]; then
+            # https://github.com/status-im/nimbus-eth2/issues/3121
+            export NIMFLAGS="-d:nimRawSetjmp"
+          fi
+          nim --version
+          nimble --version
+          env TEST_LANG=c nimble test
+          env TEST_LANG=cpp nimble test
 
       - name: Setup VCC (Windows-i386)
         if: runner.os == 'Windows' && matrix.target.cpu == 'i386'
@@ -169,4 +173,5 @@ jobs:
       - name: Test using VCC
         if: runner.os == 'Windows'
         run: |
-          env TEST_LANG="${{ matrix.test_lang }}" nimble testvcc
+          env TEST_LANG=c nimble testvcc
+          env TEST_LANG=cpp nimble testvcc

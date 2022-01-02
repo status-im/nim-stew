@@ -10,13 +10,9 @@ skipDirs      = @["tests"]
 requires "nim >= 1.2.0"
 
 ### Helper functions
-proc test(env, path: string) =
+proc test(args, path: string) =
   # Compilation language is controlled by TEST_LANG
-  var lang = "c"
-  if existsEnv"TEST_LANG":
-    lang = getEnv"TEST_LANG"
-
-  exec "nim " & lang & " " & env &
+  exec "nim " & getEnv("TEST_LANG", "c") & " " & getEnv("NIMFLAGS") & " " & args &
     " -r --hints:off --skipParentCfg --styleCheck:usages --styleCheck:error " & path
 
 task test, "Run all tests":
