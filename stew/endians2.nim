@@ -116,10 +116,26 @@ func toBytesBE*(x: SomeEndianInt):
 
 func fromBytes*(
     T: typedesc[SomeEndianInt],
-    x: array[sizeof(T), byte],
+    x: openArray[byte],
     endian: Endianness = system.cpuEndian): T {.inline.} =
-  ## Convert a byte sequence to a native endian integer. By default, native
-  ## endianness is used which is not portable!
+  ## Read bytes and convert to an integer according to the given endianness.
+  ##
+  ## Note: The default value of `system.cpuEndian` is not portable across
+  ## machines.
+  ##
+  ## Panics when `x.len < sizeof(T)` - copy the bytes to an array, aligning them
+  ## appropriately, if your data source has fewer bytes
+  ##
+  ## In particular with short little endian sources, zero-filling up to
+  ## sizeof(T) works well, like so:
+  ## ```
+  ## fromBytes(initCopyFrom(array[sizeof(T), byte], src), littleEndian)`.
+
+  # This check gets optimized away when the compiler can prove that the
+  # condition holds - passing in an `array` or using a construct like
+  # ` toOpenArray(pos, pos + sizeof(T) - 1)` are two ways to get rid of it
+  doAssert x.len >= sizeof(T), "Not enough bytes for endian conversion"
+
   when nimvm: # No copyMem in vm
     for i in 0..<sizeof(result):
       result = result or (T(x[i]) shl (i * 8))
@@ -128,40 +144,6 @@ func fromBytes*(
 
   if endian != system.cpuEndian:
     result = swapBytes(result)
-
-func fromBytes*(
-    T: typedesc[SomeEndianInt],
-    x: openArray[byte],
-    endian: Endianness = system.cpuEndian): T {.inline.} =
-  ## Read bytes and convert to an integer according to the given endianness. At
-  ## runtime, x must contain at least sizeof(T) bytes. By default, native
-  ## endianness is used which is not portable!
-  ## TODO Evaluate if underlong byte sequences should be interpreted - in
-  ##      particular, there exists a moderately reasonable semantic for little
-  ##      endian, but less so for big endian - for now, it's easier to enforce
-  ##      the length on both
-  ##
-  # compilers can usually prove this check is not needed and remove it
-
-  const ts = sizeof(T) # Nim bug: can't use sizeof directly
-  var tmp: array[ts, byte]
-
-  doAssert x.len >= sizeof(tmp), "Not enough bytes for endian conversion"
-
-  when nimvm: # No copyMem in vm
-    for i in 0..<tmp.len:
-      tmp[i] = x[i]
-  else:
-    copyMem(addr tmp[0], unsafeAddr x[0], sizeof(tmp))
-
-  fromBytes(T, tmp, endian)
-
-func fromBytesBE*(
-    T: typedesc[SomeEndianInt],
-    x: array[sizeof(T), byte]): T {.inline.} =
-  ## Read big endian bytes and convert to an integer. By default, native
-  ## endianness is used which is not portable!
-  fromBytes(T, x, bigEndian)
 
 func fromBytesBE*(
     T: typedesc[SomeEndianInt],
@@ -181,13 +163,6 @@ func fromBE*[T: SomeEndianInt](x: T): T {.inline.} =
   ## Read a big endian value and return the corresponding native endian
   # there's no difference between this and toBE, except when reading the code
   toBE(x)
-
-func fromBytesLE*(
-    T: typedesc[SomeEndianInt],
-    x: array[sizeof(T), byte]): T {.inline.} =
-  ## Read little endian bytes and convert to an integer. By default, native
-  ## endianness is used which is not portable!
-  fromBytes(T, x, littleEndian)
 
 func fromBytesLE*(
     T: typedesc[SomeEndianInt],

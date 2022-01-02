@@ -24,3 +24,12 @@ suite "arrayops":
       (a or b) == [a[0] or b[0], a[1] or b[1]]
       (a xor b) == [a[0] xor b[0], a[1] xor b[1]]
       (not a) == [not a[0], not a[1]]
+
+  test "copyFrom":
+    let
+      a = [byte 4, 5]
+
+    check:
+      array[4, byte].initCopyFrom(a) == [byte 4, 5, 0, 0]
+      array[1, byte].initCopyFrom(a) == [byte 4]
+      array[2, byte].initCopyFrom(a) == [byte 4, 5]

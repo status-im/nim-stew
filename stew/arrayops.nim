@@ -46,13 +46,20 @@ func mnot*[N: static int; T](x: var array[N, T], y: array[N, T]) =
   eachElement(x, x, `not`)
 
 func copyFrom*[T](
-    v: var openArray[T], src: openArray[T]): Natural {.raises: [Defect].} =
+    v: var openArray[T], src: openArray[T]): Natural =
   ## Copy `src` contents into `v` - this is a permissive assignment where `src`
   ## may contain both fewer and more elements than `v`. Returns the number of
   ## elements copied which may be less than N when `src` is shorter than v
   let elems = min(v.len, src.len)
   assign(v.toOpenArray(0, elems - 1), src.toOpenArray(0, elems - 1))
   elems
+
+func initCopyFrom*[N: static[int], T](
+    A: type array[N, T], src: openArray[T]): A =
+  ## Copy `src` contents into an array - this is a permissive copy where `src`
+  ## may contain both fewer and more elements than `N`.
+  let elems = min(N, src.len)
+  assign(result.toOpenArray(0, elems - 1), src.toOpenArray(0, elems - 1))
 
 func initArrayWith*[N: static[int], T](value: T): array[N, T] {.noinit, inline.}=
   result.fill(value)
