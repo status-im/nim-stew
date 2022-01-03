@@ -123,26 +123,28 @@ func fromBytes*(
   ## Note: The default value of `system.cpuEndian` is not portable across
   ## machines.
   ##
-  ## Panics when `x.len < sizeof(T)` - copy the bytes to an array, aligning them
-  ## appropriately, if your data source has fewer bytes
-  ##
-  ## In particular with short little endian sources, zero-filling up to
-  ## sizeof(T) works well, like so:
-  ## ```
-  ## fromBytes(initCopyFrom(array[sizeof(T), byte], src), littleEndian)`.
+  ## Panics when `x.len < sizeof(T)` - for shorter buffers, copy the data to
+  ## an `array` first using `arrayops.initCopyFrom`, taking care to zero-fill
+  ## at the right end - usually the beginning for big endian and the end for
+  ## little endian, but this depends on the serialization of the bytes.
 
-  # This check gets optimized away when the compiler can prove that the
-  # condition holds - passing in an `array` or using a construct like
-  # ` toOpenArray(pos, pos + sizeof(T) - 1)` are two ways to get rid of it
+  # This check gets optimized away when the compiler can prove that the length
+  # is large enough - passing in an `array` or using a construct like
+  # ` toOpenArray(pos, pos + sizeof(T) - 1)` are two ways that this happens
   doAssert x.len >= sizeof(T), "Not enough bytes for endian conversion"
 
   when nimvm: # No copyMem in vm
     for i in 0..<sizeof(result):
       result = result or (T(x[i]) shl (i * 8))
   else:
+    # `copyMem` helps compilers optimize the copy into a single instruction, when
+    # alignment etc permits
     copyMem(addr result, unsafeAddr x[0], sizeof(result))
 
   if endian != system.cpuEndian:
+    # The swap is turned into a CPU-specific instruction and/or combined with
+    # the copy above, again when conditions permit it - for example, on X86
+    # fromBytesBE gets compiled into a single `MOVBE` instruction
     result = swapBytes(result)
 
 func fromBytesBE*(
