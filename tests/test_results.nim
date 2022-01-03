@@ -168,8 +168,12 @@ doAssert testErr().error == "323"
 
 doAssert testOk().expect("testOk never fails") == 42
 
+static: doAssert isBorrowable(works()) == false
+static: doAssert isBorrowable(counter2) == true
+
 func testQn(): Result[int, string] =
   let x = ?works() - ?works()
+  static: doAssert isBorrowable(x) == true
   result.ok(x)
 
 func testQn2(): Result[int, string] =
