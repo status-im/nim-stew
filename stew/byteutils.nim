@@ -11,7 +11,7 @@
 
 import
   std/[algorithm, typetraits],
-  ./assign2, ./arrayops
+  ./arrayops
 
 # backwards compat
 export arrayops.`&`, arrayops.initArrayWith, arrayops.`[]=`
