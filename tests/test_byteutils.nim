@@ -57,6 +57,7 @@ suite "Byte utils":
     expect(ValueError): discard hexToSeqByte("1234567")
     expect(ValueError): discard hexToSeqByte("X")
     expect(ValueError): discard hexToSeqByte("0")
+    check simpleBArray.to0xHex == "0x12345678"
 
   test "Array concatenation":
     check simpleBArray & simpleBArray ==
