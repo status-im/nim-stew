@@ -257,7 +257,7 @@ type
 
   Opt*[T] = Result[T, void]
 
-func raiseResultError[T, E](self: Result[T, E]) {.noreturn, noinline.} =
+func raiseResultError*[T, E](self: Result[T, E]) {.noreturn, noinline.} =
   # noinline because raising should take as little space as possible at call
   # site
   mixin toException
