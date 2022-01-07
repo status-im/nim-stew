@@ -166,7 +166,7 @@ type
     ## `Result[T, cstring]`, `Result[T, enum]` and `Result[T, object]` in
     ## escalating order of complexity.
     ##
-    ## # Result equivaleces with other types
+    ## # Result equivalences with other types
     ##
     ## Result allows tightly controlling the amount of information that a
     ## function gives to the caller:
