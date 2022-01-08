@@ -335,7 +335,7 @@ func raiseResultError[T, E](self: Result[T, E]) {.noreturn, noinline.} =
     raise toException(self.e)
   elif compiles($self.e):
     raise (ref ResultError[E])(
-      error: self.e, msg: "Trying to access value with err: " & $self.e)
+      error: self.e, msg: $self.e)
   else:
     raise (ref ResultError[E])(msg: "Trying to access value with err", error: self.e)
 
@@ -348,6 +348,7 @@ func raiseResultDefect(m: string) {.noreturn, noinline.} =
   raise (ref ResultDefect)(msg: m)
 
 template assertOk(self: Result) =
+  # Careful - `self` evaluated multiple times, which is fine in all current uses
   if not self.o:
     when self.E isnot void:
       raiseResultDefect("Trying to access value with err Result", self.e)
@@ -562,7 +563,7 @@ func mapCast*[T0, E](
 template `and`*[T0, E, T1](self: Result[T0, E], other: Result[T1, E]): Result[T1, E] =
   ## Evaluate `other` iff self.isOk, else return error
   ## fail-fast - will not evaluate other if a is an error
-  let s = self
+  let s = (self) # TODO avoid copy
   if s.o:
     other
   else:
@@ -583,7 +584,7 @@ template `or`*[T, E0, E1](self: Result[T, E0], other: Result[T, E1]): Result[T, 
   ## func f(): Result[int, SomeEnum] =
   ##   f2() or err(SomeEnum.V) # Collapse errors from other module / function
   ## ```
-  let s = self
+  let s = (self) # TODO avoid copy
   if s.o:
     when type(self) is type(other):
       s
@@ -604,7 +605,9 @@ template orErr*[T, E0, E1](self: Result[T, E0], error: E1): Result[T, E1] =
   ## func f(): Result[int, SomeEnum] =
   ##   f2().orErr(SomeEnum.V) # Collapse errors from other module / function
   ## ```
-  let  s = self
+  ##
+  ## ** Experimental, may be removed **
+  let  s = (self) # TODO avoid copy
   type R = Result[T, E1]
   if s.o:
     when type(self) is R:
@@ -723,10 +726,13 @@ template `[]`*[T: not void, E](self: var Result[T, E]): var T =
 
 template unsafeGet*[T: not void, E](self: Result[T, E]): T =
   ## Fetch value of result if set, undefined behavior if unset
-  ## See also: Option.unsafeGet
-  assert self.o
-
+  ## See also: `unsafeError`
   self.v
+
+template unsafeGet*[E](self: Result[void, E]) =
+  ## Fetch value of result if set, undefined behavior if unset
+  ## See also: `unsafeError`
+  assert self.o
 
 func expect*[T, E](self: Result[T, E], m: string): T =
   ## Return value of Result, or raise a `Defect` with the given message - use
@@ -781,14 +787,42 @@ func tryError*[T, E](self: Result[T, E]): E {.inline.} =
   when E isnot void:
     self.e
 
+template unsafeError*[T, E: not void](self: Result[T, E]): E =
+  ## Fetch value of result if set, undefined behavior if unset
+  ## See also: `unsafeGet`
+  self.e
+
+template unsafeError*[T](self: Result[T, void]) =
+  ## Fetch value of result if set, undefined behavior if unset
+  ## See also: `unsafeGet`
+  assert not self.o # Emulate field access defect in debug builds
+
 # Alternative spellings for get
 template value*[T, E](self: Result[T, E]): T = self.get()
 template value*[T: not void, E](self: var Result[T, E]): var T = self.get()
 
-template valueOr*[T: not void, E](self: Result[T, E], def: T): T =
-  ## Fetch value of result if set, or supplied default
-  ## default will not be evaluated iff value is set
-  if self.o: self.v
+template valueOr*[T: not void, E](self: Result[T, E], def: untyped): T =
+  ## Fetch value of result if set, or evaluate `def`
+  ## `def` is evaluated lazily, and must be an expression of `T` or exit
+  ## the scope (for example using `return` / `raise`)
+  let s = (self) # TODO avoid copy
+  if s.o: s.v
+  else: def
+
+template errorOr*[T: not void, E](self: Result[T, E], def: untyped): E =
+  ## Fetch error of result if not set, or evaluate `def`
+  ## `def` is evaluated lazily, and must be an expression of `T` or exit
+  ## the scope (for example using `return` / `raise`)
+  ##
+  ## Example:
+  ## ```
+  ## let
+  ##   v = Result[int, string].err("hello")
+  ##   x = v.valueOr: 42
+  ##   y = v.valueOr: raise (ref ValueError)(msg: "v is an error, gasp!")
+  ## ```
+  let s = (self) # TODO avoid copy
+  if not s.o: s.e
   else: def
 
 func flatten*[T, E](self: Result[Result[T, E], E]): Result[T, E] =

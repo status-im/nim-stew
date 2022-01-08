@@ -66,7 +66,14 @@ block:
   doAssert rOk.get(100) == rOk.get()
   doAssert rErr.get(100) == 100
 
+  doAssert rOk.get() == rOk.unsafeGet()
+
   doAssert rOk.valueOr(failFast()) == rOk.value()
+  let rErrV = rErr.valueOr: 100
+  doAssert rErrV == 100
+
+  let rOkV = rOk.errorOr: "quack"
+  doAssert rOkV == "quack"
 
   # Exceptions -> results
   func raises(): int =
@@ -230,6 +237,7 @@ block: # Result[void, E]
   doAssert vErr3.isErr
 
   vOk.get()
+  vOk.unsafeGet()
   vOk.expect("should never fail")
 
   # Comparisons
@@ -303,6 +311,10 @@ block: # Result[T, void] aka `Opt`
   doAssert (oOk == oOk)
   doAssert (oErr == oErr)
   doAssert (oOk != oErr)
+
+  doAssert oOk.get() == oOk.unsafeGet()
+  oErr.error()
+  oErr.unsafeError()
 
   # Mapping
   doAssert oOk.map(proc(x: int): string = $x).get() == $oOk.get()
