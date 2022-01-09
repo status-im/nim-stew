@@ -805,6 +805,14 @@ template valueOr*[T: not void, E](self: Result[T, E], def: untyped): T =
   ## Fetch value of result if set, or evaluate `def`
   ## `def` is evaluated lazily, and must be an expression of `T` or exit
   ## the scope (for example using `return` / `raise`)
+  ##
+  ## Example:
+  ## ```
+  ## let
+  ##   v = Result[int, string].err("hello")
+  ##   x = v.valueOr: 42 # x == 42 now
+  ##   y = v.valueOr: raise (ref ValueError)(msg: "v is an error, gasp!")
+  ## ```
   let s = (self) # TODO avoid copy
   if s.o: s.v
   else: def
@@ -813,14 +821,6 @@ template errorOr*[T: not void, E](self: Result[T, E], def: untyped): E =
   ## Fetch error of result if not set, or evaluate `def`
   ## `def` is evaluated lazily, and must be an expression of `T` or exit
   ## the scope (for example using `return` / `raise`)
-  ##
-  ## Example:
-  ## ```
-  ## let
-  ##   v = Result[int, string].err("hello")
-  ##   x = v.valueOr: 42
-  ##   y = v.valueOr: raise (ref ValueError)(msg: "v is an error, gasp!")
-  ## ```
   let s = (self) # TODO avoid copy
   if not s.o: s.e
   else: def
