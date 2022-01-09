@@ -1,197 +1,180 @@
 # nim-result is also available stand-alone from https://github.com/arnetheduck/nim-result/
 
 import ../stew/results
+
 type R = Result[int, string]
 
 # Basic usage, producer
-func works(): R = R.ok(42)
-func works2(): R = result.ok(42)
-func fails(): R = R.err("dummy")
-func fails2(): R = result.err("dummy")
 
-func raises(): int =
-  raise (ref CatchableError)(msg: "hello")
+block:
+  func works(): R = R.ok(42)
+  func works2(): R = result.ok(42)
+  func works3(): R = ok(42)
 
-# Basic usage, consumer
-let
-  rOk = works()
-  rOk2 = works2()
-  rErr = fails()
-  rErr2 = fails2()
+  func fails(): R = R.err("dummy")
+  func fails2(): R = result.err("dummy")
+  func fails3(): R = err("dummy")
 
-doAssert rOk.isOk
-doAssert rOk2.isOk
-doAssert rOk.get() == 42
-doAssert (not rOk.isErr)
-doAssert rErr.isErr
-doAssert rErr2.isErr
+  let
+    rOk = works()
+    rOk2 = works2()
+    rOk3 = works3()
 
-# Combine
-doAssert (rOk and rErr).isErr
-doAssert (rErr and rOk).isErr
-doAssert (rOk or rErr).isOk
-doAssert (rErr or rOk).isOk
+    rErr = fails()
+    rErr2 = fails2()
+    rErr3 = fails3()
 
-# `and` heterogenous types
-doAssert (rOk and rOk.map(proc(x: auto): auto = $x))[] == $(rOk[])
+  doAssert rOk.isOk
+  doAssert rOk2.isOk
+  doAssert rOk3.isOk
+  doAssert (not rOk.isErr)
 
-# `or` heterogenous types
-doAssert (rErr or rErr.mapErr(proc(x: auto): auto = len(x))).error == len(rErr.error)
+  doAssert rErr.isErr
+  doAssert rErr2.isErr
+  doAssert rErr3.isErr
 
-# Exception on access
-let va = try: discard rOk.error; false except: true
-doAssert va, "not an error, should raise"
+  # Mutate
+  var x = rOk
+  x.err("failed now")
+  doAssert x.isErr
+  doAssert x.error == "failed now"
 
-# Exception on access
-let vb = try: discard rErr.value; false except: true
-doAssert vb, "not an value, should raise"
+  # Combine
+  doAssert (rOk and rErr).isErr
+  doAssert (rErr and rOk).isErr
+  doAssert (rOk or rErr).isOk
+  doAssert (rErr or rOk).isOk
 
-var x = rOk
+  # Fail fast
+  proc failFast(): int = raiseAssert "shouldn't evaluate"
+  proc failFastR(): R = raiseAssert "shouldn't evaluate"
 
-# Mutate
-x.err("failed now")
+  doAssert (rErr and failFastR()).isErr
+  doAssert (rOk or failFastR()).isOk
 
-doAssert x.isErr
+  # `and` heterogenous types
+  doAssert (rOk and Result[string, string].ok($rOk.get())).get() == $(rOk[])
 
-# Exceptions -> results
-let c = catch:
-  raises()
+  # `or` heterogenous types
+  doAssert (rErr or Result[int, int].err(len(rErr.error))).error == len(rErr.error)
 
-doAssert c.isErr
+  # Exception on access
+  doAssert (try: (discard rOk.tryError(); false) except ResultError[int]: true)
+  doAssert (try: (discard rErr.tryGet(); false) except ResultError[string]: true)
 
-# De-reference
-try:
-  echo rErr[]
-  doAssert false
-except:
-  discard
+  # Value access or default
+  doAssert rOk.get(100) == rOk.get()
+  doAssert rErr.get(100) == 100
 
-doAssert rOk.valueOr(50) == rOk.value
-doAssert rErr.valueOr(50) == 50
+  doAssert rOk.get() == rOk.unsafeGet()
 
-# Comparisons
-doAssert (works() == works2())
-doAssert (fails() == fails2())
-doAssert (works() != fails())
+  doAssert rOk.valueOr(failFast()) == rOk.value()
+  let rErrV = rErr.valueOr: 100
+  doAssert rErrV == 100
 
-var counter = 0
-proc incCounter(): R =
-  counter += 1
-  R.ok(counter)
+  let rOkV = rOk.errorOr: "quack"
+  doAssert rOkV == "quack"
 
-doAssert (rErr and incCounter()).isErr, "b fails"
-doAssert counter == 0, "should fail fast on rErr"
+  # Exceptions -> results
+  func raises(): int =
+    raise (ref CatchableError)(msg: "hello")
 
-# Mapping
-doAssert (rOk.map(func(x: int): string = $x)[] == $rOk.value)
-doAssert (rOk.flatMap(
-  proc(x: int): Result[string, string] = Result[string, string].ok($x))[] == $rOk.value)
-doAssert (rErr.mapErr(func(x: string): string = x & "no!").error == (rErr.error & "no!"))
+  let c = catch:
+    raises()
+  doAssert c.isErr
 
-# Exception interop
-let e = capture(int, (ref ValueError)(msg: "test"))
-doAssert e.isErr
-doAssert e.error.msg == "test"
+  # De-reference
+  try:
+    echo rErr[]
+    doAssert false
+  except:
+    discard
 
-try:
-  discard e.tryGet
-  doAssert false, "should have raised"
-except ValueError as e:
-  doAssert e.msg == "test"
+  # Comparisons
+  doAssert (rOk == rOk)
+  doAssert (rErr == rErr)
+  doAssert (rOk != rErr)
 
-# Nice way to checks
-if (let v = works(); v.isOk):
-  doAssert v[] == v.value
+  # Mapping
+  doAssert (rOk.map(func(x: int): string = $x)[] == $rOk.value)
+  doAssert (rOk.map(func(x: int) = discard)).isOk()
 
-# Can formalise it into a template (https://github.com/arnetheduck/nim-result/issues/8)
-template `?=`*(v: untyped{nkIdent}, vv: Result): bool =
-  (let vr = vv; template v: auto {.used.} = unsafeGet(vr); vr.isOk)
-if f ?= works():
-  doAssert f == works().value
+  doAssert (rOk.flatMap(
+    proc(x: int): Result[string, string] = Result[string, string].ok($x))[] == $rOk.value)
 
-doAssert $rOk == "Ok(42)"
+  doAssert (rErr.mapErr(func(x: string): string = x & "no!").error == (rErr.error & "no!"))
 
-doAssert rOk.mapConvert(int64)[] == int64(42)
-doAssert rOk.mapCast(int8)[] == int8(42)
-doAssert rOk.mapConvert(uint64)[] == uint64(42)
+  # Casts and conversions
+  doAssert rOk.mapConvert(int64)[] == int64(42)
+  doAssert rOk.mapConvert(uint64)[] == uint64(42)
+  doAssert rOk.mapCast(int8)[] == int8(42)
 
-try:
-  discard rErr.get()
-  doAssert false
-except Defect: # TODO catching defects is undefined behaviour, use external test suite?
-  discard
+  doAssert (rErr.orErr(32)).error == 32
+  doAssert (rOk.orErr(failFast())).get() == rOk.get()
 
-try:
-  discard rOk.error()
-  doAssert false
-except Defect: # TODO catching defects is undefined behaviour, use external test suite?
-  discard
+  # string conversion
+  doAssert $rOk == "ok(42)"
+  doAssert $rErr == "err(dummy)"
 
-# TODO there's a bunch of operators that one could lift through magic - this
-#      is mainly an example
-template `+`*(self, other: Result): untyped =
-  ## Perform `+` on the values of self and other, if both are ok
-  type R = type(other)
-  if self.isOk:
-    if other.isOk:
-      R.ok(self.value + other.value)
-    else:
-      R.err(other.error)
-  else:
-    R.err(self.error)
+  # Exception interop
+  let e = capture(int, (ref ValueError)(msg: "test"))
+  doAssert e.isErr
+  doAssert e.error.msg == "test"
 
-# Simple lifting..
-doAssert (rOk + rOk)[] == rOk.value + rOk.value
+  try:
+    discard rOk.tryError()
+    doAssert false, "should have raised"
+  except ValueError:
+    discard
 
-iterator items[T, E](self: Result[T, E]): T =
-  ## Iterate over result as if it were a collection of either 0 or 1 items
-  ## TODO should a Result[seq[X]] iterate over items in seq? there are
-  ##      arguments for and against
-  if self.isOk:
-    yield self.value
+  try:
+    discard e.tryGet()
+    doAssert false, "should have raised"
+  except ValueError as e:
+    doAssert e.msg == "test"
 
-# Iteration
-var counter2 = 0
-for v in rOk:
-  counter2 += 1
+  # Nice way to checks
+  if (let v = works(); v.isOk):
+    doAssert v[] == v.value
 
-doAssert counter2 == 1, "one-item collection when set"
+  # Expectations
+  doAssert rOk.expect("testOk never fails") == 42
 
-func testOk(): Result[int, string] =
-  ok 42
+  # Question mark operator
+  func testQn(): Result[int, string] =
+    let x = ?works() - ?works()
+    ok(x)
 
-func testErr(): Result[int, string] =
-  err "323"
+  func testQn2(): Result[int, string] =
+    # looks like we can even use it creatively like this
+    if ?fails() == 42: raise (ref ValueError)(msg: "shouldn't happen")
 
-doAssert testOk()[] == 42
-doAssert testErr().error == "323"
+  func testQn3(): Result[bool, string] =
+    # different T but same E
+    let x = ?works() - ?works()
+    ok(x == 0)
 
-doAssert testOk().expect("testOk never fails") == 42
+  doAssert testQn()[] == 0
+  doAssert testQn2().isErr
+  doAssert testQn3()[]
 
-func testQn(): Result[int, string] =
-  let x = ?works() - ?works()
-  result.ok(x)
+  proc heterOr(): Result[int, int] =
+    let value = ? (rErr or err(42))  # TODO ? binds more tightly than `or` - can that be fixed?
+    doAssert value + 1 == value, "won't reach, ? will shortcut execution"
+    ok(value)
 
-func testQn2(): Result[int, string] =
-  # looks like we can even use it creatively like this
-  if ?fails() == 42: raise (ref ValueError)(msg: "shouldn't happen")
+  doAssert heterOr().error() == 42
 
-func testQn3(): Result[bool, string] =
-  # different T but same E
-  let x = ?works() - ?works()
-  result.ok(x == 0)
+  # Flatten
+  doAssert Result[R, string].ok(rOk).flatten() == rOk
+  doAssert Result[R, string].ok(rErr).flatten() == rErr
 
-doAssert testQn()[] == 0
-doAssert testQn2().isErr
-doAssert testQn3()[]
+  # Filter
+  doAssert rOk.filter(proc(x: int): auto = Result[void, string].ok()) == rOk
+  doAssert rOk.filter(proc(x: int): auto = Result[void, string].err("filter")).error == "filter"
+  doAssert rErr.filter(proc(x: int): auto = Result[void, string].err("filter")) == rErr
 
-proc heterOr(): Result[int, int] =
-  let value = ? (rErr or err(42))  # TODO ? binds more tightly than `or` - can that be fixed?
-  doAssert value + 1 == value, "won't reach, ? will shortcut execution"
-  ok(value)
-
-doAssert heterOr().error() == 42
-
+# Exception conversions - toException must not be inside a block
 type
   AnEnum = enum
     anEnumA
@@ -224,68 +207,192 @@ func testToString(): int =
 
 doAssert testToString() == 42
 
-type VoidRes = Result[void, int]
+block: # Result[void, E]
+  type VoidRes = Result[void, int]
 
-func worksVoid(): VoidRes = VoidRes.ok()
-func worksVoid2(): VoidRes = result.ok()
-func failsVoid(): VoidRes = VoidRes.err(42)
-func failsVoid2(): VoidRes = result.err(42)
+  func worksVoid(): VoidRes = VoidRes.ok()
+  func worksVoid2(): VoidRes = result.ok()
+  func worksVoid3(): VoidRes = ok()
 
-let
-  vOk = worksVoid()
-  vOk2 = worksVoid2()
-  vErr = failsVoid()
-  vErr2 = failsVoid2()
+  func failsVoid(): VoidRes = VoidRes.err(42)
+  func failsVoid2(): VoidRes = result.err(42)
+  func failsVoid3(): VoidRes = err(42)
 
-doAssert vOk.isOk
-doAssert vOk2.isOk
-doAssert vErr.isErr
-doAssert vErr2.isErr
+  let
+    vOk = worksVoid()
+    vOk2 = worksVoid2()
+    vOk3 = worksVoid3()
 
-vOk.get()
-vOk.expect("should never fail")
+    vErr = failsVoid()
+    vErr2 = failsVoid2()
+    vErr3 = failsVoid3()
 
-doAssert vOk.map(proc (): int = 42).get() == 42
+  doAssert vOk.isOk
+  doAssert vOk2.isOk
+  doAssert vOk3.isOk
+  doAssert (not vOk.isErr)
 
-rOk.map(proc(x: int) = discard).get()
+  doAssert vErr.isErr
+  doAssert vErr2.isErr
+  doAssert vErr3.isErr
 
-try:
-  rErr.map(proc(x: int) = discard).get()
-  doAssert false
-except:
-  discard
+  vOk.get()
+  vOk.unsafeGet()
+  vOk.expect("should never fail")
 
-doAssert vErr.mapErr(proc(x: int): int = 10).error() == 10
+  # Comparisons
+  doAssert (vOk == vOk)
+  doAssert (vErr == vErr)
+  doAssert (vOk != vErr)
 
-func voidF(): VoidRes =
-  ok()
+  # Mapping
+  doAssert vOk.map(proc (): int = 42).get() == 42
+  vOk.map(proc () = discard).get()
 
-func voidF2(): VoidRes =
-  ? voidF()
+  vOk.mapErr(proc(x: int): int = 10).get()
+  vOk.mapErr(proc(x: int) = discard).get()
 
-  ok()
+  doAssert vErr.mapErr(proc(x: int): int = 10).error() == 10
 
-doAssert voidF2().isOk
+  # string conversion
+  doAssert $vOk == "ok()"
+  doAssert $vErr == "err(42)"
 
+  # Question mark operator
+  func voidF(): VoidRes =
+    ok()
 
-type CSRes = Result[void, cstring]
+  func voidF2(): Result[int, int] =
+    ? voidF()
 
-func cstringF(s: string): CSRes =
-  when compiles(err(s)):
-    doAssert false
+    ok(42)
 
-discard cstringF("test")
+  doAssert voidF2().isOk
 
-# Compare void
-block:
-  var a, b: Result[void, bool]
-  doAssert a == b
+  # flatten
+  doAssert Result[VoidRes, int].ok(vOk).flatten() == vOk
+  doAssert Result[VoidRes, int].ok(vErr).flatten() == vErr
 
-  a.ok()
+  # Filter
+  doAssert vOk.filter(proc(): auto = Result[void, int].ok()) == vOk
+  doAssert vOk.filter(proc(): auto = Result[void, int].err(100)).error == 100
+  doAssert vErr.filter(proc(): auto = Result[void, int].err(100)) == vErr
 
-  doAssert not (a == b)
-  doAssert not (b == a)
+block: # Result[T, void] aka `Opt`
+  type OptInt = Result[int, void]
 
-  b.ok()
+  func worksOpt(): OptInt = OptInt.ok(42)
+  func worksOpt2(): OptInt = result.ok(42)
+  func worksOpt3(): OptInt = ok(42)
 
-  doAssert a == b
+  func failsOpt(): OptInt = OptInt.err()
+  func failsOpt2(): OptInt = result.err()
+  func failsOpt3(): OptInt = err()
+
+  let
+    oOk = worksOpt()
+    oOk2 = worksOpt2()
+    oOk3 = worksOpt3()
+
+    oErr = failsOpt()
+    oErr2 = failsOpt2()
+    oErr3 = failsOpt3()
+
+  doAssert oOk.isOk
+  doAssert oOk2.isOk
+  doAssert oOk3.isOk
+  doAssert (not oOk.isErr)
+
+  doAssert oErr.isErr
+  doAssert oErr2.isErr
+  doAssert oErr3.isErr
+
+  # Comparisons
+  doAssert (oOk == oOk)
+  doAssert (oErr == oErr)
+  doAssert (oOk != oErr)
+
+  doAssert oOk.get() == oOk.unsafeGet()
+  oErr.error()
+  oErr.unsafeError()
+
+  # Mapping
+  doAssert oOk.map(proc(x: int): string = $x).get() == $oOk.get()
+  oOk.map(proc(x: int) = discard).get()
+
+  doAssert oOk.mapErr(proc(): int = 10).get() == oOk.get()
+  doAssert oOk.mapErr(proc() = discard).get() == oOk.get()
+
+  doAssert oErr.mapErr(proc(): int = 10).error() == 10
+
+  # string conversion
+  doAssert $oOk == "ok(42)"
+  doAssert $oErr == "err()"
+
+  proc optQuestion(): OptInt =
+    let v = ? oOk
+    ok(v)
+
+  doAssert optQuestion().isOk()
+
+  # Flatten
+  doAssert Result[OptInt, void].ok(oOk).flatten() == oOk
+  doAssert Result[OptInt, void].ok(oErr).flatten() == oErr
+
+  # Filter
+  doAssert oOk.filter(proc(x: int): auto = Result[void, void].ok()) == oOk
+  doAssert oOk.filter(proc(x: int): auto = Result[void, void].err()).isErr()
+  doAssert oErr.filter(proc(x: int): auto = Result[void, void].err()) == oErr
+
+  doAssert oOk.filter(proc(x: int): bool = true) == oOk
+  doAssert oOk.filter(proc(x: int): bool = false).isErr()
+  doAssert oErr.filter(proc(x: int): bool = true) == oErr
+
+block: # `cstring` dangling reference protection
+  type CSRes = Result[void, cstring]
+
+  func cstringF(s: string): CSRes =
+    when compiles(err(s)):
+      doAssert false
+
+  discard cstringF("test")
+
+block: # Experiments
+  # Can formalise it into a template (https://github.com/arnetheduck/nim-result/issues/8)
+  template `?=`(v: untyped{nkIdent}, vv: Result): bool =
+    (let vr = vv; template v: auto {.used.} = unsafeGet(vr); vr.isOk)
+
+  if f ?= Result[int, string].ok(42):
+    doAssert f == 42
+
+  # TODO there's a bunch of operators that one could lift through magic - this
+  #      is mainly an example
+  template `+`(self, other: Result): untyped =
+    ## Perform `+` on the values of self and other, if both are ok
+    type R = type(other)
+    if self.isOk:
+      if other.isOk:
+        R.ok(self.value + other.value)
+      else:
+        R.err(other.error)
+    else:
+      R.err(self.error)
+
+  let rOk = Result[int, string].ok(42)
+  # Simple lifting..
+  doAssert (rOk + rOk)[] == rOk.value + rOk.value
+
+  iterator items[T, E](self: Result[T, E]): T =
+    ## Iterate over result as if it were a collection of either 0 or 1 items
+    ## TODO should a Result[seq[X]] iterate over items in seq? there are
+    ##      arguments for and against
+    if self.isOk:
+      yield self.value
+
+  # Iteration
+  var counter2 = 0
+  for v in rOk:
+    counter2 += 1
+
+  doAssert counter2 == 1, "one-item collection when set"
+
