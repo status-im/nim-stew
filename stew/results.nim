@@ -815,15 +815,21 @@ template valueOr*[T: not void, E](self: Result[T, E], def: untyped): T =
   ## ```
   let s = (self) # TODO avoid copy
   if s.o: s.v
-  else: def
+  else:
+    when E isnot void:
+      template error: E {.used, inject.} = s.e
+    def
 
-template errorOr*[T: not void, E](self: Result[T, E], def: untyped): E =
+template errorOr*[T, E: not void](self: Result[T, E], def: untyped): E =
   ## Fetch error of result if not set, or evaluate `def`
   ## `def` is evaluated lazily, and must be an expression of `T` or exit
   ## the scope (for example using `return` / `raise`)
   let s = (self) # TODO avoid copy
   if not s.o: s.e
-  else: def
+  else:
+    when T isnot void:
+      template value: T {.used, inject.} = s.v
+    def
 
 func flatten*[T, E](self: Result[Result[T, E], E]): Result[T, E] =
   ## Remove one level of nesting

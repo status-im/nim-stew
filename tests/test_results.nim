@@ -69,11 +69,13 @@ block:
   doAssert rOk.get() == rOk.unsafeGet()
 
   doAssert rOk.valueOr(failFast()) == rOk.value()
-  let rErrV = rErr.valueOr: 100
-  doAssert rErrV == 100
+  let rErrV = rErr.valueOr:
+    error.len
+  doAssert rErrV == rErr.error.len()
 
-  let rOkV = rOk.errorOr: "quack"
-  doAssert rOkV == "quack"
+  let rOkV = rOk.errorOr:
+    $value
+  doAssert rOkV == $rOk.get()
 
   # Exceptions -> results
   func raises(): int =
