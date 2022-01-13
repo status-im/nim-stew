@@ -722,6 +722,7 @@ template `[]`*[T: not void, E](self: Result[T, E]): T =
 template `[]`*[E](self: Result[void, E]) =
   ## Fetch value of result if set, or raise Defect
   ## Exception bridge mode: raise given Exception instead
+  self.get()
 
 template `[]`*[T: not void, E](self: var Result[T, E]): var T =
   ## Fetch value of result if set, or raise Defect
