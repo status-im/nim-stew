@@ -714,10 +714,14 @@ func get*[T: not void, E](self: var Result[T, E]): var T {.inline.} =
   assertOk(self)
   self.v
 
-template `[]`*[T, E](self: Result[T, E]): T =
+template `[]`*[T: not void, E](self: Result[T, E]): T =
   ## Fetch value of result if set, or raise Defect
   ## Exception bridge mode: raise given Exception instead
   self.get()
+
+template `[]`*[E](self: Result[void, E]) =
+  ## Fetch value of result if set, or raise Defect
+  ## Exception bridge mode: raise given Exception instead
 
 template `[]`*[T: not void, E](self: var Result[T, E]): var T =
   ## Fetch value of result if set, or raise Defect

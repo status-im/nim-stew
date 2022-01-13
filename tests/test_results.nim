@@ -241,6 +241,7 @@ block: # Result[void, E]
   vOk.get()
   vOk.unsafeGet()
   vOk.expect("should never fail")
+  vOk[]
 
   # Comparisons
   doAssert (vOk == vOk)
