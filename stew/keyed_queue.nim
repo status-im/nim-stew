@@ -370,19 +370,22 @@ proc popValue*[K,V](rq: var KeyedQueue[K,V]):
 
 
 proc delete*[K,V](rq: var KeyedQueue[K,V]; key: K):
-           Result[KeyedQueuePair[K,V],void] {.gcsafe,raises: [Defect,KeyError].} =
+           Result[KeyedQueuePair[K,V], void] =
   ## Delete the item with key `key` from the queue and returns the key-value
   ## item pair just deleted (if any).
   if rq.tab.hasKey(key):
-    let kvp = KeyedQueuePair[K,V](
-      key: key,
-      data: rq.tab[key].data)
-    rq.deleteImpl(key)
-    return ok(kvp)
+    try:
+      let kvp = KeyedQueuePair[K,V](
+        key: key,
+        data: rq.tab[key].data)
+      rq.deleteImpl(key)
+      return ok(kvp)
+    except KeyError:
+      raiseAssert "We've checked that the key is present above"
   err()
 
 proc del*[K,V](rq: var KeyedQueue[K,V]; key: K)
-    {.gcsafe,raises: [Defect,KeyError].} =
+    {.gcsafe,raises: [Defect, KeyError].} =
   ## Similar to `delete()` but without return code.
   if rq.tab.hasKey(key):
     rq.deleteImpl(key)
@@ -460,20 +463,23 @@ proc `[]`*[K,V](rq: var KeyedQueue[K,V]; key: K): V
 # Public functions, LRU mode
 # ------------------------------------------------------------------------------
 
-proc lruFetch*[K,V](rq: var KeyedQueue[K,V]; key: K): Result[V,void]
-    {.gcsafe, raises: [Defect,CatchableError].} =
+proc lruFetch*[K,V](rq: var KeyedQueue[K,V]; key: K): Result[V,void] =
   ## Fetch in *last-recently-used* mode: If the argument `key` exists in the
   ## queue, move the key-value item pair to the *right end* (see `append()`)
   ## of the queue and return the value associated with the key.
   let rc = rq.delete(key)
   if rc.isErr:
     return err()
+
   # Unlink and re-append item
-  rq.appendImpl(key, rc.value.data)
+  try:
+    rq.appendImpl(key, rc.value.data)
+  except KeyError:
+    raiseAssert "Not possible"
+
   ok(rc.value.data)
 
-proc lruAppend*[K,V](rq: var KeyedQueue[K,V]; key: K; val: V; maxItems: int): V
-    {.gcsafe, raises: [Defect,CatchableError].} =
+proc lruAppend*[K,V](rq: var KeyedQueue[K,V]; key: K; val: V; maxItems: int): V =
   ## Append in *last-recently-used* mode: If the queue has at least `maxItems`
   ## item entries, do `shift()` out the *left-most* one. Then `append()` the
   ## key-value argument pair `(key,val)` to the *right end*. Together with
@@ -496,11 +502,14 @@ proc lruAppend*[K,V](rq: var KeyedQueue[K,V]; key: K; val: V; maxItems: int): V
   ##     err()
   ##
   # Limit number of cached items
-  if maxItems <= rq.tab.len:
-    rq.shiftImpl
-  # Append new value
-  rq.appendImpl(key, val)
-  val
+  try:
+    if maxItems <= rq.tab.len:
+      rq.shiftImpl
+    # Append new value
+    rq.appendImpl(key, val)
+    return val
+  except KeyError:
+    raiseAssert "Not possible"
 
 # ------------------------------------------------------------------------------
 # Public traversal functions, fetch keys
