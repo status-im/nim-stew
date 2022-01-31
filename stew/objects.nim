@@ -114,3 +114,7 @@ func isZeroMemory*[T](x: T): bool =
       return false
   return true
 
+func isDefault*[T](x: T): bool =
+  # TODO detect when simple isZeroMemory would suffice
+  const defaultValue = default(T)
+  x == defaultValue

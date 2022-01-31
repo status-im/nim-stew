@@ -132,7 +132,7 @@ suite "Objects":
       not checkedEnumAssign(e2, 1)
       e2 == C2
 
-  test "isZeroMemory":
+  test "isZeroMemory and isDefault":
     type
       Foo = object
         x: string
@@ -170,6 +170,19 @@ suite "Objects":
       isZeroMemory z10
       isZeroMemory z11
       isZeroMemory z12
+      isDefault z0
+      isDefault z1
+      isDefault z2
+      isDefault z3
+      isDefault z4
+      isDefault z5
+      isDefault z6
+      isDefault z7
+      isDefault z8
+      isDefault z9
+      isDefault z10
+      isDefault z11
+      isDefault z12
 
     var
       nz0 = 1
@@ -196,3 +209,14 @@ suite "Objects":
       not isZeroMemory nz8
       not isZeroMemory nz9
       not isZeroMemory nz10
+      not isDefault nz0
+      not isDefault nz1
+      not isDefault nz2
+      not isDefault nz3
+      not isDefault nz4
+      not isDefault nz5
+      not isDefault nz6
+      not isDefault nz7
+      not isDefault nz8
+      not isDefault nz9
+      not isDefault nz10
