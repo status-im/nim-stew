@@ -76,9 +76,13 @@ macro isTuple*(T: type): untyped =
 
 proc skipRef*(T: NimNode): NimNode =
   result = T
-  if T.kind == nnkBracketExpr:
-    if eqIdent(T[0], bindSym"ref"):
-      result = T[1]
+  if T.kind == nnkBracketExpr and eqIdent(T[0], "ref"):
+    result = T[1]
+
+proc skipPtr*(T: NimNode): NimNode =
+  result = T
+  if T.kind == nnkBracketExpr and eqIdent(T[0], "ptr"):
+    result = T[1]
 
 template readPragma*(field: FieldDescription, pragmaName: static string): NimNode =
   let p = findPragma(field.pragmas, bindSym(pragmaName))
