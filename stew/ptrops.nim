@@ -1,5 +1,5 @@
 # stew
-# Copyright 2018-2019 Status Research & Development GmbH
+# Copyright 2018-2022 Status Research & Development GmbH
 # Licensed under either of
 #
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
@@ -46,9 +46,3 @@ template distance*(a, b: pointer): int =
 
   # We assume two's complement wrapping behaviour for `uint`
   cast[int](cast[uint](b) - cast[uint](a))
-
-template distance*[T](a, b: ptr T): int =
-  # Number of elements between a and b - undefined behavior when difference
-  # exceeds what can be represented in an int
-  {.checks: off.}
-  distance(cast[pointer](a), cast[pointer](b)) div sizeof(T)
