@@ -1,5 +1,5 @@
 # stew
-# Copyright 2018-2019 Status Research & Development GmbH
+# Copyright 2018-2022 Status Research & Development GmbH
 # Licensed under either of
 #
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
@@ -36,9 +36,12 @@ template offset*[T](p: ptr T, count: int): ptr T =
   # better optimizations.
 
   # We turn off checking here - too large counts is UB
-  {.checks: off.}
-  let bytes = count * sizeof(T)
-  cast[ptr T](offset(cast[pointer](p), bytes))
+  {.push checks: off.}
+  let
+    bytes = count * sizeof(T)
+    res = cast[ptr T](offset(cast[pointer](p), bytes))
+  {.pop.}
+  res
 
 template distance*(a, b: pointer): int =
   ## Number of bytes between a and b - undefined behavior when difference
@@ -50,5 +53,7 @@ template distance*(a, b: pointer): int =
 template distance*[T](a, b: ptr T): int =
   # Number of elements between a and b - undefined behavior when difference
   # exceeds what can be represented in an int
-  {.checks: off.}
-  distance(cast[pointer](a), cast[pointer](b)) div sizeof(T)
+  {.push checks: off.}
+  let res = distance(cast[pointer](a), cast[pointer](b)) div sizeof(T)
+  {.pop.}
+  res
