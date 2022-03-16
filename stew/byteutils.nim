@@ -1,5 +1,5 @@
 # byteutils
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
@@ -29,7 +29,7 @@ proc readHexChar*(c: char): byte
   of 'a'..'f': result = byte(ord(c) - ord('a') + 10)
   of 'A'..'F': result = byte(ord(c) - ord('A') + 10)
   else:
-    raise newException(ValueError, $c & " is not a hexademical character")
+    raise newException(ValueError, $c & " is not a hexadecimal character")
 
 template skip0xPrefix(hexStr: string): int =
   ## Returns the index of the first meaningful char in `hexStr` by skipping
