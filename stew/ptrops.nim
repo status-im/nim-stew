@@ -34,8 +34,8 @@ template offset*[T](p: ptr T, count: int): ptr T =
 
   # Actual behavior is wrapping, but this may be revised in the future to enable
   # better optimizations.
-  let bytes = count * sizeof(T)
-  cast[ptr T](offset(cast[pointer](p), bytes))
+  let bytes = cast[uint](count) * uint(sizeof(T))
+  cast[ptr T](offset(cast[pointer](p), cast[int](bytes)))
 
 template distance*(a, b: pointer): int =
   ## Number of bytes between a and b - undefined behavior when difference
