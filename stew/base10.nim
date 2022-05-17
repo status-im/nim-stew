@@ -1,4 +1,4 @@
-## Copyright (c) 2021 Status Research & Development GmbH
+## Copyright (c) 2021-2022 Status Research & Development GmbH
 ## Licensed under either of
 ##  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 ##  * MIT license ([LICENSE-MIT](LICENSE-MIT))
@@ -39,8 +39,9 @@ type
     data*: array[maxLen(Base10, T), byte]
     len*: int8 # >= 1 when holding valid unsigned integer
 
-proc decode*[A: byte|char](B: typedesc[Base10], T: typedesc[SomeUnsignedInt],
-                           src: openArray[A]): Result[T, cstring] =
+proc decode*[A: byte|char, T: SomeUnsignedInt](
+    B: typedesc[Base10], t: typedesc[T],
+    src: openArray[A]): Result[T, cstring] =
   ## Convert base10 encoded string or array of bytes to unsigned integer.
   const
     MaxValue = T(high(T) div 10)
