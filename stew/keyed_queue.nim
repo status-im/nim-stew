@@ -700,7 +700,8 @@ proc secondValue*[K,V](rq: var KeyedQueue[K,V]): Result[V,void] =
   ## value item returned is the one to the *right* of the *left-most* one.
   if rq.tab.len < 2:
     return err()
-  ok(rq.tab[rq.tab[rq.kFirst].kNxt].data)
+  noKeyError("secondValue"):
+    return ok(rq.tab[rq.tab[rq.kFirst].kNxt].data)
 
 proc beforeLastValue*[K,V](rq: var KeyedQueue[K,V]): Result[V,void] =
   ## Retrieve the value item just before the last item from the queue
