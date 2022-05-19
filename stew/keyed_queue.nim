@@ -29,6 +29,8 @@ import
 export
   results
 
+{.push raises: [Defect].}
+
 type
   KeyedQueueItem*[K,V] = object ##\
     ## Data value container as stored in the queue.
@@ -51,7 +53,7 @@ type
   KeyedQueue*[K,V] = object ##\
     ## Data queue descriptor
     tab*: KeyedQueueTab[K,V]   ## Data table
-    kFirst*, kLast*: K    ## Doubly linked item list queue
+    kFirst*, kLast*: K         ## Doubly linked item list queue
 
   BlindValue = ##\
     ## Type name is syntactic sugar, used for key-only queues
@@ -61,50 +63,57 @@ type
     ## Key-only queue, no values
     KeyedQueue[K,BlindValue]
 
-{.push raises: [Defect].}
+# ------------------------------------------------------------------------------
+# Private helpers
+# ------------------------------------------------------------------------------
+
+template noKeyError(info: static[string]; code: untyped) =
+  try:
+    code
+  except KeyError as e:
+    raiseAssert "Not possible (" & info & "): " & e.msg
 
 # ------------------------------------------------------------------------------
 # Private functions
 # ------------------------------------------------------------------------------
 
-proc shiftImpl[K,V](rq: var KeyedQueue[K,V])
-    {.gcsafe,raises: [Defect,KeyError].} =
+proc shiftImpl[K,V](rq: var KeyedQueue[K,V]) =
   ## Expects: rq.tab.len != 0
 
-  # Unqueue first item
-  let item = rq.tab[rq.kFirst] # yes, crashes if `rq.tab.len == 0`
-  rq.tab.del(rq.kFirst)
+  noKeyError("shiftImpl"):
+   # Unqueue first item
+   let item = rq.tab[rq.kFirst] # yes, crashes if `rq.tab.len == 0`
+   rq.tab.del(rq.kFirst)
 
-  if rq.tab.len == 0:
-    rq.kFirst.reset
-    rq.kLast.reset
-  else:
-    rq.kFirst = item.kNxt
-    if rq.tab.len == 1:
-      rq.tab[rq.kFirst].kNxt = rq.kFirst            # node points to itself
-    rq.tab[rq.kFirst].kPrv = rq.tab[rq.kFirst].kNxt # term node has: nxt == prv
+   if rq.tab.len == 0:
+     rq.kFirst.reset
+     rq.kLast.reset
+   else:
+     rq.kFirst = item.kNxt
+     if rq.tab.len == 1:
+       rq.tab[rq.kFirst].kNxt = rq.kFirst            # node points to itself
+     rq.tab[rq.kFirst].kPrv = rq.tab[rq.kFirst].kNxt # term node has: nxt == prv
 
 
-proc popImpl[K,V](rq: var KeyedQueue[K,V])
-    {.gcsafe,raises: [Defect,KeyError].} =
+proc popImpl[K,V](rq: var KeyedQueue[K,V]) =
   ## Expects: rq.tab.len != 0
 
   # Pop last item
-  let item = rq.tab[rq.kLast] # yes, crashes if `rq.tab.len == 0`
-  rq.tab.del(rq.kLast)
+  noKeyError("popImpl"):
+    let item = rq.tab[rq.kLast] # yes, crashes if `rq.tab.len == 0`
+    rq.tab.del(rq.kLast)
 
-  if rq.tab.len == 0:
-    rq.kFirst.reset
-    rq.kLast.reset
-  else:
-    rq.kLast = item.kPrv
-    if rq.tab.len == 1:
-      rq.tab[rq.kLast].kPrv = rq.kLast            # single node points to itself
-    rq.tab[rq.kLast].kNxt = rq.tab[rq.kLast].kPrv # term node has: nxt == prv
+    if rq.tab.len == 0:
+      rq.kFirst.reset
+      rq.kLast.reset
+    else:
+      rq.kLast = item.kPrv
+      if rq.tab.len == 1:
+        rq.tab[rq.kLast].kPrv = rq.kLast         # single node points to itself
+      rq.tab[rq.kLast].kNxt = rq.tab[rq.kLast].kPrv # term node has: nxt == prv
 
 
-proc deleteImpl[K,V](rq: var KeyedQueue[K,V]; key: K)
-    {.gcsafe,raises: [Defect,KeyError].} =
+proc deleteImpl[K,V](rq: var KeyedQueue[K,V]; key: K) =
   ## Expects: rq.tab.hesKey(key)
 
   if rq.kFirst == key:
@@ -114,80 +123,81 @@ proc deleteImpl[K,V](rq: var KeyedQueue[K,V]; key: K)
     rq.popImpl
 
   else:
-    let item = rq.tab[key] # yes, crashes if `not rq.tab.hasKey(key)`
-    rq.tab.del(key)
+    noKeyError("deleteImpl"):
+      let item = rq.tab[key] # yes, crashes if `not rq.tab.hasKey(key)`
+      rq.tab.del(key)
 
-    # now: 2 < rq.tab.len (otherwise rq.kFirst == key or rq.kLast == key)
-    if rq.tab[rq.kFirst].kNxt == key:
-      # item was the second one
-      rq.tab[rq.kFirst].kPrv = item.kNxt
-    if rq.tab[rq.kLast].kPrv == key:
-      # item was one before last
-      rq.tab[rq.kLast].kNxt = item.kPrv
+      # now: 2 < rq.tab.len (otherwise rq.kFirst == key or rq.kLast == key)
+      if rq.tab[rq.kFirst].kNxt == key:
+        # item was the second one
+        rq.tab[rq.kFirst].kPrv = item.kNxt
+      if rq.tab[rq.kLast].kPrv == key:
+        # item was one before last
+        rq.tab[rq.kLast].kNxt = item.kPrv
 
-    rq.tab[item.kPrv].kNxt = item.kNxt
-    rq.tab[item.kNxt].kPrv = item.kPrv
+      rq.tab[item.kPrv].kNxt = item.kNxt
+      rq.tab[item.kNxt].kPrv = item.kPrv
 
 
-proc appendImpl[K,V](rq: var KeyedQueue[K,V]; key: K; val: V)
-    {.gcsafe,raises: [Defect,KeyError].} =
+proc appendImpl[K,V](rq: var KeyedQueue[K,V]; key: K; val: V) =
   ## Expects: not rq.tab.hasKey(key)
 
   # Append queue item
   var item = KeyedQueueItem[K,V](data: val)
 
-  if rq.tab.len == 0:
-    rq.kFirst = key
-    item.kPrv = key
-  else:
-    if rq.kFirst == rq.kLast:
-      rq.tab[rq.kFirst].kPrv = key # first terminal node
-    rq.tab[rq.kLast].kNxt = key
-    item.kPrv = rq.kLast
+  noKeyError("appendImpl"):
+    if rq.tab.len == 0:
+      rq.kFirst = key
+      item.kPrv = key
+    else:
+      if rq.kFirst == rq.kLast:
+        rq.tab[rq.kFirst].kPrv = key # first terminal node
+      rq.tab[rq.kLast].kNxt = key
+      item.kPrv = rq.kLast
 
-  rq.kLast = key
-  item.kNxt = item.kPrv # terminal node
+    rq.kLast = key
+    item.kNxt = item.kPrv # terminal node
 
-  rq.tab[key] = item # yes, makes `verify()` fail if `rq.tab.hasKey(key)`
+    rq.tab[key] = item # yes, makes `verify()` fail if `rq.tab.hasKey(key)`
 
 
-proc prependImpl[K,V](rq: var KeyedQueue[K,V]; key: K; val: V)
-    {.gcsafe,raises: [Defect,KeyError].} =
+proc prependImpl[K,V](rq: var KeyedQueue[K,V]; key: K; val: V) =
   ## Expects: not rq.tab.hasKey(key)
 
   # Prepend queue item
   var item = KeyedQueueItem[K,V](data: val)
 
-  if rq.tab.len == 0:
-    rq.kLast = key
-    item.kNxt = key
-  else:
-    if rq.kFirst == rq.kLast:
-      rq.tab[rq.kLast].kNxt = key # first terminal node
-    rq.tab[rq.kFirst].kPrv = key
-    item.kNxt = rq.kFirst
+  noKeyError("prependImpl"):
+    if rq.tab.len == 0:
+      rq.kLast = key
+      item.kNxt = key
+    else:
+      if rq.kFirst == rq.kLast:
+        rq.tab[rq.kLast].kNxt = key # first terminal node
+      rq.tab[rq.kFirst].kPrv = key
+      item.kNxt = rq.kFirst
 
-  rq.kFirst = key
-  item.kPrv = item.kNxt # terminal node has: nxt == prv
+    rq.kFirst = key
+    item.kPrv = item.kNxt # terminal node has: nxt == prv
 
-  rq.tab[key] = item # yes, makes `verify()` fail if `rq.tab.hasKey(key)`
+    rq.tab[key] = item # yes, makes `verify()` fail if `rq.tab.hasKey(key)`
 
 # -----------
 
-proc shiftKeyImpl[K,V](rq: var KeyedQueue[K,V]): Result[K,void]
-    {.gcsafe,raises: [Defect,KeyError].} =
-  if 0 < rq.tab.len:
-    let key = rq.kFirst
-    rq.shiftImpl
-    return ok(key)
+proc shiftKeyImpl[K,V](rq: var KeyedQueue[K,V]): Result[K,void] =
+  noKeyError("shiftKeyImpl"):
+    if 0 < rq.tab.len:
+      let key = rq.kFirst
+      rq.shiftImpl
+      return ok(key)
   err()
 
-proc popKeyImpl[K,V](rq: var KeyedQueue[K,V]): Result[K,void]
-    {.gcsafe,raises: [Defect,KeyError].} =
-  if 0 < rq.tab.len:
-    let key = rq.kLast
-    rq.popImpl
-    return ok(key)
+proc popKeyImpl[K,V](rq: var KeyedQueue[K,V]): Result[K,void] =
+  noKeyError("popKeyImpl"):
+    if 0 < rq.tab.len:
+      let key = rq.kLast
+      rq.popImpl
+      return ok(key)
   err()
 
 # -----------
@@ -197,34 +207,34 @@ proc firstKeyImpl[K,V](rq: var KeyedQueue[K,V]): Result[K,void] =
     return err()
   ok(rq.kFirst)
 
-proc secondKeyImpl[K,V](rq: var KeyedQueue[K,V]): Result[K,void]
-    {.gcsafe,raises: [Defect,KeyError].} =
+proc secondKeyImpl[K,V](rq: var KeyedQueue[K,V]): Result[K,void] =
   if rq.tab.len < 2:
     return err()
-  ok(rq.tab[rq.kFirst].kNxt)
+  noKeyError("secondKeyImpl"):
+    return ok(rq.tab[rq.kFirst].kNxt)
 
-proc beforeLastKeyImpl[K,V](rq: var KeyedQueue[K,V]): Result[K,void]
-    {.gcsafe,raises: [Defect,KeyError].} =
+proc beforeLastKeyImpl[K,V](rq: var KeyedQueue[K,V]): Result[K,void] =
   if rq.tab.len < 2:
     return err()
-  ok(rq.tab[rq.kLast].kPrv)
+  noKeyError("lastKeyImpl"):
+    return ok(rq.tab[rq.kLast].kPrv)
 
 proc lastKeyImpl[K,V](rq: var KeyedQueue[K,V]): Result[K,void] =
   if rq.tab.len == 0:
     return err()
   ok(rq.kLast)
 
-proc nextKeyImpl[K,V](rq: var KeyedQueue[K,V]; key: K): Result[K,void]
-    {.gcsafe,raises: [Defect,KeyError].} =
+proc nextKeyImpl[K,V](rq: var KeyedQueue[K,V]; key: K): Result[K,void] =
   if not rq.tab.hasKey(key) or rq.kLast == key:
     return err()
-  ok(rq.tab[key].kNxt)
+  noKeyError("nextKeyImpl"):
+    return ok(rq.tab[key].kNxt)
 
-proc prevKeyImpl[K,V](rq: var KeyedQueue[K,V]; key: K): Result[K,void]
-    {.gcsafe,raises: [Defect,KeyError].} =
+proc prevKeyImpl[K,V](rq: var KeyedQueue[K,V]; key: K): Result[K,void] =
   if not rq.tab.hasKey(key) or rq.kFirst == key:
     return err()
-  ok(rq.tab[key].kPrv)
+  noKeyError("prevKeyImpl"):
+    return ok(rq.tab[key].kPrv)
 
 # ------------------------------------------------------------------------------
 # Public functions, constructor
@@ -251,8 +261,7 @@ proc init*[K](T: type KeyedQueueNV[K]; initSize = 10): T =
 # Public functions, list operations
 # ------------------------------------------------------------------------------
 
-proc append*[K,V](rq: var KeyedQueue[K,V]; key: K; val: V): bool
-    {.gcsafe,raises: [Defect,KeyError].} =
+proc append*[K,V](rq: var KeyedQueue[K,V]; key: K; val: V): bool =
   ## Append new `key`. The function will succeed returning `true` unless the
   ## `key` argument exists in the queue,  already.
   ##
@@ -268,16 +277,15 @@ template push*[K,V](rq: var KeyedQueue[K,V]; key: K; val: V): bool =
   rq.append(key, val)
 
 
-proc replace*[K,V](rq: var KeyedQueue[K,V]; key: K; val: V): bool
-    {.gcsafe,raises: [Defect,KeyError].} =
+proc replace*[K,V](rq: var KeyedQueue[K,V]; key: K; val: V): bool =
   ## Replace value for entry associated with the key argument `key`. Returns
   ## `true` on success, and `false` otherwise.
   if rq.tab.hasKey(key):
-    rq.tab[key].data = val
+    noKeyError("replace"):
+      rq.tab[key].data = val
     return true
 
-proc `[]=`*[K,V](rq: var KeyedQueue[K,V]; key: K; val: V)
-    {.gcsafe,raises: [Defect,KeyError].} =
+proc `[]=`*[K,V](rq: var KeyedQueue[K,V]; key: K; val: V) =
   ## This function provides a combined append/replace action with table
   ## semantics:
   ## * If the argument `key` is not in the queue yet, append the `(key,val)`
@@ -285,13 +293,13 @@ proc `[]=`*[K,V](rq: var KeyedQueue[K,V]; key: K; val: V)
   ## * Otherwise replace the value entry of the queue item by the argument
   ##   `val` as in `rq.replace(key,val)`
   if rq.tab.hasKey(key):
-    rq.tab[key].data = val
+    noKeyError("[]="):
+      rq.tab[key].data = val
   else:
     rq.appendImpl(key, val)
 
 
-proc prepend*[K,V](rq: var KeyedQueue[K,V]; key: K; val: V): bool
-    {.gcsafe,raises: [Defect,KeyError].} =
+proc prepend*[K,V](rq: var KeyedQueue[K,V]; key: K; val: V): bool =
   ## Prepend new `key`. The function will succeed returning `true` unless the
   ## `key` argument exists in the queue, already.
   ##
@@ -307,8 +315,7 @@ template unshift*[K,V](rq: var KeyedQueue[K,V]; key: K; val: V): bool =
   rq.prepend(key,val)
 
 
-proc shift*[K,V](rq: var KeyedQueue[K,V]): Result[KeyedQueuePair[K,V],void]
-    {.gcsafe,raises: [Defect,KeyError].} =
+proc shift*[K,V](rq: var KeyedQueue[K,V]): Result[KeyedQueuePair[K,V],void] =
   ## Deletes the *first* queue item and returns the key-value item pair just
   ## deleted. For a non-empty queue this function is the same as
   ## `rq.firstKey.value.delele`.
@@ -316,30 +323,29 @@ proc shift*[K,V](rq: var KeyedQueue[K,V]): Result[KeyedQueuePair[K,V],void]
   ## Using the notation introduced with `rq.append` and `rq.prepend`, the
   ## item returned and deleted is the *left-most* item.
   if 0 < rq.tab.len:
-    let kvp = KeyedQueuePair[K,V](
-      key: rq.kFirst,
-      data: rq.tab[rq.kFirst].data)
-    rq.shiftImpl
-    return ok(KeyedQueuePair[K,V](kvp))
+    noKeyError("shift"):
+      let kvp = KeyedQueuePair[K,V](
+        key: rq.kFirst,
+        data: rq.tab[rq.kFirst].data)
+      rq.shiftImpl
+      return ok(KeyedQueuePair[K,V](kvp))
   err()
 
-proc shiftKey*[K,V](rq: var KeyedQueue[K,V]): Result[K,void]
-    {.inline,gcsafe,raises: [Defect,KeyError].} =
+proc shiftKey*[K,V](rq: var KeyedQueue[K,V]): Result[K,void] =
   ## Similar to `shift()` but with different return value.
   rq.shiftKeyImpl
 
-proc shiftValue*[K,V](rq: var KeyedQueue[K,V]):
-               Result[V,void] {.gcsafe,raises: [Defect,KeyError].} =
+proc shiftValue*[K,V](rq: var KeyedQueue[K,V]): Result[V,void] =
   ## Similar to `shift()` but with different return value.
   if 0 < rq.tab.len:
-    let val = rq.tab[rq.kFirst].data
-    rq.shiftImpl
-    return ok(val)
+    noKeyError("shiftValue"):
+      let val = rq.tab[rq.kFirst].data
+      rq.shiftImpl
+      return ok(val)
   err()
 
 
-proc pop*[K,V](rq: var KeyedQueue[K,V]): Result[KeyedQueuePair[K,V],void]
-    {.gcsafe,raises: [Defect,KeyError].} =
+proc pop*[K,V](rq: var KeyedQueue[K,V]): Result[KeyedQueuePair[K,V],void] =
   ## Deletes the *last* queue item and returns the  key-value item pair just
   ## deleted. For a non-empty queue this function is the same as
   ## `rq.lastKey.value.delele`.
@@ -347,25 +353,25 @@ proc pop*[K,V](rq: var KeyedQueue[K,V]): Result[KeyedQueuePair[K,V],void]
   ## Using the notation introduced with `rq.append` and `rq.prepend`, the
   ## item returned and deleted is the *right-most* item.
   if 0 < rq.tab.len:
-    let kvp = KeyedQueuePair[K,V](
-      key: rq.kLast,
-      data: rq.tab[rq.kLast].data)
-    rq.popImpl
-    return ok(KeyedQueuePair[K,V](kvp))
+    noKeyError("pop"):
+      let kvp = KeyedQueuePair[K,V](
+        key: rq.kLast,
+        data: rq.tab[rq.kLast].data)
+      rq.popImpl
+      return ok(KeyedQueuePair[K,V](kvp))
   err()
 
-proc popKey*[K,V](rq: var KeyedQueue[K,V]): Result[K,void]
-    {.inline,gcsafe,raises: [Defect,KeyError].} =
+proc popKey*[K,V](rq: var KeyedQueue[K,V]): Result[K,void] =
   ## Similar to `pop()` but with different return value.
   rq.popKeyImpl
 
-proc popValue*[K,V](rq: var KeyedQueue[K,V]):
-             Result[V,void] {.gcsafe,raises: [Defect,KeyError].} =
+proc popValue*[K,V](rq: var KeyedQueue[K,V]): Result[V,void] =
   ## Similar to `pop()` but with different return value.
   if 0 < rq.tab.len:
-    let val = rq.tab[rq.kLast].data
-    rq.popImpl
-    return ok(val)
+    noKeyError("popValue"):
+      let val = rq.tab[rq.kLast].data
+      rq.popImpl
+      return ok(val)
   err()
 
 
@@ -384,16 +390,14 @@ proc delete*[K,V](rq: var KeyedQueue[K,V]; key: K):
       raiseAssert "We've checked that the key is present above"
   err()
 
-proc del*[K,V](rq: var KeyedQueue[K,V]; key: K)
-    {.gcsafe,raises: [Defect, KeyError].} =
+proc del*[K,V](rq: var KeyedQueue[K,V]; key: K) =
   ## Similar to `delete()` but without return code.
   if rq.tab.hasKey(key):
     rq.deleteImpl(key)
 
 # --------
 
-proc append*[K](rq: var KeyedQueueNV[K]; key: K): bool
-    {.inline,gcsafe,raises: [Defect,KeyError].} =
+proc append*[K](rq: var KeyedQueueNV[K]; key: K): bool =
   ## Key-only queue variant
   rq.append(key,BlindValue(0))
 
@@ -402,8 +406,7 @@ template push*[K](rq: var KeyedQueueNV[K]; key: K): bool =
   rq.append(key)
 
 
-proc prepend*[K](rq: var KeyedQueueNV[K]; key: K): bool
-    {.inline,gcsafe,raises: [Defect,KeyError].} =
+proc prepend*[K](rq: var KeyedQueueNV[K]; key: K): bool =
   ## Key-only queue variant
   rq.prepend(key,BlindValue(0))
 
@@ -412,27 +415,21 @@ template unshift*[K](rq: var KeyedQueueNV[K]; key: K): bool =
   rq.prepend(key)
 
 
-proc shift*[K](rq: var KeyedQueueNV[K]): Result[K,void]
-    {.inline,gcsafe,raises: [Defect,KeyError].} =
+proc shift*[K](rq: var KeyedQueueNV[K]): Result[K,void] =
   ## Key-only queue variant
   rq.shiftKeyImpl
 
 proc shiftKey*[K](rq: var KeyedQueueNV[K]): Result[K,void]
-    {.inline,gcsafe,
-      deprecated: "use shift() for key-only queue",
-      raises: [Defect,KeyError].} =
+    {.gcsafe, deprecated: "use shift() for key-only queue".} =
   rq.shiftKeyImpl
 
 
-proc pop*[K](rq: var KeyedQueueNV[K]): Result[K,void]
-    {.inline,gcsafe,raises: [Defect,KeyError].} =
+proc pop*[K](rq: var KeyedQueueNV[K]): Result[K,void] =
   ## Key-only variant of `pop()` (same as `popKey()`)
   rq.popKeyImpl
 
 proc popKey*[K](rq: var KeyedQueueNV[K]): Result[K,void]
-    {.inline,gcsafe,
-      deprecated: "use pop() for key-only queue",
-      raises: [Defect,KeyError].} =
+    {.gcsafe, deprecated: "use pop() for key-only queue".} =
   rq.popKeyImpl
 
 # ------------------------------------------------------------------------------
@@ -443,14 +440,13 @@ proc hasKey*[K,V](rq: var KeyedQueue[K,V]; key: K): bool =
   ## Check whether the argument `key` has been queued, already
   rq.tab.hasKey(key)
 
-
-proc eq*[K,V](rq: var KeyedQueue[K,V]; key: K): Result[V,void]
-    {.gcsafe,raises: [Defect,KeyError].} =
+proc eq*[K,V](rq: var KeyedQueue[K,V]; key: K): Result[V,void] =
   ## Retrieve the value data stored with the argument `key` from
   ## the queue if there is any.
   if not rq.tab.hasKey(key):
     return err()
-  ok(rq.tab[key].data)
+  noKeyError("eq"):
+    return ok(rq.tab[key].data)
 
 proc `[]`*[K,V](rq: var KeyedQueue[K,V]; key: K): V
     {.gcsafe,raises: [Defect,KeyError].} =
@@ -467,17 +463,33 @@ proc lruFetch*[K,V](rq: var KeyedQueue[K,V]; key: K): Result[V,void] =
   ## Fetch in *last-recently-used* mode: If the argument `key` exists in the
   ## queue, move the key-value item pair to the *right end* (see `append()`)
   ## of the queue and return the value associated with the key.
-  let rc = rq.delete(key)
-  if rc.isErr:
+  if not rq.tab.hasKey(key):
     return err()
 
-  # Unlink and re-append item
-  try:
-    rq.appendImpl(key, rc.value.data)
-  except KeyError:
-    raiseAssert "Not possible"
+  noKeyError("lruFetch"):
+    let item = rq.tab[key]
+    if rq.kLast != key:
+      # Now, `key` is in the table and does not refer to the last `item`,
+      # so the table has at least two entries.
 
-  ok(rc.value.data)
+      # unlink item
+      if rq.kFirst == key:
+        rq.kFirst = item.kNxt
+        rq.tab[rq.kFirst].kPrv = rq.tab[rq.kFirst].kNxt # term node: nxt == prv
+
+      else: # Now, there are at least three entries
+        if rq.tab[rq.kFirst].kNxt == key:
+          rq.tab[rq.kFirst].kPrv = item.kNxt            # item was the 2nd one
+        rq.tab[item.kPrv].kNxt = item.kNxt
+        rq.tab[item.kNxt].kPrv = item.kPrv
+
+      # Re-append item, i.e. appendImpl() without adding item.
+      rq.tab[rq.kLast].kNxt = key
+      rq.tab[key].kPrv = rq.kLast
+      rq.kLast = key
+      rq.tab[key].kNxt = rq.tab[key].kPrv               # term node: nxt == prv
+
+    return ok(item.data)
 
 proc lruAppend*[K,V](rq: var KeyedQueue[K,V]; key: K; val: V; maxItems: int): V =
   ## Append in *last-recently-used* mode: If the queue has at least `maxItems`
@@ -515,40 +527,35 @@ proc lruAppend*[K,V](rq: var KeyedQueue[K,V]; key: K; val: V; maxItems: int): V 
 # Public traversal functions, fetch keys
 # ------------------------------------------------------------------------------
 
-proc firstKey*[K,V](rq: var KeyedQueue[K,V]): Result[K,void]
-    {.inline,gcsafe.} =
+proc firstKey*[K,V](rq: var KeyedQueue[K,V]): Result[K,void] =
   ## Retrieve first key from the queue unless it is empty.
   ##
   ## Using the notation introduced with `rq.append` and `rq.prepend`, the
   ## key returned is the *left-most* one.
   rq.firstKeyImpl
 
-proc secondKey*[K,V](rq: var KeyedQueue[K,V]): Result[K,void]
-    {.inline,gcsafe,raises: [Defect,KeyError].} =
+proc secondKey*[K,V](rq: var KeyedQueue[K,V]): Result[K,void] =
   ## Retrieve the key next after the first key from queue unless it is empty.
   ##
   ## Using the notation introduced with `rq.append` and `rq.prepend`, the
   ## key returned is the one ti the right of the *left-most* one.
   rq.secondKeyImpl
 
-proc beforeLastKey*[K,V](rq: var KeyedQueue[K,V]): Result[K,void]
-    {.inline,gcsafe,raises: [Defect,KeyError].} =
+proc beforeLastKey*[K,V](rq: var KeyedQueue[K,V]): Result[K,void] =
   ## Retrieve the key just before the last one from queue unless it is empty.
   ##
   ## Using the notation introduced with `rq.append` and `rq.prepend`, the
   ## key returned is the one to the left of the *right-most* one.
   rq.beforeLastKeyImpl
 
-proc lastKey*[K,V](rq: var KeyedQueue[K,V]): Result[K,void]
-    {.inline,gcsafe.} =
+proc lastKey*[K,V](rq: var KeyedQueue[K,V]): Result[K,void] =
   ## Retrieve last key from queue unless it is empty.
   ##
   ## Using the notation introduced with `rq.append` and `rq.prepend`, the
   ## key returned is the *right-most* one.
   rq.lastKeyImpl
 
-proc nextKey*[K,V](rq: var KeyedQueue[K,V]; key: K): Result[K,void]
-    {.inline,gcsafe,raises: [Defect,KeyError].} =
+proc nextKey*[K,V](rq: var KeyedQueue[K,V]; key: K): Result[K,void] =
   ## Retrieve the key following the argument `key` from queue if
   ## there is any.
   ##
@@ -556,8 +563,7 @@ proc nextKey*[K,V](rq: var KeyedQueue[K,V]; key: K): Result[K,void]
   ## key returned is the next one to the *right*.
   rq.nextKeyImpl(key)
 
-proc prevKey*[K,V](rq: var KeyedQueue[K,V]; key: K): Result[K,void]
-    {.inline,gcsafe,raises: [Defect,KeyError].} =
+proc prevKey*[K,V](rq: var KeyedQueue[K,V]; key: K): Result[K,void] =
   ## Retrieve the key preceeding the argument `key` from queue if
   ## there is any.
   ##
@@ -568,124 +574,107 @@ proc prevKey*[K,V](rq: var KeyedQueue[K,V]; key: K): Result[K,void]
 # ----------
 
 proc firstKey*[K](rq: var KeyedQueueNV[K]): Result[K,void]
-  {.inline,gcsafe,
-    deprecated: "use first() for key-only queue".} =
+  {.gcsafe, deprecated: "use first() for key-only queue".} =
   rq.firstKeyImpl
 
 proc secondKey*[K](rq: var KeyedQueueNV[K]): Result[K,void]
-  {.inline,gcsafe,
-    deprecated: "use second() for key-only queue",
-    raises: [Defect,KeyError].} =
+  {.gcsafe, deprecated: "use second() for key-only queue".} =
   rq.secondKeyImpl
 
 proc beforeLastKey*[K](rq: var KeyedQueueNV[K]): Result[K,void]
-  {.inline,gcsafe,
-    deprecated: "use beforeLast() for key-only queue",
-    raises: [Defect,KeyError].} =
+  {.gcsafe, deprecated: "use beforeLast() for key-only queue".} =
   rq.beforeLastKeyImpl
 
 proc lastKey*[K](rq: var KeyedQueueNV[K]): Result[K,void]
-  {.inline,gcsafe,
-    deprecated: "use last() for key-only queue".} =
+  {.gcsafe, deprecated: "use last() for key-only queue".} =
   rq.lastKeyImpl
 
 proc nextKey*[K](rq: var KeyedQueueNV[K]; key: K): Result[K,void]
-  {.inline,gcsafe,
-    deprecated: "use next() for key-only queue",
-    raises: [Defect,KeyError].} =
+  {.gcsafe, deprecated: "use next() for key-only queue".} =
   rq.nextKeyImpl(key)
 
 proc prevKey*[K](rq: var KeyedQueueNV[K]; key: K): Result[K,void]
-  {.inline,gcsafe,
-    deprecated: "use prev() for key-only queue",
-    raises: [Defect,KeyError].} =
+  {.gcsafe, deprecated: "use prev() for key-only queue".} =
   rq.nextKeyImpl(key)
 
 # ------------------------------------------------------------------------------
 # Public traversal functions, fetch key/value pairs
 # ------------------------------------------------------------------------------
 
-proc first*[K,V](rq: var KeyedQueue[K,V]):
-          Result[KeyedQueuePair[K,V],void]
-    {.gcsafe,raises: [Defect,KeyError].} =
+proc first*[K,V](rq: var KeyedQueue[K,V]): Result[KeyedQueuePair[K,V],void] =
   ## Similar to `firstKey()` but with key-value item pair return value.
   if rq.tab.len == 0:
     return err()
-  let key = rq.kFirst
-  ok(KeyedQueuePair[K,V](key: key, data: rq.tab[key].data))
+  noKeyError("first"):
+    let key = rq.kFirst
+    return ok(KeyedQueuePair[K,V](key: key, data: rq.tab[key].data))
 
-proc second*[K,V](rq: var KeyedQueue[K,V]):
-           Result[KeyedQueuePair[K,V],void]
-    {.gcsafe,raises: [Defect,KeyError].} =
+proc second*[K,V](rq: var KeyedQueue[K,V]): Result[KeyedQueuePair[K,V],void] =
   ## Similar to `secondKey()` but with key-value item pair return value.
   if rq.tab.len < 2:
     return err()
-  let key = rq.tab[rq.kFirst].kNxt
-  ok(KeyedQueuePair[K,V](key: key, data: rq.tab[key].data))
+  noKeyError("second"):
+    let key = rq.tab[rq.kFirst].kNxt
+    return ok(KeyedQueuePair[K,V](key: key, data: rq.tab[key].data))
 
 proc beforeLast*[K,V](rq: var KeyedQueue[K,V]):
-               Result[KeyedQueuePair[K,V],void]
-    {.gcsafe,raises: [Defect,KeyError].} =
+               Result[KeyedQueuePair[K,V],void] =
   ## Similar to `beforeLastKey()` but with key-value item pair return value.
   if rq.tab.len < 2:
     return err()
-  let key = rq.tab[rq.kLast].kPrv
-  ok(KeyedQueuePair[K,V](key: key, data: rq.tab[key].data))
+  noKeyError("beforeLast"):
+    let key = rq.tab[rq.kLast].kPrv
+    return ok(KeyedQueuePair[K,V](key: key, data: rq.tab[key].data))
 
-proc last*[K,V](rq: var KeyedQueue[K,V]):
-         Result[KeyedQueuePair[K,V],void]
-    {.gcsafe,raises: [Defect,KeyError].} =
+proc last*[K,V](rq: var KeyedQueue[K,V]): Result[KeyedQueuePair[K,V],void] =
   ## Similar to `lastKey()` but with key-value item pair return value.
   if rq.tab.len == 0:
     return err()
-  let key = rq.kLast
-  ok(KeyedQueuePair[K,V](key: key, data: rq.tab[key].data))
+  noKeyError("last"):
+    let key = rq.kLast
+    return ok(KeyedQueuePair[K,V](key: key, data: rq.tab[key].data))
 
 proc next*[K,V](rq: var KeyedQueue[K,V]; key: K):
-         Result[KeyedQueuePair[K,V],void]
-    {.gcsafe,raises: [Defect,KeyError].} =
+         Result[KeyedQueuePair[K,V],void] =
   ## Similar to `nextKey()` but with key-value item pair return value.
   if not rq.tab.hasKey(key) or rq.kLast == key:
     return err()
-  let nKey = rq.tab[key].kNxt
-  ok(KeyedQueuePair[K,V](key: nKey, data: rq.tab[nKey].data))
+  noKeyError("next"):
+    let nKey = rq.tab[key].kNxt
+    return ok(KeyedQueuePair[K,V](key: nKey, data: rq.tab[nKey].data))
 
 proc prev*[K,V](rq: var KeyedQueue[K,V]; key: K):
-         Result[KeyedQueuePair[K,V],void]
-    {.gcsafe,raises: [Defect,KeyError].} =
+         Result[KeyedQueuePair[K,V],void] =
   ## Similar to `prevKey()` but with key-value item pair return value.
   if not rq.tab.hasKey(key) or rq.kFirst == key:
     return err()
-  let pKey = rq.tab[key].kPrv
-  ok(KeyedQueuePair[K,V](key: pKey, data: rq.tab[pKey].data))
+  noKeyError("prev"):
+    let pKey = rq.tab[key].kPrv
+    return ok(KeyedQueuePair[K,V](key: pKey, data: rq.tab[pKey].data))
 
 # ------------
 
-proc first*[K](rq: var KeyedQueueNV[K]): Result[K,void] {.inline,gcsafe.} =
+proc first*[K](rq: var KeyedQueueNV[K]): Result[K,void] =
   ## Key-only queue variant
   rq.firstKeyImpl
 
-proc second*[K](rq: var KeyedQueueNV[K]): Result[K,void]
-    {.inline,gcsafe,raises: [Defect,KeyError].} =
+proc second*[K](rq: var KeyedQueueNV[K]): Result[K,void] =
   ## Key-only queue variant
   rq.secondKeyImpl
 
-proc beforeLast*[K](rq: var KeyedQueueNV[K]): Result[K,void]
-    {.inline,gcsafe,raises: [Defect,KeyError].} =
+proc beforeLast*[K](rq: var KeyedQueueNV[K]): Result[K,void] =
   ## Key-only queue variant
   rq.beforeLastKeyImpl
 
-proc last*[K](rq: var KeyedQueueNV[K]): Result[K,void] {.inline,gcsafe.} =
+proc last*[K](rq: var KeyedQueueNV[K]): Result[K,void] =
   ## Key-only queue variant
   rq.lastKeyImpl
 
-proc next*[K](rq: var KeyedQueueNV[K]; key: K): Result[K,void]
-    {.inline,gcsafe,raises: [Defect,KeyError].} =
+proc next*[K](rq: var KeyedQueueNV[K]; key: K): Result[K,void] =
   ## Key-only queue variant
   rq.nextKeyImpl(key)
 
-proc prev*[K](rq: var KeyedQueueNV[K]; key: K): Result[K,void]
-    {.inline,gcsafe,raises: [Defect,KeyError].} =
+proc prev*[K](rq: var KeyedQueueNV[K]; key: K): Result[K,void] =
   ## Key-only queue variant
   rq.nextKeyImpl(key)
 
@@ -693,18 +682,17 @@ proc prev*[K](rq: var KeyedQueueNV[K]; key: K): Result[K,void]
 # Public traversal functions, data container items
 # ------------------------------------------------------------------------------
 
-proc firstValue*[K,V](rq: var KeyedQueue[K,V]): Result[V,void]
-    {.gcsafe,raises: [Defect,KeyError].} =
+proc firstValue*[K,V](rq: var KeyedQueue[K,V]): Result[V,void] =
   ## Retrieve first value item from the queue unless it is empty.
   ##
   ## Using the notation introduced with `rq.append` and `rq.prepend`, the
   ## value item returned is the *left-most* one.
   if rq.tab.len == 0:
     return err()
-  ok(rq.tab[rq.kFirst].data)
+  noKeyError("firstValue"):
+    return ok(rq.tab[rq.kFirst].data)
 
-proc secondValue*[K,V](rq: var KeyedQueue[K,V]): Result[V,void]
-    {.gcsafe,raises: [Defect,KeyError].} =
+proc secondValue*[K,V](rq: var KeyedQueue[K,V]): Result[V,void] =
   ## Retrieve the value item next to the first one from the queue unless it
   ## is empty.
   ##
@@ -712,10 +700,10 @@ proc secondValue*[K,V](rq: var KeyedQueue[K,V]): Result[V,void]
   ## value item returned is the one to the *right* of the *left-most* one.
   if rq.tab.len < 2:
     return err()
-  ok(rq.tab[rq.tab[rq.kFirst].kNxt].data)
+  noKeyError("secondValue"):
+    return ok(rq.tab[rq.tab[rq.kFirst].kNxt].data)
 
-proc beforeLastValue*[K,V](rq: var KeyedQueue[K,V]): Result[V,void]
-    {.gcsafe,raises: [Defect,KeyError].} =
+proc beforeLastValue*[K,V](rq: var KeyedQueue[K,V]): Result[V,void] =
   ## Retrieve the value item just before the last item from the queue
   ## unless it is empty.
   ##
@@ -723,45 +711,46 @@ proc beforeLastValue*[K,V](rq: var KeyedQueue[K,V]): Result[V,void]
   ## value item returned is the one to the *left* of the *right-most* one.
   if rq.tab.len < 2:
     return err()
-  ok(rq.tab[rq.tab[rq.kLast].kPrv].data)
+  noKeyError("beforeLastValue"):
+    return ok(rq.tab[rq.tab[rq.kLast].kPrv].data)
 
-proc lastValue*[K,V](rq: var KeyedQueue[K,V]): Result[V,void]
-    {.gcsafe,raises: [Defect,KeyError].} =
+proc lastValue*[K,V](rq: var KeyedQueue[K,V]): Result[V,void] =
   ## Retrieve the last value item from the queue if there is any.
   ##
   ## Using the notation introduced with `rq.append` and `rq.prepend`, the
   ## value item returned is the *right-most* one.
   if rq.tab.len == 0:
     return err()
-  ok(rq.tab[rq.kLast].data)
+  noKeyError("lastValue"):
+    return ok(rq.tab[rq.kLast].data)
 
 # ------------------------------------------------------------------------------
 # Public functions, miscellaneous
 # ------------------------------------------------------------------------------
 
-proc `==`*[K,V](a, b: var KeyedQueue[K,V]): bool
-    {.gcsafe, raises: [Defect,KeyError].} =
+proc `==`*[K,V](a, b: var KeyedQueue[K,V]): bool =
   ## Returns `true` if both argument queues contain the same data. Note that
   ## this is a slow operation as all `(key,data)` pairs will to be compared.
   if a.tab.len == b.tab.len and a.kFirst == b.kFirst and a.kLast == b.kLast:
     for (k,av) in a.tab.pairs:
       if not b.tab.hasKey(k):
         return false
-      let bv = b.tab[k]
-      # bv.data might be a reference, so dive into it explicitely.
-      if av.kPrv != bv.kPrv or av.kNxt != bv.kNxt or bv.data != av.data:
-        return false
+      noKeyError("=="):
+        let bv = b.tab[k]
+        # bv.data might be a reference, so dive into it explicitely.
+        if av.kPrv != bv.kPrv or av.kNxt != bv.kNxt or bv.data != av.data:
+          return false
     return true
 
-proc key*[K,V](kqp: KeyedQueuePair[K,V]): K {.inline.} =
+proc key*[K,V](kqp: KeyedQueuePair[K,V]): K =
   ## Getter
   kqp.key
 
-proc len*[K,V](rq: var KeyedQueue[K,V]): int {.inline.} =
+proc len*[K,V](rq: var KeyedQueue[K,V]): int =
   ## Returns the number of items in the queue
   rq.tab.len
 
-proc clear*[K,V](rq: var KeyedQueue[K,V]) {.inline.} =
+proc clear*[K,V](rq: var KeyedQueue[K,V]) =
   ## Clear the queue
   rq.tab.clear
   rq.kFirst.reset
@@ -776,8 +765,7 @@ proc toKeyedQueueResult*[K,V](key: K; data: V):
 # Public iterators
 # ------------------------------------------------------------------------------
 
-iterator nextKeys*[K,V](rq: var KeyedQueue[K,V]): K
-    {.gcsafe,raises: [Defect,KeyError].} =
+iterator nextKeys*[K,V](rq: var KeyedQueue[K,V]): K =
   ## Iterate over all keys in the queue starting with the `rq.firstKey.value`
   ## key (if any). Using the notation introduced with `rq.append` and
   ## `rq.prepend`, the iterator processes *left* to *right*.
@@ -793,11 +781,11 @@ iterator nextKeys*[K,V](rq: var KeyedQueue[K,V]): K
     while loopOK:
       let yKey = key
       loopOK = key != rq.kLast
-      key = rq.tab[key].kNxt
+      noKeyError("nextKeys"):
+        key = rq.tab[key].kNxt
       yield yKey
 
-iterator nextValues*[K,V](rq: var KeyedQueue[K,V]): V
-    {.gcsafe,raises: [Defect,KeyError].} =
+iterator nextValues*[K,V](rq: var KeyedQueue[K,V]): V =
   ## Iterate over all values in the queue starting with the
   ## `rq.kFirst.value.value` item value (if any). Using the notation introduced
   ## with `rq.append` and `rq.prepend`, the iterator processes *left* to
@@ -809,13 +797,14 @@ iterator nextValues*[K,V](rq: var KeyedQueue[K,V]): V
       key = rq.kFirst
       loopOK = true
     while loopOK:
-      let item = rq.tab[key]
+      var item: KeyedQueueItem[K,V]
+      noKeyError("nextValues"):
+        item = rq.tab[key]
       loopOK = key != rq.kLast
       key = item.kNxt
       yield item.data
 
-iterator nextPairs*[K,V](rq: var KeyedQueue[K,V]): KeyedQueuePair[K,V]
-    {.gcsafe,raises: [Defect,KeyError].} =
+iterator nextPairs*[K,V](rq: var KeyedQueue[K,V]): KeyedQueuePair[K,V] =
   ## Iterate over all (key,value) pairs in the queue starting with the
   ## `(rq.firstKey.value,rq.first.value.value)` key/item pair (if any). Using
   ## the notation introduced with `rq.append` and `rq.prepend`, the iterator
@@ -827,15 +816,15 @@ iterator nextPairs*[K,V](rq: var KeyedQueue[K,V]): KeyedQueuePair[K,V]
       key = rq.kFirst
       loopOK = true
     while loopOK:
-      let
-        yKey = key
+      let yKey = key
+      var item: KeyedQueueItem[K,V]
+      noKeyError("nextPairs"):
         item = rq.tab[key]
       loopOK = key != rq.kLast
       key = item.kNxt
       yield KeyedQueuePair[K,V](key: yKey, data: item.data)
 
-iterator prevKeys*[K,V](rq: var KeyedQueue[K,V]): K
-    {.gcsafe,raises: [Defect,KeyError].} =
+iterator prevKeys*[K,V](rq: var KeyedQueue[K,V]): K =
   ## Reverse iterate over all keys in the queue starting with the
   ## `rq.lastKey.value` key (if any). Using the notation introduced with
   ## `rq.append` and `rq.prepend`, the iterator processes *right* to *left*.
@@ -848,11 +837,11 @@ iterator prevKeys*[K,V](rq: var KeyedQueue[K,V]): K
     while loopOK:
       let yKey = key
       loopOK = key != rq.kFirst
-      key = rq.tab[key].kPrv
+      noKeyError("prevKeys"):
+        key = rq.tab[key].kPrv
       yield yKey
 
-iterator prevValues*[K,V](rq: var KeyedQueue[K,V]): V
-    {.gcsafe,raises: [Defect,KeyError].} =
+iterator prevValues*[K,V](rq: var KeyedQueue[K,V]): V =
   ## Reverse iterate over all values in the queue starting with the
   ## `rq.kLast.value.value` item value (if any). Using the notation introduced
   ## with `rq.append` and `rq.prepend`, the iterator processes *right* to
@@ -864,13 +853,14 @@ iterator prevValues*[K,V](rq: var KeyedQueue[K,V]): V
       key = rq.kLast
       loopOK = true
     while loopOK:
-      let item = rq.tab[key]
+      var item: KeyedQueueItem[K,V]
+      noKeyError("prevValues"):
+        item = rq.tab[key]
       loopOK = key != rq.kFirst
       key = item.kPrv
       yield item.data
 
-iterator prevPairs*[K,V](rq: var KeyedQueue[K,V]): KeyedQueuePair[K,V]
-    {.gcsafe,raises: [Defect,KeyError].} =
+iterator prevPairs*[K,V](rq: var KeyedQueue[K,V]): KeyedQueuePair[K,V] =
   ## Reverse iterate over all (key,value) pairs in the queue starting with the
   ## `(rq.lastKey.value,rq.last.value.value)` key/item pair (if any). Using
   ## the notation introduced with `rq.append` and `rq.prepend`, the iterator
@@ -882,8 +872,9 @@ iterator prevPairs*[K,V](rq: var KeyedQueue[K,V]): KeyedQueuePair[K,V]
       key = rq.kLast
       loopOK = true
     while loopOK:
-      let
-        yKey = key
+      let yKey = key
+      var item: KeyedQueueItem[K,V]
+      noKeyError("prevPairs"):
         item = rq.tab[key]
       loopOK = key != rq.kFirst
       key = item.kPrv
