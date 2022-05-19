@@ -29,6 +29,8 @@ import
 export
   results
 
+{.push raises: [Defect].}
+
 type
   KeyedQueueItem*[K,V] = object ##\
     ## Data value container as stored in the queue.
@@ -60,8 +62,6 @@ type
   KeyedQueueNV*[K] = ##\
     ## Key-only queue, no values
     KeyedQueue[K,BlindValue]
-
-{.push raises: [Defect].}
 
 # ------------------------------------------------------------------------------
 # Private helpers
@@ -261,8 +261,7 @@ proc init*[K](T: type KeyedQueueNV[K]; initSize = 10): T =
 # Public functions, list operations
 # ------------------------------------------------------------------------------
 
-proc append*[K,V](rq: var KeyedQueue[K,V]; key: K; val: V): bool
-    {.gcsafe,raises: [Defect,KeyError].} =
+proc append*[K,V](rq: var KeyedQueue[K,V]; key: K; val: V): bool =
   ## Append new `key`. The function will succeed returning `true` unless the
   ## `key` argument exists in the queue,  already.
   ##
@@ -659,8 +658,7 @@ proc first*[K](rq: var KeyedQueueNV[K]): Result[K,void] =
   ## Key-only queue variant
   rq.firstKeyImpl
 
-proc second*[K](rq: var KeyedQueueNV[K]): Result[K,void]
-    {.inline,gcsafe,raises: [Defect,KeyError].} =
+proc second*[K](rq: var KeyedQueueNV[K]): Result[K,void] =
   ## Key-only queue variant
   rq.secondKeyImpl
 
@@ -694,8 +692,7 @@ proc firstValue*[K,V](rq: var KeyedQueue[K,V]): Result[V,void] =
   noKeyError("firstValue"):
     return ok(rq.tab[rq.kFirst].data)
 
-proc secondValue*[K,V](rq: var KeyedQueue[K,V]): Result[V,void]
-    {.gcsafe,raises: [Defect,KeyError].} =
+proc secondValue*[K,V](rq: var KeyedQueue[K,V]): Result[V,void] =
   ## Retrieve the value item next to the first one from the queue unless it
   ## is empty.
   ##
