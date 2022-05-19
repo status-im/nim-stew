@@ -464,13 +464,33 @@ proc lruFetch*[K,V](rq: var KeyedQueue[K,V]; key: K): Result[V,void] =
   ## Fetch in *last-recently-used* mode: If the argument `key` exists in the
   ## queue, move the key-value item pair to the *right end* (see `append()`)
   ## of the queue and return the value associated with the key.
-  let rc = rq.delete(key)
-  if rc.isErr:
+  if not rq.tab.hasKey(key):
     return err()
 
-  # Unlink and re-append item
-  rq.appendImpl(key, rc.value.data)
-  ok(rc.value.data)
+  noKeyError("lruFetch"):
+    let item = rq.tab[key]
+    if rq.kLast != key:
+      # Now, `key` is in the table and does not refer to the last `item`,
+      # so the table has at least two entries.
+
+      # unlink item
+      if rq.kFirst == key:
+        rq.kFirst = item.kNxt
+        rq.tab[rq.kFirst].kPrv = rq.tab[rq.kFirst].kNxt # term node: nxt == prv
+
+      else: # Now, there are at least three entries
+        if rq.tab[rq.kFirst].kNxt == key:
+          rq.tab[rq.kFirst].kPrv = item.kNxt            # item was the 2nd one
+        rq.tab[item.kPrv].kNxt = item.kNxt
+        rq.tab[item.kNxt].kPrv = item.kPrv
+
+      # Re-append item, i.e. appendImpl() without adding item.
+      rq.tab[rq.kLast].kNxt = key
+      rq.tab[key].kPrv = rq.kLast
+      rq.kLast = key
+      rq.tab[key].kNxt = rq.tab[key].kPrv               # term node: nxt == prv
+
+    return ok(item.data)
 
 proc lruAppend*[K,V](rq: var KeyedQueue[K,V]; key: K; val: V; maxItems: int): V =
   ## Append in *last-recently-used* mode: If the queue has at least `maxItems`

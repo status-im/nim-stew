@@ -94,8 +94,11 @@ proc lruValue(lru: var LruCache; n: int): uint =
     key = n.toKey
     rc = lru.q.lruFetch(key)
   if rc.isOk:
+    doAssert key == lru.q.lastKey.value
+    doAssert lru.q.verify.isOk
     return rc.value
-  lru.q.lruAppend(key, key.fromKey.toValue, lru.size)
+  result = lru.q.lruAppend(key, key.fromKey.toValue, lru.size)
+  doAssert lru.q.verify.isOk
 
 proc toLruCache(a: openArray[int]): LruCache =
   result.size = lruCacheLimit
