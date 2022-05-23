@@ -38,7 +38,6 @@ type
 
   EmptyObject = object
   EmptyRefObject = ref object
-  EmptyPtrObject = ptr object
 
 macro getFieldsLists(T: type): untyped =
   result = newTree(nnkBracket)
@@ -62,7 +61,6 @@ static:
 
   doAssert getFieldsLists(EmptyObject).len == 0
   doAssert getFieldsLists(EmptyRefObject).len == 0
-  doAssert getFieldsLists(EmptyPtrObject).len == 0
 
 let myType = MyType[string](myField: "test", myGeneric: "test", kind: true, first: "test")
 
