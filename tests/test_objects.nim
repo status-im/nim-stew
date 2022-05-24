@@ -70,23 +70,54 @@ suite "Objects":
       T6 is DistinctBar
       T6 isnot Bar
 
-  when false:
-    # TODO: Not possible yet (see objects.nim)
-    test "hasHoles":
-      type
-        WithoutHoles = enum
-          A1, B1, C1
+  test "enumRangeOrd":
+    type
+      WithoutHoles = enum
+        A1, A2, A3
+      WithoutHoles2 = enum
+        B1 = 4, B2 = 5, B3 = 6
+      WithHoles = enum
+        C1 = 1, C2 = 3, C3 = 5
 
-        WithoutHoles2 = enum
-          A2 = 2, B2 = 3, C2 = 4
+    check:
+      enumRangeOrd(WithoutHoles) == [ 0, 1, 2 ]
+      enumRangeOrd(WithoutHoles2) == [ 4, 5, 6 ]
+      enumRangeOrd(WithHoles) == [ 1, 3, 5 ]
 
-        WithHoles = enum
-          A3, B3 = 2, C3
 
-      check:
-        hasHoles(WithoutHoles2) == false
-        hasHoles(WithoutHoles) == false
-        hasHoles(WithHoles) == true
+  test "contains":
+    type
+      WithoutHoles = enum
+        A1, A2, A3
+      WithoutHoles2 = enum
+        B1 = 4, B2 = 5, B3 = 6
+      WithHoles = enum
+        C1 = 1, C2 = 3, C3 = 5
+
+    check:
+      1 in WithoutHoles
+      5 notin WithoutHoles
+      1 notin WithoutHoles2
+      5 in WithoutHoles2
+      1 in WithHoles
+      2 notin WithHoles
+      5 in WithHoles
+
+  test "hasHoles":
+    type
+      WithoutHoles = enum
+        A1, B1, C1
+
+      WithoutHoles2 = enum
+        A2 = 2, B2 = 3, C2 = 4
+
+      WithHoles = enum
+        A3, B3 = 2, C3
+
+    check:
+      hasHoles(WithoutHoles2) == false
+      hasHoles(WithoutHoles) == false
+      hasHoles(WithHoles) == true
 
   test "checkedEnumAssign":
     type
@@ -96,41 +127,40 @@ suite "Objects":
       AnotherEnum = enum
         A2 = 2, B2, C2
 
+      EnumWithHoles = enum
+        A3, B3 = 3, C3
     var
       e1 = A1
       e2 = A2
+      e3 = A3
 
     check:
       checkedEnumAssign(e1, 2)
       e1 == C1
-
-    check:
       not checkedEnumAssign(e1, 5)
       e1 == C1
-
-    check:
       checkedEnumAssign(e1, 0)
       e1 == A1
-
-    check:
       not checkedEnumAssign(e1, -1)
       e1 == A1
 
-    check:
       checkedEnumAssign(e2, 2)
       e2 == A2
-
-    check:
       not checkedEnumAssign(e2, 5)
       e2 == A2
-
-    check:
       checkedEnumAssign(e2, 4)
       e2 == C2
-
-    check:
       not checkedEnumAssign(e2, 1)
       e2 == C2
+
+      checkedEnumAssign(e3, 4)
+      e3 == C3
+      not checkedEnumAssign(e3, 1)
+      e3 == C3
+      checkedEnumAssign(e3, 0)
+      e3 == A3
+      not checkedEnumAssign(e3, -1)
+      e3 == A3
 
   test "isZeroMemory":
     type
