@@ -68,7 +68,7 @@ proc baseType*(obj: RootObj): cstring =
 proc baseType*(obj: ref RootObj): cstring =
   obj[].baseType
 
-macro enumRangeOrd*(a: typed): untyped =
+macro enumRangeOrd*(a: type[enum]): untyped =
   ## This macro returns an array with all the ordinal values of an enum
   let
     values = a.getType[1][1..^1]
