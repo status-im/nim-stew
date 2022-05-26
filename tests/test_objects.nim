@@ -80,9 +80,9 @@ suite "Objects":
         C1 = 1, C2 = 3, C3 = 5
 
     check:
-      enumRangeOrd(WithoutHoles) == [ 0, 1, 2 ]
-      enumRangeOrd(WithoutHoles2) == [ 4, 5, 6 ]
-      enumRangeOrd(WithHoles) == [ 1, 3, 5 ]
+      enumRangeOrd(WithoutHoles) == { 0, 1, 2 }
+      enumRangeOrd(WithoutHoles2) == { 4, 5, 6 }
+      enumRangeOrd(WithHoles) == { 1, 3, 5 }
 
 
   test "contains":
@@ -101,10 +101,14 @@ suite "Objects":
       5 in WithoutHoles2
       1 in WithHoles
       2 notin WithHoles
+      6 notin WithHoles
       5 in WithHoles
 
   test "hasHoles":
     type
+      EnumWithOneValue = enum
+        A0
+
       WithoutHoles = enum
         A1, B1, C1
 
@@ -114,10 +118,15 @@ suite "Objects":
       WithHoles = enum
         A3, B3 = 2, C3
 
+      WithBigHoles = enum
+        A4 = 0, B4 = 2000, C4 = 4000
+
     check:
-      hasHoles(WithoutHoles2) == false
+      hasHoles(EnumWithOneValue) == false
       hasHoles(WithoutHoles) == false
+      hasHoles(WithoutHoles2) == false
       hasHoles(WithHoles) == true
+      hasHoles(WithBigHoles) == true
 
   test "checkedEnumAssign":
     type
