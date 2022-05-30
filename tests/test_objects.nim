@@ -93,6 +93,8 @@ suite "Objects":
         B1 = 4, B2 = 5, B3 = 6
       WithHoles = enum
         C1 = 1, C2 = 3, C3 = 5
+      WithoutHoles3 = enum
+        D1 = -1
 
     check:
       1 in WithoutHoles
@@ -103,6 +105,8 @@ suite "Objects":
       2 notin WithHoles
       6 notin WithHoles
       5 in WithHoles
+      1.byte in WithoutHoles
+      4294967295'u32 notin WithoutHoles3
 
   test "hasHoles":
     type
