@@ -80,9 +80,9 @@ suite "Objects":
         C1 = 1, C2 = 3, C3 = 5
 
     check:
-      enumRangeOrd(WithoutHoles) == { 0, 1, 2 }
-      enumRangeOrd(WithoutHoles2) == { 4, 5, 6 }
-      enumRangeOrd(WithHoles) == { 1, 3, 5 }
+      enumRangeOrd(WithoutHoles) == [ 0, 1, 2 ]
+      enumRangeOrd(WithoutHoles2) == [ 4, 5, 6 ]
+      enumRangeOrd(WithHoles) == [ 1, 3, 5 ]
 
 
   test "contains":
@@ -94,7 +94,9 @@ suite "Objects":
       WithHoles = enum
         C1 = 1, C2 = 3, C3 = 5
       WithoutHoles3 = enum
-        D1 = -1
+        D1 = -1, D2 = 0, D3 = 1
+      WithHoles2 = enum
+        E1 = -5, E2 = 0, E3 = 5
 
     check:
       1 in WithoutHoles
@@ -107,6 +109,18 @@ suite "Objects":
       5 in WithHoles
       1.byte in WithoutHoles
       4294967295'u32 notin WithoutHoles3
+      -1.int8 in WithoutHoles3
+      -4.int16 notin WithoutHoles3
+      -5.int16 in WithHoles2
+      5.uint64 in WithHoles2
+      -12.int8 notin WithHoles2
+      int64.high notin WithoutHoles
+      int64.high notin WithHoles
+      int64.low notin WithoutHoles
+      int64.low notin WithHoles
+      int64.high.uint64 * 2 notin WithoutHoles
+      int64.high.uint64 * 2 notin WithHoles
+
 
   test "hasHoles":
     type

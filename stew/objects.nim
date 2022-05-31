@@ -73,7 +73,7 @@ macro enumRangeOrd*(a: type[enum]): untyped =
   let
     values = a.getType[1][1..^1]
     valuesOrded = values.mapIt(newCall("ord", it))
-  newNimNode(nnkCurly).add(valuesOrded)
+  newNimNode(nnkBracket).add(valuesOrded)
 
 macro hasHoles*(T: type[enum]): bool =
   # As an enum is always sorted, just substract the first and the last ordinal value
@@ -82,11 +82,14 @@ macro hasHoles*(T: type[enum]): bool =
 
   quote: `T`.high.ord - `T`.low.ord != `len`
 
-proc contains*(e: type[enum], v: SomeInteger): bool =
+proc contains*[I: SomeInteger](e: type[enum], v: I): bool =
+  when I is uint64:
+    if v > int.high.uint64:
+      return false
   when e.hasHoles():
-    v in enumRangeOrd(e)
+    v.int64 in enumRangeOrd(e).mapIt(it.int64)
   else:
-    v.int in e.low.ord .. e.high.ord
+    v.int64 in e.low.int64 .. e.high.int64
 
 func checkedEnumAssign*[E: enum, I: SomeInteger](res: var E, value: I): bool =
   ## This function can be used to safely assign a tainted integer value (coming
