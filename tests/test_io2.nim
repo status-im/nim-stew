@@ -10,6 +10,8 @@ import unittest2
 import std/[osproc, strutils]
 import ../stew/io2
 
+from std/posix import EAGAIN
+
 suite "OS Input/Output procedures test suite":
   test "getCurrentDir() test":
     let res = getCurrentDir()
@@ -620,8 +622,8 @@ suite "OS Input/Output procedures test suite":
           )
         ]
       else:
-        let eagain = $EAGAIN & ":" & $EAGAIN & ":" & $EAGAIN & ":" &
-                     $EAGAIN & ":" & $EAGAIN & ":" & $EAGAIN & ":" &
+        let eagain = "E" & $EAGAIN & ":E" & $EAGAIN & ":E" & $EAGAIN & ":E" &
+                     $EAGAIN & ":E" & $EAGAIN & ":E" & $EAGAIN & ":E" &
                      $EAGAIN
         let TestFlags = [
           (
