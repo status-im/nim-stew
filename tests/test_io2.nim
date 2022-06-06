@@ -573,7 +573,7 @@ suite "OS Input/Output procedures test suite":
     proc performTest(): IoResult[void] =
       let path = "testfile.lock"
       when defined(windows):
-        const TestFlags = [
+        let TestFlags = [
           (
             {OpenFlags.Read},
             "E33:E33:E33:E33:E33:E33:E33",
@@ -620,48 +620,51 @@ suite "OS Input/Output procedures test suite":
           )
         ]
       else:
-        const TestFlags = [
+        let eagain = $EAGAIN & ":" & $EAGAIN & ":" & $EAGAIN & ":" &
+                     $EAGAIN & ":" & $EAGAIN & ":" & $EAGAIN & ":" &
+                     $EAGAIN
+        let TestFlags = [
           (
             {OpenFlags.Read},
-            "E11:E11:E11:E11:E11:E11:E11",
+            eagain,
             "OK:OK:OK:OK:OK:OK:OK",
             "OK:OK:OK:OK:OK:OK:OK"
           ),
           (
             {OpenFlags.Write},
-            "E11:E11:E11:E11:E11:E11:E11",
+            eagain,
             "OK:OK:OK:OK:OK:OK:OK",
             "OK:OK:OK:OK:OK:OK:OK"
           ),
           (
             {OpenFlags.Read, OpenFlags.Write},
-            "E11:E11:E11:E11:E11:E11:E11",
+            eagain,
             "OK:OK:OK:OK:OK:OK:OK",
             "OK:OK:OK:OK:OK:OK:OK"
           ),
           (
             {OpenFlags.Read, OpenFlags.ShareRead},
-            "E11:E11:E11:E11:E11:E11:E11",
+            eagain,
             "OK:OK:OK:OK:OK:OK:OK",
             "OK:OK:OK:OK:OK:OK:OK"
           ),
           (
             {OpenFlags.Write, OpenFlags.ShareWrite},
-            "E11:E11:E11:E11:E11:E11:E11",
+            eagain,
             "OK:OK:OK:OK:OK:OK:OK",
             "OK:OK:OK:OK:OK:OK:OK"
           ),
           (
             {OpenFlags.Read, OpenFlags.Write, OpenFlags.ShareRead,
              OpenFlags.ShareWrite},
-            "E11:E11:E11:E11:E11:E11:E11",
+            eagain,
             "OK:OK:OK:OK:OK:OK:OK",
             "OK:OK:OK:OK:OK:OK:OK"
           ),
           (
             {OpenFlags.Truncate, OpenFlags.Create, OpenFlags.Write,
              OpenFlags.ShareWrite},
-            "E11:E11:E11:E11:E11:E11:E11",
+            eagain,
             "OK:OK:OK:OK:OK:OK:OK",
             "OK:OK:OK:OK:OK:OK:OK"
           )
