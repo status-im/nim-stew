@@ -22,16 +22,29 @@ proc test(args, path: string) =
       "error"
 
   # Compilation language is controlled by TEST_LANG
-  exec "nim " & getEnv("TEST_LANG", "c") & " " & getEnv("NIMFLAGS") & " " &
-    args & " -r --hints:off --skipParentCfg --styleCheck:usages --styleCheck:" &
-    styleCheckStyle & " " & path
+  exec "nim " & getEnv("TEST_LANG", "c") & " " & getEnv("NIMFLAGS") &
+       " " & args &
+       " -r --hints:off --skipParentCfg --styleCheck:usages --styleCheck:" &
+       styleCheckStyle & " " & path
+
+proc buildHelper(args, path: string) =
+  exec "nim " & getEnv("TEST_LANG", "c") & " " & getEnv("NIMFLAGS") &
+       " " & args &
+       " --hints:off --skipParentCfg --styleCheck:usages --styleCheck:error" &
+       " " & path
 
 task test, "Run all tests":
+  # Building `test_helper.nim`.
+  buildHelper("", "tests/test_helper")
   test "--threads:off", "tests/all_tests"
   test "--threads:on -d:nimTypeNames", "tests/all_tests"
-  test "--threads:on -d:noIntrinsicsBitOpts -d:noIntrinsicsEndians", "tests/all_tests"
+  test "--threads:on -d:noIntrinsicsBitOpts -d:noIntrinsicsEndians",
+       "tests/all_tests"
 
 task testvcc, "Run all tests with vcc compiler":
+  # Building `test_helper.nim`.
+  buildHelper("-cc:vcc", "tests/test_helper")
   test "--cc:vcc --threads:off", "tests/all_tests"
   test "--cc:vcc --threads:on -d:nimTypeNames", "tests/all_tests"
-  test "--cc:vcc --threads:on -d:noIntrinsicsBitOpts -d:noIntrinsicsEndians", "tests/all_tests"
+  test "--cc:vcc --threads:on -d:noIntrinsicsBitOpts -d:noIntrinsicsEndians",
+       "tests/all_tests"

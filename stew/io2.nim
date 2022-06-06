@@ -33,8 +33,10 @@ when defined(windows):
     TRUNCATE_EXISTING = 5'u32
 
     FILE_FLAG_OVERLAPPED = 0x40000000'u32
+    FILE_SHARE_READ = 0x00000001'u32
+    FILE_SHARE_WRITE = 0x00000002'u32
+
     FILE_FLAG_NO_BUFFERING = 0x20000000'u32
-    FILE_SHARE_READ = 1'u32
     FILE_ATTRIBUTE_READONLY = 0x00000001'u32
     FILE_ATTRIBUTE_DIRECTORY = 0x00000010'u32
 
@@ -99,6 +101,13 @@ when defined(windows):
       lastWriteTime: uint64
       changeTime: uint64
       fileAttributes: uint32
+
+    OVERLAPPED* {.pure, inheritable.} = object
+      internal*: uint64
+      internalHigh*: uint64
+      offset*: uint32
+      offsetHigh*: uint32
+      hEvent*: IoHandle
 
   proc getLastError(): uint32 {.
        importc: "GetLastError", stdcall, dynlib: "kernel32", sideEffect.}
@@ -166,9 +175,19 @@ when defined(windows):
                         lpNewFilePointer: ptr int64,
                         dwMoveMethod: uint32): int32 {.
        importc: "SetFilePointerEx", dynlib: "kernel32", stdcall.}
+  proc lockFileEx(hFile: uint, dwFlags, dwReserved: uint32,
+                  nNumberOfBytesToLockLow, nNumberOfBytesToLockHigh: uint32,
+                  lpOverlapped: pointer): uint32 {.
+        importc: "LockFileEx", dynlib: "kernel32", stdcall, sideEffect.}
+  proc unlockFileEx(hFile: uint, dwReserved: uint32,
+                    nNumberOfBytesToLockLow, nNumberOfBytesToLockHigh: uint32,
+                    lpOverlapped: pointer): uint32 {.
+        importc: "UnlockFileEx", dynlib: "kernel32", stdcall, sideEffect.}
 
   const
     NO_ERROR = IoErrorCode(0)
+    LOCKFILE_EXCLUSIVE_LOCK = 0x00000002'u32
+    LOCKFILE_FAIL_IMMEDIATELY = 0x00000001'u32
 
   proc `==`*(a: IoErrorCode, b: uint32): bool {.inline.} =
     (uint32(a) == b)
@@ -180,6 +199,11 @@ elif defined(posix):
     DirSep* = '/'
     AltSep* = '/'
     BothSeps* = {'/'}
+
+    LOCK_SH* = 0x01
+    LOCK_EX* = 0x02
+    LOCK_NB* = 0x04
+    LOCK_UN* = 0x08
 
   type
     IoHandle* = distinct cint
@@ -221,6 +245,9 @@ elif defined(posix):
        importc: "free", header: "<stdlib.h>".}
   proc getcwd(a1: cstring, a2: int): cstring {.
        importc, header: "<unistd.h>", sideEffect.}
+  proc flock(fd: cint, operation: cint) {.
+       importc: "flock", header: "<sys/file.h>", sideEffect.}
+
   proc `==`*(a: IoErrorCode, b: cint): bool {.inline.} =
     (cint(a) == b)
 
@@ -229,7 +256,7 @@ type
 
   OpenFlags* {.pure.} = enum
     Read, Write, Create, Exclusive, Append, Truncate,
-    Inherit, NonBlock, Direct
+    Inherit, NonBlock, Direct, ShareRead, ShareWrite
 
   Permission* = enum
     UserRead, UserWrite, UserExec,
@@ -243,6 +270,16 @@ type
 
   AccessFlags* {.pure.} = enum
     Find, Read, Write, Execute
+
+  LockHandleFlag = enum
+    AutoClose
+
+  LockHandle* = object
+    handle*: IoHandle
+    flags: set[LockHandleFlag]
+    when defined(windows):
+      sizeLow: uint32
+      sizeHigh: uint32
 
 const
   NimErrorCode = 100_000
@@ -1010,6 +1047,11 @@ proc openFile*(pathName: string, flags: set[OpenFlags],
        ((dwAccess and (GENERIC_READ or GENERIC_WRITE)) == GENERIC_READ):
       dwShareMode = dwShareMode or FILE_SHARE_READ
 
+    if OpenFlags.ShareRead in flags:
+      dwShareMode = dwShareMode or FILE_SHARE_READ
+    if OpenFlags.ShareWrite in flags:
+      dwShareMode = dwShareMode or FILE_SHARE_WRITE
+
     if OpenFlags.NonBlock in flags:
       dwFlags = dwFlags or FILE_FLAG_OVERLAPPED
     if OpenFlags.Direct in flags:
@@ -1315,3 +1357,88 @@ proc readAllChars*(pathName: string): IoResult[string] =
 proc readAllFile*(pathName: string): IoResult[seq[byte]] =
   ## Alias for ``readAllBytes()``.
   readAllBytes(pathName)
+
+proc lockFile*(handle: IoHandle): IoResult[LockHandle] =
+  ## Exclusively lock file handle ``handle`` to current process. All other
+  ## processes will be unable to obtain lock for this file handle.
+  ##
+  ## On success returns ``LockHandle`` object which could be used for unlock.
+  let lockFlags: set[LockHandleFlag] = {}
+  when defined(posix):
+    while true:
+      let res = flock(cint(handle), LOCK_NB or LOCK_EX)
+      if res == 0:
+        return ok(LockHandle(handle: handle, flags: lockFlags))
+      else:
+        let errCode = ioLastError()
+        if errCode == EINTR:
+          continue
+        else:
+          return err(errCode)
+  elif defined(windows):
+    let (lowPart, highPart) =
+      block:
+        var highPart: uint32
+        let res = getFileSize(uint(handle), highPart)
+        if res == INVALID_FILE_SIZE:
+          let errCode = ioLastError()
+          if errCode != NO_ERROR:
+            return err(errCode)
+          (res, highPart)
+        else:
+          (res, highPart)
+
+    var ovl = OVERLAPPED()
+    let flags = LOCKFILE_EXCLUSIVE_LOCK or LOCKFILE_FAIL_IMMEDIATELY
+    let res = lockFileEx(uint(handle), flags, 0'u32, lowPart, highPart,
+                         cast[pointer](addr ovl))
+    if res != 0:
+      ok(LockHandle(handle: handle, flags: lockFlags,
+                  sizeLow: lowPart, sizeHigh: highPart))
+    else:
+      err(ioLastError())
+
+proc lockFile*(path: string,
+               flags: set[OpenFlags] = {OpenFlags.Create, OpenFlags.ShareRead,
+                                        OpenFlags.ShareWrite, OpenFlags.Read,
+                                        OpenFlags.Write},
+               createMode: int = 0o644,
+               secDescriptor: pointer = nil): IoResult[LockHandle] =
+  ## Exclusively open and lock file ``path`` to current process. All other
+  ## processes will be unable to obtain lock for this file handle.
+  ##
+  ## On success returns ``LockHandle`` object which could be used for unlock.
+  let handle = ? openFile(path, flags, createMode, secDescriptor)
+  var lockHandle = ? lockFile(handle)
+  lockHandle.flags.incl(LockHandleFlag.AutoClose)
+  ok(lockHandle)
+
+proc unlockFile*(lock: LockHandle): IoResult[void] =
+  ## Unlocks previously locked file handle using ``lock`` object.
+  when defined(posix):
+    while true:
+      let res = flock(cint(lock.handle), LOCK_UN)
+      if res == 0:
+        if LockHandleFlag.AutoClose in lock.flags:
+          ? closeFile(lock.handle)
+        return ok()
+      else:
+        let errCode = ioLastError()
+        if errCode == EINTR:
+          continue
+        else:
+          if LockHandleFlag.AutoClose in lock.flags:
+            discard closeFile(lock.handle)
+          return err(errCode)
+  elif defined(windows):
+    var ovl = OVERLAPPED()
+    let res = unlockFileEx(uint(lock.handle), 0'u32, lock.sizeLow,
+                           lock.sizeHigh, cast[pointer](addr ovl))
+    if res != 0:
+      if LockHandleFlag.AutoClose in lock.flags:
+        ? closeFile(lock.handle)
+      ok()
+    else:
+      if LockHandleFlag.AutoClose in lock.flags:
+        discard closeFile(lock.handle)
+      err(ioLastError())
