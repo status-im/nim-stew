@@ -542,9 +542,9 @@ suite "OS Input/Output procedures test suite":
                  ): IoResult[array[3, TestResult]] =
       const HelperPath =
         when defined(windows):
-          "test_helper lock "
+          "test_helper "
         else:
-          "tests/test_helper lock "
+          "tests/test_helper "
       let
         handle = ? openFile(path, flags)
         lock = ? lockFile(handle)
@@ -574,32 +574,8 @@ suite "OS Input/Output procedures test suite":
         TestResult(output: strip(res3.output), status: res3.exitCode),
       ])
 
-    proc removeTest(path: string, flags: set[OpenFlags]): IoResult[TestResult] =
-      const HelperPath =
-        when defined(windows):
-          "test_helper delete "
-        else:
-          "tests/test_helper delete "
-      let
-        handle = ? openFile(path, flags)
-        lock = ? lockFile(handle)
-      let res =
-        try:
-          execCmdEx(HelperPath & path)
-        except CatchableError as exc:
-          echo "Exception happens [", $exc.name, "]: ", $exc.msg
-          ("", -1)
-      ? unlockFile(lock)
-      ? closeFile(handle)
-      ? removeFile(path)
-      ok(
-        TestResult(output: strip(res.output), status: res.exitCode),
-      )
-
     proc performTest(): IoResult[void] =
-      let
-        path1 = "testfile.lock"
-        path2 = "testremove.lock"
+      let path1 = "testfile.lock"
 
       when defined(windows):
         let
@@ -649,7 +625,6 @@ suite "OS Input/Output procedures test suite":
               "OK:OK:OK:OK:OK:OK:OK",
             )
           ]
-          RemoveTestExpect = "E32"
       else:
         let eagain = "E" & $EAGAIN & ":E" & $EAGAIN & ":E" & $EAGAIN & ":E" &
                      $EAGAIN & ":E" & $EAGAIN & ":E" & $EAGAIN & ":E" &
@@ -701,7 +676,6 @@ suite "OS Input/Output procedures test suite":
               "OK:OK:OK:OK:OK:OK:OK"
             )
           ]
-          RemoveTestExpect = "E32"
 
       ? createLockFile(path1)
       for item in LockTests:
@@ -714,14 +688,6 @@ suite "OS Input/Output procedures test suite":
           res[1].output == item[2]
           res[2].output == item[3]
       ? removeLockFile(path1)
-
-      for item in LockTests:
-        ? createLockFile(path2)
-        let res = ? removeTest(path2, item[0])
-        check:
-          res.status == 0
-        echo res.output
-        check res.output == RemoveTestExpect
       ok()
 
     check performTest().isOk()
