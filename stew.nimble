@@ -43,7 +43,7 @@ task test, "Run all tests":
 
 task testvcc, "Run all tests with vcc compiler":
   # Building `test_helper.nim`.
-  buildHelper("-cc:vcc", "tests/test_helper")
+  buildHelper("--cc:vcc", "tests/test_helper")
   test "--cc:vcc --threads:off", "tests/all_tests"
   test "--cc:vcc --threads:on -d:nimTypeNames", "tests/all_tests"
   test "--cc:vcc --threads:on -d:noIntrinsicsBitOpts -d:noIntrinsicsEndians",
