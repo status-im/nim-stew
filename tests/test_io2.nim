@@ -682,9 +682,6 @@ suite "OS Input/Output procedures test suite":
           res[0].output == item[1]
           res[1].output == item[2]
           res[2].output == item[3]
-        echo "[", res[0].output, "]"
-        echo "[", res[1].output, "]"
-        echo "[", res[2].output, "]"
       ? removeLockFile(path)
       ok()
 
