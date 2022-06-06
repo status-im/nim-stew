@@ -10,7 +10,8 @@ import unittest2
 import std/[osproc, strutils]
 import ../stew/io2
 
-from std/posix import EAGAIN
+when defined(posix):
+  from std/posix import EAGAIN
 
 suite "OS Input/Output procedures test suite":
   test "getCurrentDir() test":
@@ -530,6 +531,7 @@ suite "OS Input/Output procedures test suite":
       TestResult = object
         output: string
         status: int
+
     proc createLockFile(path: string): IoResult[void] =
       io2.writeFile(path, "LOCKFILEDATA")
 
@@ -540,9 +542,9 @@ suite "OS Input/Output procedures test suite":
                  ): IoResult[array[3, TestResult]] =
       const HelperPath =
         when defined(windows):
-          "test_helper "
+          "test_helper lock "
         else:
-          "tests/test_helper "
+          "tests/test_helper lock "
       let
         handle = ? openFile(path, flags)
         lock = ? lockFile(handle)
@@ -567,114 +569,143 @@ suite "OS Input/Output procedures test suite":
           echo "Exception happens [", $exc.name, "]: ", $exc.msg
           ("", -1)
       ok([
-          TestResult(output: strip(res1.output), status: res1.exitCode),
-          TestResult(output: strip(res2.output), status: res2.exitCode),
-          TestResult(output: strip(res3.output), status: res3.exitCode),
+        TestResult(output: strip(res1.output), status: res1.exitCode),
+        TestResult(output: strip(res2.output), status: res2.exitCode),
+        TestResult(output: strip(res3.output), status: res3.exitCode),
       ])
 
+    proc removeTest(path: string, flags: set[OpenFlags]): IoResult[TestResult] =
+      const HelperPath =
+        when defined(windows):
+          "test_helper delete "
+        else:
+          "tests/test_helper delete "
+      let
+        handle = ? openFile(path, flags)
+        lock = ? lockFile(handle)
+      let res =
+        try:
+          execCmdEx(HelperPath & path)
+        except CatchableError as exc:
+          echo "Exception happens [", $exc.name, "]: ", $exc.msg
+          ("", -1)
+      ? unlockFile(lock)
+      ? closeFile(handle)
+      ? removeFile(path)
+      ok(
+        TestResult(output: strip(res.output), status: res.exitCode),
+      )
+
     proc performTest(): IoResult[void] =
-      let path = "testfile.lock"
+      let
+        path1 = "testfile.lock"
+        path2 = "testremove.lock"
+
       when defined(windows):
-        let TestFlags = [
-          (
-            {OpenFlags.Read},
-            "E33:E33:E33:E33:E33:E33:E33",
-            "OK:OK:OK:OK:OK:OK:OK",
-            "OK:OK:OK:OK:OK:OK:OK"
-          ),
-          (
-            {OpenFlags.Write},
-            "E32:E32:E32:E32:E32:E32:E32",
-            "E32:E32:E32:E32:E32:E32:E32",
-            "OK:OK:OK:OK:OK:OK:OK"
-          ),
-          (
-            {OpenFlags.Read, OpenFlags.Write},
-            "E32:E32:E32:E32:E32:E32:E32",
-            "E32:E32:E32:E32:E32:E32:E32",
-            "OK:OK:OK:OK:OK:OK:OK"
-          ),
-          (
-            {OpenFlags.Read, OpenFlags.ShareRead},
-            "E33:E33:E33:E33:E33:E33:E33",
-            "OK:OK:OK:OK:OK:OK:OK",
-            "OK:OK:OK:OK:OK:OK:OK"
-          ),
-          (
-            {OpenFlags.Write, OpenFlags.ShareWrite},
-            "E32:E32:E32:E32:E32:E32:E32",
-            "E32:E32:E32:E32:E32:E32:E32",
-            "OK:OK:OK:OK:OK:OK:OK"
-          ),
-          (
-            {OpenFlags.Read, OpenFlags.Write, OpenFlags.ShareRead,
-             OpenFlags.ShareWrite},
-            "E32:E32:E32:E32:E32:E32:E32",
-            "E32:E32:E32:E32:E32:E32:E32",
-            "OK:OK:OK:OK:OK:OK:OK"
-          ),
-          (
-            {OpenFlags.Truncate, OpenFlags.Create, OpenFlags.Write,
-             OpenFlags.ShareWrite},
-            "E32:E32:E32:E32:E32:E32:E32",
-            "E32:E32:E32:E32:E32:E32:E32",
-            "OK:OK:OK:OK:OK:OK:OK"
-          )
-        ]
+        let
+          LockTests = [
+            (
+              {OpenFlags.Read},
+              "E33:E33:E33:E33:E33:E33:E33",
+              "OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Write},
+              "E32:E32:E32:E32:E32:E32:E32",
+              "E32:E32:E32:E32:E32:E32:E32",
+              "OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Read, OpenFlags.Write},
+              "E32:E32:E32:E32:E32:E32:E32",
+              "E32:E32:E32:E32:E32:E32:E32",
+              "OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Read, OpenFlags.ShareRead},
+              "E33:E33:E33:E33:E33:E33:E33",
+              "OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Write, OpenFlags.ShareWrite},
+              "E32:E32:E32:E32:E32:E32:E32",
+              "E32:E32:E32:E32:E32:E32:E32",
+              "OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Read, OpenFlags.Write, OpenFlags.ShareRead,
+               OpenFlags.ShareWrite},
+              "E32:E32:E32:E32:E32:E32:E32",
+              "E32:E32:E32:E32:E32:E32:E32",
+              "OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Truncate, OpenFlags.Create, OpenFlags.Write,
+               OpenFlags.ShareWrite},
+              "E32:E32:E32:E32:E32:E32:E32",
+              "E32:E32:E32:E32:E32:E32:E32",
+              "OK:OK:OK:OK:OK:OK:OK",
+            )
+          ]
+          RemoveTestExpect = "E32"
       else:
         let eagain = "E" & $EAGAIN & ":E" & $EAGAIN & ":E" & $EAGAIN & ":E" &
                      $EAGAIN & ":E" & $EAGAIN & ":E" & $EAGAIN & ":E" &
                      $EAGAIN
-        let TestFlags = [
-          (
-            {OpenFlags.Read},
-            eagain,
-            "OK:OK:OK:OK:OK:OK:OK",
-            "OK:OK:OK:OK:OK:OK:OK"
-          ),
-          (
-            {OpenFlags.Write},
-            eagain,
-            "OK:OK:OK:OK:OK:OK:OK",
-            "OK:OK:OK:OK:OK:OK:OK"
-          ),
-          (
-            {OpenFlags.Read, OpenFlags.Write},
-            eagain,
-            "OK:OK:OK:OK:OK:OK:OK",
-            "OK:OK:OK:OK:OK:OK:OK"
-          ),
-          (
-            {OpenFlags.Read, OpenFlags.ShareRead},
-            eagain,
-            "OK:OK:OK:OK:OK:OK:OK",
-            "OK:OK:OK:OK:OK:OK:OK"
-          ),
-          (
-            {OpenFlags.Write, OpenFlags.ShareWrite},
-            eagain,
-            "OK:OK:OK:OK:OK:OK:OK",
-            "OK:OK:OK:OK:OK:OK:OK"
-          ),
-          (
-            {OpenFlags.Read, OpenFlags.Write, OpenFlags.ShareRead,
-             OpenFlags.ShareWrite},
-            eagain,
-            "OK:OK:OK:OK:OK:OK:OK",
-            "OK:OK:OK:OK:OK:OK:OK"
-          ),
-          (
-            {OpenFlags.Truncate, OpenFlags.Create, OpenFlags.Write,
-             OpenFlags.ShareWrite},
-            eagain,
-            "OK:OK:OK:OK:OK:OK:OK",
-            "OK:OK:OK:OK:OK:OK:OK"
-          )
-        ]
+        let
+          LockTests = [
+            (
+              {OpenFlags.Read},
+              eagain,
+              "OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Write},
+              eagain,
+              "OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Read, OpenFlags.Write},
+              eagain,
+              "OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Read, OpenFlags.ShareRead},
+              eagain,
+              "OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Write, OpenFlags.ShareWrite},
+              eagain,
+              "OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Read, OpenFlags.Write, OpenFlags.ShareRead,
+               OpenFlags.ShareWrite},
+              eagain,
+              "OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Truncate, OpenFlags.Create, OpenFlags.Write,
+               OpenFlags.ShareWrite},
+              eagain,
+              "OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK"
+            )
+          ]
+          RemoveTestExpect = "E32"
 
-      ? createLockFile(path)
-      for item in TestFlags:
-        let res = ? lockTest(path, item[0])
+      ? createLockFile(path1)
+      for item in LockTests:
+        let res = ? lockTest(path1, item[0])
         check:
           res[0].status == 0
           res[1].status == 0
@@ -682,7 +713,15 @@ suite "OS Input/Output procedures test suite":
           res[0].output == item[1]
           res[1].output == item[2]
           res[2].output == item[3]
-      ? removeLockFile(path)
+      ? removeLockFile(path1)
+
+      for item in LockTests:
+        ? createLockFile(path2)
+        let res = ? removeTest(path2, item[0])
+        check:
+          res.status == 0
+        echo res.output
+        check res.output == RemoveTestExpect
       ok()
 
     check performTest().isOk()
