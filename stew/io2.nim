@@ -245,7 +245,7 @@ elif defined(posix):
        importc: "free", header: "<stdlib.h>".}
   proc getcwd(a1: cstring, a2: int): cstring {.
        importc, header: "<unistd.h>", sideEffect.}
-  proc flock(fd: cint, operation: cint) {.
+  proc flock(fd: cint, operation: cint): cint {.
        importc: "flock", header: "<sys/file.h>", sideEffect.}
 
   proc `==`*(a: IoErrorCode, b: cint): bool {.inline.} =

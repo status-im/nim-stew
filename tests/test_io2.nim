@@ -617,46 +617,46 @@ suite "OS Input/Output procedures test suite":
         const TestFlags = [
           (
             {OpenFlags.Read},
-            "E33:E33:E33:E33:E33:E33:E33",
+            "E11:E11:E11:E11:E11:E11:E11",
             "OK:OK:OK:OK:OK:OK:OK",
             "OK:OK:OK:OK:OK:OK:OK"
           ),
           (
             {OpenFlags.Write},
-            "E32:E32:E32:E32:E32:E32:E32",
-            "E32:E32:E32:E32:E32:E32:E32",
+            "E11:E11:E11:E11:E11:E11:E11",
+            "OK:OK:OK:OK:OK:OK:OK",
             "OK:OK:OK:OK:OK:OK:OK"
           ),
           (
             {OpenFlags.Read, OpenFlags.Write},
-            "E32:E32:E32:E32:E32:E32:E32",
-            "E32:E32:E32:E32:E32:E32:E32",
+            "E11:E11:E11:E11:E11:E11:E11",
+            "OK:OK:OK:OK:OK:OK:OK",
             "OK:OK:OK:OK:OK:OK:OK"
           ),
           (
             {OpenFlags.Read, OpenFlags.ShareRead},
-            "E33:E33:E33:E33:E33:E33:E33",
+            "E11:E11:E11:E11:E11:E11:E11",
             "OK:OK:OK:OK:OK:OK:OK",
             "OK:OK:OK:OK:OK:OK:OK"
           ),
           (
             {OpenFlags.Write, OpenFlags.ShareWrite},
-            "E32:E32:E32:E32:E32:E32:E32",
-            "E32:E32:E32:E32:E32:E32:E32",
+            "E11:E11:E11:E11:E11:E11:E11",
+            "OK:OK:OK:OK:OK:OK:OK",
             "OK:OK:OK:OK:OK:OK:OK"
           ),
           (
             {OpenFlags.Read, OpenFlags.Write, OpenFlags.ShareRead,
              OpenFlags.ShareWrite},
-            "E32:E32:E32:E32:E32:E32:E32",
-            "E32:E32:E32:E32:E32:E32:E32",
+            "E11:E11:E11:E11:E11:E11:E11",
+            "OK:OK:OK:OK:OK:OK:OK",
             "OK:OK:OK:OK:OK:OK:OK"
           ),
           (
             {OpenFlags.Truncate, OpenFlags.Create, OpenFlags.Write,
              OpenFlags.ShareWrite},
-            "E32:E32:E32:E32:E32:E32:E32",
-            "E32:E32:E32:E32:E32:E32:E32",
+            "E11:E11:E11:E11:E11:E11:E11",
+            "OK:OK:OK:OK:OK:OK:OK",
             "OK:OK:OK:OK:OK:OK:OK"
           )
         ]
