@@ -536,25 +536,31 @@ suite "OS Input/Output procedures test suite":
 
     proc lockTest(path: string, flags: set[OpenFlags]
                  ): IoResult[array[3, TestResult]] =
-      let handle = ? openFile(path, flags)
-      let lock = ? lockFile(handle)
+      const HelperPath =
+        when defined(windows):
+          "test_helper "
+        else:
+          "tests/test_helper "
+      let
+        handle = ? openFile(path, flags)
+        lock = ? lockFile(handle)
       let res1 =
         try:
-          execCmdEx("test_helper " & path)
+          execCmdEx(HelperPath & path)
         except CatchableError as exc:
           echo "Exception happens [", $exc.name, "]: ", $exc.msg
           ("", -1)
       ? unlockFile(lock)
       let res2 =
         try:
-          execCmdEx("test_helper " & path)
+          execCmdEx(HelperPath & path)
         except CatchableError as exc:
           echo "Exception happens [", $exc.name, "]: ", $exc.msg
           ("", -1)
       ? closeFile(handle)
       let res3 =
         try:
-          execCmdEx("test_helper " & path)
+          execCmdEx(HelperPath & path)
         except CatchableError as exc:
           echo "Exception happens [", $exc.name, "]: ", $exc.msg
           ("", -1)
