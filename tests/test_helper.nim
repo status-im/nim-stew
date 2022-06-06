@@ -43,6 +43,5 @@ when isMainModule:
         echo "OK"
       else:
         echo "E" & $int(res.error())
-    of "move":
-      let pathName = paramStr(2)
-      let res = io2.moveFile(pathName)
+    else:
+      echo "Incorrect parameters"
