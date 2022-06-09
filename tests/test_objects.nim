@@ -70,7 +70,7 @@ suite "Objects":
       T6 is DistinctBar
       T6 isnot Bar
 
-  test "enumRangeOrd":
+  test "enumRangeInt64":
     type
       WithoutHoles = enum
         A1, A2, A3
@@ -80,9 +80,9 @@ suite "Objects":
         C1 = 1, C2 = 3, C3 = 5
 
     check:
-      enumRangeOrd(WithoutHoles) == [ 0, 1, 2 ]
-      enumRangeOrd(WithoutHoles2) == [ 4, 5, 6 ]
-      enumRangeOrd(WithHoles) == [ 1, 3, 5 ]
+      enumRangeInt64(WithoutHoles) == [ 0'i64, 1, 2 ]
+      enumRangeInt64(WithoutHoles2) == [ 4'i64, 5, 6 ]
+      enumRangeInt64(WithHoles) == [ 1'i64, 3, 5 ]
 
 
   test "contains":

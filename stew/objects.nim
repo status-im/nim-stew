@@ -68,11 +68,11 @@ proc baseType*(obj: RootObj): cstring =
 proc baseType*(obj: ref RootObj): cstring =
   obj[].baseType
 
-macro enumRangeOrd*(a: type[enum]): untyped =
+macro enumRangeInt64*(a: type[enum]): untyped =
   ## This macro returns an array with all the ordinal values of an enum
   let
     values = a.getType[1][1..^1]
-    valuesOrded = values.mapIt(newCall("ord", it))
+    valuesOrded = values.mapIt(newCall("int64", it))
   newNimNode(nnkBracket).add(valuesOrded)
 
 macro hasHoles*(T: type[enum]): bool =
@@ -87,7 +87,7 @@ proc contains*[I: SomeInteger](e: type[enum], v: I): bool =
     if v > int.high.uint64:
       return false
   when e.hasHoles():
-    v.int64 in enumRangeOrd(e).mapIt(it.int64)
+    v.int64 in enumRangeInt64(e)
   else:
     v.int64 in e.low.int64 .. e.high.int64
 
