@@ -351,6 +351,9 @@ block: # Result[T, void] aka `Opt`
   doAssert oOk.filter(proc(x: int): bool = false).isErr()
   doAssert oErr.filter(proc(x: int): bool = true) == oErr
 
+  doAssert Opt.some(42).get() == 42
+  doAssert Opt.none(int).isNone()
+
 block: # `cstring` dangling reference protection
   type CSRes = Result[void, cstring]
 
@@ -398,5 +401,3 @@ block: # Experiments
     counter2 += 1
 
   doAssert counter2 == 1, "one-item collection when set"
-
-  doAssert Opt.some(42).get() == 42
