@@ -399,3 +399,4 @@ block: # Experiments
 
   doAssert counter2 == 1, "one-item collection when set"
 
+  doAssert Opt.some(42).get() == 42
