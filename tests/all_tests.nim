@@ -27,6 +27,7 @@ import
   test_ptrops,
   test_sequtils2,
   test_sorted_set,
+  test_interval_set,
   test_sets,
   test_templateutils,
   test_results,

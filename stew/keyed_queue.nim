@@ -771,7 +771,7 @@ iterator nextKeys*[K,V](rq: var KeyedQueue[K,V]): K =
   ## :Note:
   ##    When running in a loop it is *ok* to delete the current item and all
   ##    the items already visited. Items not visited yet must not be deleted
-  ##    as the loop would be come unpredictable, then.
+  ##    as the loop would become unpredictable.
   if 0 < rq.tab.len:
     var
       key = rq.kFirst
