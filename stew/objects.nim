@@ -1,5 +1,6 @@
 import
-  macros
+  macros,
+  sequtils
 
 template init*(lvalue: var auto) =
   mixin init
@@ -67,26 +68,28 @@ proc baseType*(obj: RootObj): cstring =
 proc baseType*(obj: ref RootObj): cstring =
   obj[].baseType
 
-when false:
-  # TODO: Implementing this doesn't seem possible at the moment.
-  #
-  # When given enum like:
-  #
-  # type WithoutHoles2 = enum
-  #   A2 = 2, B2 = 3, C2 = 4
-  #
-  # ...the code below will print:
-  #
-  #  EnumTy
-  #    Empty
-  #    Sym "A2"
-  #    Sym "B2"
-  #    Sym "C2"
-  #
-  macro hasHoles*(T: type[enum]): bool =
-    let t = getType(T)[1]
-    echo t.treeRepr
-    return newLit(true)
+macro enumRangeInt64*(a: type[enum]): untyped =
+  ## This macro returns an array with all the ordinal values of an enum
+  let
+    values = a.getType[1][1..^1]
+    valuesOrded = values.mapIt(newCall("int64", it))
+  newNimNode(nnkBracket).add(valuesOrded)
+
+macro hasHoles*(T: type[enum]): bool =
+  # As an enum is always sorted, just substract the first and the last ordinal value
+  # and compare the result to the number of element in it will do the trick.
+  let len = T.getType[1].len - 2
+
+  quote: `T`.high.ord - `T`.low.ord != `len`
+
+proc contains*[I: SomeInteger](e: type[enum], v: I): bool =
+  when I is uint64:
+    if v > int.high.uint64:
+      return false
+  when e.hasHoles():
+    v.int64 in enumRangeInt64(e)
+  else:
+    v.int64 in e.low.int64 .. e.high.int64
 
 func checkedEnumAssign*[E: enum, I: SomeInteger](res: var E, value: I): bool =
   ## This function can be used to safely assign a tainted integer value (coming
@@ -94,14 +97,7 @@ func checkedEnumAssign*[E: enum, I: SomeInteger](res: var E, value: I): bool =
   ## if the integer value is within the acceped values of the enum and `false`
   ## otherwise.
 
-  # TODO: Enums with holes are not supported yet
-  # static: doAssert(not hasHoles(E))
-
-  when I is SomeSignedInt or low(E).int > 0:
-    if value < I(low(E)):
-      return false
-
-  if value > I(high(E)):
+  if value notin E:
     return false
 
   res = E value
@@ -113,4 +109,3 @@ func isZeroMemory*[T](x: T): bool =
     if b != 0:
       return false
   return true
-

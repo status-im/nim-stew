@@ -95,6 +95,23 @@ proc verify*[K,V](rq: var KeyedQueue[K,V]): Result[void,(K,V,KeyedQueueInfo)]
 
   ok()
 
+proc dumpLinkedKeys*[K,V](rq: var KeyedQueue[K,V]): string =
+  ## Dump the linked key list. This function depends on the `$` operator
+  ## for converting a `K` type into a string
+  if 0 < rq.tab.len:
+    var
+      key = rq.kFirst
+      loopOK = true
+    while loopOK:
+      let
+        yKey = key
+        item = rq.tab[key]
+      loopOK = key != rq.kLast
+      key = item.kNxt
+      if yKey != rq.kFirst:
+        result &= ","
+      result &= $yKey & "(" & $item.kPrv & "," & $item.kNxt & ")"
+
 # ------------------------------------------------------------------------------
 # End
 # ------------------------------------------------------------------------------
