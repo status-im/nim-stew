@@ -31,14 +31,14 @@ proc readHexChar*(c: char): byte
   else:
     raise newException(ValueError, $c & " is not a hexadecimal character")
 
-template skip0xPrefix(hexStr: string): int =
+template skip0xPrefix(hexStr: openArray[char]): int =
   ## Returns the index of the first meaningful char in `hexStr` by skipping
   ## "0x" prefix
   if hexStr.len > 1 and hexStr[0] == '0' and hexStr[1] in {'x', 'X'}: 2
   else: 0
 
-func hexToByteArray*(hexStr: string, output: var openArray[byte], fromIdx, toIdx: int)
-                    {.raises: [ValueError, Defect].} =
+func hexToByteArrayImpl(hexStr: openArray[char], output: var openArray[byte], fromIdx, toIdx: int): int
+                       {.raises: [ValueError, Defect].} =
   ## Read a hex string and store it in a byte array `output`. No "endianness" reordering is done.
   ## Allows specifying the byte range to process into the array
   var sIdx = skip0xPrefix(hexStr)
@@ -53,20 +53,57 @@ func hexToByteArray*(hexStr: string, output: var openArray[byte], fromIdx, toIdx
     output[bIdx] = hexStr[sIdx].readHexChar shl 4 or hexStr[sIdx + 1].readHexChar
     inc(sIdx, 2)
 
+  sIdx
+
+func hexToByteArray*(hexStr: string, output: var openArray[byte], fromIdx, toIdx: int)
+                    {.raises: [ValueError, Defect].} =
+  ## Read a hex string and store it in a byte array `output`. No "endianness" reordering is done.
+  ## Allows specifying the byte range to process into the array.
+  ## The hex input may be longer than strictly necessary.
+  discard hexToByteArrayImpl(hexStr, output, fromIdx, toIdx)
+
 func hexToByteArray*(hexStr: string, output: var openArray[byte])
                     {.raises: [ValueError, Defect], inline.} =
   ## Read a hex string and store it in a byte array `output`. No "endianness" reordering is done.
+  ## The hex input may be longer than strictly necessary.
   hexToByteArray(hexStr, output, 0, output.high)
 
 func hexToByteArray*[N: static[int]](hexStr: string): array[N, byte]
                     {.raises: [ValueError, Defect], noinit, inline.}=
   ## Read an hex string and store it in a byte array. No "endianness" reordering is done.
+  ## The hex input may be longer than strictly necessary.
   hexToByteArray(hexStr, result)
 
 func hexToByteArray*(hexStr: string, N: static int): array[N, byte]
                     {.raises: [ValueError, Defect], noinit, inline.}=
   ## Read an hex string and store it in a byte array. No "endianness" reordering is done.
+  ## The hex input may be longer than strictly necessary.
   hexToByteArray(hexStr, result)
+
+func hexToByteArrayStrict*(hexStr: openArray[char], output: var openArray[byte], fromIdx, toIdx: int)
+                          {.raises: [ValueError, Defect].} =
+  ## Read a hex string and store it in a byte array `output`. No "endianness" reordering is done.
+  ## Allows specifying the byte range to process into the array. The entire input must be consumed.
+  if hexToByteArrayImpl(hexStr, output, fromIdx, toIdx) != hexStr.len:
+    raise (ref ValueError)(msg: "hex string too long")
+
+func hexToByteArrayStrict*(hexStr: openArray[char], output: var openArray[byte])
+                    {.raises: [ValueError, Defect], inline.} =
+  ## Read a hex string and store it in a byte array `output`. No "endianness" reordering is done.
+  ## The entire input must be consumed.
+  hexToByteArrayStrict(hexStr, output, 0, output.high)
+
+func hexToByteArrayStrict*[N: static[int]](hexStr: openArray[char]): array[N, byte]
+                    {.raises: [ValueError, Defect], noinit, inline.}=
+  ## Read an hex string and store it in a byte array. No "endianness" reordering is done.
+  ## The entire input must be consumed.
+  hexToByteArrayStrict(hexStr, result)
+
+func hexToByteArrayStrict*(hexStr: openArray[char], N: static int): array[N, byte]
+                    {.raises: [ValueError, Defect], noinit, inline.}=
+  ## Read an hex string and store it in a byte array. No "endianness" reordering is done.
+  ## The entire input must be consumed.
+  hexToByteArrayStrict(hexStr, result)
 
 func fromHex*[N](A: type array[N, byte], hexStr: string): A
                 {.raises: [ValueError, Defect], noinit, inline.}=
