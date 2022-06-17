@@ -884,6 +884,24 @@ func filter*[T](
 
 # Options compatibility
 
+template some*[T](O: type Opt, v: T): Opt[T] =
+  ## Create an `Opt` set to a value
+  ##
+  ## ```
+  ## let o = Opt.some(42)
+  ## assert o.isSome and o.get() == 42
+  ## ```
+  Opt[T].ok(v)
+
+template none*(O: type Opt, T: type): Opt[T] =
+  ## Create an `Opt` set to none
+  ##
+  ## ```
+  ## let o = Opt.none(int)
+  ## assert o.isNone
+  ## ```
+  Opt[T].err()
+
 template isSome*(o: Opt): bool =
   ## Alias for `isOk`
   isOk o
