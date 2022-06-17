@@ -350,7 +350,7 @@ proc overlapOrLeftJoin[P,S](ds: Desc[P,S]; l, r: P): Rc[P,S] =
   ## * or `[a,b)` with `b==l`
   doAssert l < r
   let rc = ds.leftPos.le(r) # search for `max(a) <= r`
-  if rc.isOK:
+  if rc.isOk:
     # note that `b` is the first point outside right of `[a,b)`
     let b = rc.value.right
     if l <= b:
@@ -365,7 +365,7 @@ proc overlap[P,S](ds: Desc[P,S]; l, r: P): Rc[P,S] =
   ## Find and return the rightmost `[l,r)` overlapping interval `[a,b)`.
   doAssert l < r
   let rc = ds.leftPos.lt(r) # search for `max(a) < r`
-  if rc.isOK:
+  if rc.isOk:
     # note that `b` is the first point outside right of `[a,b)`
     let b = rc.value.right
     if l < b:
@@ -772,7 +772,7 @@ proc ge*[P,S](ds: IntervalSetRef[P,S]; minPt: P): IntervalRc[P,S] =
   ## Find smallest interval in the set `ds` with start point (i.e. minimal
   ## value in the interval as a set) greater or equal the argument `minPt`.
   let rc = ds.leftPos.ge(minPt)
-  if rc.isOK:
+  if rc.isOk:
     # Check for fringe case intervals [a,b] + [high(P),high(P)]
     if high(P) <= rc.value.right and ds.lastHigh:
       return ok(Interval[P,S].new(rc.value.left, high(P)))
@@ -789,7 +789,7 @@ proc le*[P,S](ds: IntervalSetRef[P,S]; maxPt: P): IntervalRc[P,S] =
   ## Find largest interval in the set `ds` with end point (i.e. maximal
   ## value in the interval as a set) smaller or equal to the argument `maxPt`.
   let rc = ds.leftPos.le(maxPt)
-  if rc.isOK:
+  if rc.isOk:
     # only the left end of segment [left,right) is guaranteed to be <= maxPt
     if rc.value.right - scalarOne <= maxPt:
       if high(P) <= maxPt and ds.lastHigh:
@@ -820,7 +820,7 @@ proc delete*[P,S](ds: IntervalSetRef[P,S]; minPt: P): IntervalRc[P,S] =
   ## interval (if any.)
   block:
     let rc = ds.leftPos.delete(minPt)
-    if rc.isOK:
+    if rc.isOk:
       ds.ptsCount -= rc.value.len
       # Check for fringe case intervals [a,b]+[high(P),high(P)]
       if high(P) <= rc.value.right and ds.lastHigh:
@@ -866,7 +866,7 @@ iterator decreasing*[P,S](
   ## See the note at the `increasing()` function comment about deleting items.
   var rc = ds.leftPos.le(maxPt)
 
-  if rc.isOK:
+  if rc.isOk:
     let key = rc.value.key
     # last entry: check for additional point
     if high(P) <= rc.value.right and ds.lastHigh:
