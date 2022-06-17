@@ -109,7 +109,7 @@
 ##
 
 import
-  stew/[results, sorted_set]
+  "."/[results, sorted_set]
 
 {.push raises: [Defect].}
 
