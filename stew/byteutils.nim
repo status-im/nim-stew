@@ -88,30 +88,30 @@ func hexToByteArrayStrict*(hexStr: openArray[char], output: var openArray[byte],
     raise (ref ValueError)(msg: "hex string too long")
 
 func hexToByteArrayStrict*(hexStr: openArray[char], output: var openArray[byte])
-                    {.raises: [ValueError, Defect], inline.} =
+                          {.raises: [ValueError, Defect], inline.} =
   ## Read a hex string and store it in a byte array `output`. No "endianness" reordering is done.
   ## The entire input must be consumed.
   hexToByteArrayStrict(hexStr, output, 0, output.high)
 
 func hexToByteArrayStrict*[N: static[int]](hexStr: openArray[char]): array[N, byte]
-                    {.raises: [ValueError, Defect], noinit, inline.}=
+                          {.raises: [ValueError, Defect], noinit, inline.}=
   ## Read an hex string and store it in a byte array. No "endianness" reordering is done.
   ## The entire input must be consumed.
   hexToByteArrayStrict(hexStr, result)
 
 func hexToByteArrayStrict*(hexStr: openArray[char], N: static int): array[N, byte]
-                    {.raises: [ValueError, Defect], noinit, inline.}=
+                          {.raises: [ValueError, Defect], noinit, inline.}=
   ## Read an hex string and store it in a byte array. No "endianness" reordering is done.
   ## The entire input must be consumed.
   hexToByteArrayStrict(hexStr, result)
 
 func fromHex*[N](A: type array[N, byte], hexStr: string): A
-                {.raises: [ValueError, Defect], noinit, inline.}=
+             {.raises: [ValueError, Defect], noinit, inline.}=
   ## Read an hex string and store it in a byte array. No "endianness" reordering is done.
   hexToByteArray(hexStr, result)
 
 func hexToPaddedByteArray*[N: static[int]](hexStr: string): array[N, byte]
-                                          {.raises: [ValueError, Defect].} =
+                          {.raises: [ValueError, Defect].} =
   ## Read a hex string and store it in a byte array `output`.
   ## The string may be shorter than the byte array.
   ## No "endianness" reordering is done.
