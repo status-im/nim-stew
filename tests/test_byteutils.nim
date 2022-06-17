@@ -28,6 +28,32 @@ suite "Byte utils":
     hexToByteArray(s, a)
     check a == [255.byte, 255, 255, 255]
 
+  test "hexToByteArrayStrict":
+    let
+      short0 = ""
+      short1 = "0x"
+      short2 = "0x00"
+      short3 = "0xffffff"
+      short4 = "0xfffffff"
+      correct = "0xffffffff"
+      long1 = "0xfffffffff"
+      long2 = "0xffffffffff"
+
+    var a: array[4, byte]
+    hexToByteArrayStrict(correct, a)
+    check a == [255.byte, 255, 255, 255]
+
+    template reject(val: string) =
+      expect ValueError: hexToByteArrayStrict(val, a)
+
+    reject short0
+    reject short1
+    reject short2
+    reject short3
+    reject short4
+    reject long1
+    reject long2
+
   test "hexToByteArray: Return array":
     let
       s = "0x12345678"
@@ -115,6 +141,7 @@ suite "Byte utils":
       string.fromBytes([]) == ""
       @[byte(ord('a'))] == static("a".toBytes())
       "a" == static(string.fromBytes([byte(ord('a'))]))
+
   test "slices":
     var a: array[4, byte]
     a[0..<2] = [2'u8, 3]
