@@ -258,8 +258,9 @@ when NoisyDebuggingOk:
       rc = p.gt(key)
     result &= "}"
 
-var
-  noisy* = false
+  var noisy* = false
+else:
+  var noisy = false
 
 template say(noisy = false; pfx = "***"; v: varargs[untyped]): untyped =
   when NoisyDebuggingOk:
