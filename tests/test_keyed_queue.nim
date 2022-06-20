@@ -9,10 +9,9 @@
 # according to those terms.
 
 import
-  std/[algorithm, sequtils, strformat, strutils, tables],
+  std/[algorithm, sequtils, strformat, strutils, tables, unittest],
   ../stew/keyed_queue,
-  ../stew/keyed_queue/kq_debug,
-  unittest
+  ../stew/keyed_queue/kq_debug
 
 const
   usedStrutils = newSeq[string]().join(" ")
