@@ -20,6 +20,7 @@ import
   test_byteutils,
   test_ctops,
   test_endians2,
+  test_enums,
   test_io2,
   test_keyed_queue,
   test_sorted_set,
