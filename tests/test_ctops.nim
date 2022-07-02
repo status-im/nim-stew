@@ -1,5 +1,6 @@
-import unittest
-import ../stew/ctops
+import
+  unittest2,
+  ../stew/ctops
 
 suite "Constant-time operations test suite":
   test "isEqual() test":

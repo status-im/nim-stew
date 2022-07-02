@@ -1,5 +1,5 @@
 import
-  std/unittest,
+  unittest2,
   ../stew/assign2
 
 suite "assign2":

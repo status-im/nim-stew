@@ -1,5 +1,6 @@
 import
-  unittest, typetraits,
+  typetraits,
+  unittest2,
   ../stew/objects
 
 when defined(nimHasUsed):

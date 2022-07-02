@@ -1,7 +1,6 @@
 import
-  unittest,
+  unittest2,
   ../stew/shims/macros
-
 
 template unknown() {.pragma.}
 template zero() {.pragma.}

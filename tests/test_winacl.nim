@@ -1,5 +1,6 @@
-import std/unittest
-import ../stew/io2
+import
+  unittest2,
+  ../stew/io2
 
 when defined(windows):
   import ../stew/windows/acl

@@ -1,5 +1,6 @@
-import unittest
-import ../stew/[base64, byteutils]
+import
+  unittest2,
+  ../stew/[base64, byteutils]
 
 when defined(nimHasUsed): {.used.}
 

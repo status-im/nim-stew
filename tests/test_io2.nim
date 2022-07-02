@@ -1,5 +1,6 @@
-import unittest
-import ../stew/io2
+import
+  unittest2,
+  ../stew/io2
 
 suite "OS Input/Output procedures test suite":
   test "getCurrentDir() test":
