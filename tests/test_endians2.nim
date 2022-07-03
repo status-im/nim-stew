@@ -1,6 +1,6 @@
-import unittest
-
-import ../stew/endians2
+import
+  unittest2,
+  ../stew/endians2
 
 template test() =
   doAssert 0x01'u8.toBytesBE == [0x01'u8]

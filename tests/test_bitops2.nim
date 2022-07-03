@@ -1,6 +1,6 @@
-import unittest
-
-import ../stew/bitops2
+import
+  unittest2,
+  ../stew/bitops2
 
 template test() =
   doAssert bitsof(8'u8) == 8

@@ -7,7 +7,8 @@ description   = "Backports, standard library candidates and small utilities that
 license       = "Apache License 2.0"
 skipDirs      = @["tests"]
 
-requires "nim >= 1.2.0"
+requires "nim >= 1.2.0",
+         "unittest2"
 
 ### Helper functions
 proc test(args, path: string) =

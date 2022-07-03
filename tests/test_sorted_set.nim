@@ -10,8 +10,8 @@
 
 import
   std/[algorithm, sequtils, strformat, tables],
-  ../stew/sorted_set,
-  unittest
+  unittest2,
+  ../stew/sorted_set
 
 const
   keyList = [

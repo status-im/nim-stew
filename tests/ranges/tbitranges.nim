@@ -1,5 +1,6 @@
 import
-  random, unittest,
+  random,
+  unittest2,
   ../../stew/ranges/bitranges, ../../stew/bitseqs
 
 proc randomBytes(n: int): seq[byte] =

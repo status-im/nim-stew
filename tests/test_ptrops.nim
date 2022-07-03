@@ -7,9 +7,9 @@
 #
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import unittest
-
-import ../stew/ptrops
+import
+  unittest2,
+  ../stew/ptrops
 
 var ints = [2, 3, 4]
 

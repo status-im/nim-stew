@@ -1,5 +1,5 @@
 import
-  unittest,
+  unittest2,
   ../stew/templateutils
 
 var computations = newSeq[string]()
