@@ -7,35 +7,9 @@
 #
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import
-  ranges/all,
-  test_assign2,
-  test_arrayops,
-  test_base10,
-  test_base32,
-  test_base58,
-  test_base64,
-  test_bitops2,
-  test_bitseqs,
-  test_byteutils,
-  test_ctops,
-  test_endians2,
-  test_io2,
-  test_macros,
-  test_objects,
-  test_ptrops,
-  test_sequtils2,
-  test_sets,
-  test_templateutils,
-  test_results,
-  test_varints,
-  test_winacl
-
 # Running some unit tests in a separate file in order to mitigate global
 # symbols overflow on Github ci when compiling with nim version <= 1.2
 when 3 <= NimVersion.len and NimVersion[0..2] == "1.2":
-  discard
-else:
   import
     all_tests_ex
 

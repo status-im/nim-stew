@@ -19,8 +19,14 @@ task test, "Run all tests":
   test "--threads:off", "tests/all_tests"
   test "--threads:on -d:nimTypeNames", "tests/all_tests"
   test "--threads:on -d:noIntrinsicsBitOpts -d:noIntrinsicsEndians", "tests/all_tests"
+  test "--threads:off", "tests/all_tests2"
+  test "--threads:on -d:nimTypeNames", "tests/all_tests2"
+  test "--threads:on -d:noIntrinsicsBitOpts -d:noIntrinsicsEndians", "tests/all_tests2"
 
 task testvcc, "Run all tests with vcc compiler":
   test "--cc:vcc --threads:off", "tests/all_tests"
   test "--cc:vcc --threads:on -d:nimTypeNames", "tests/all_tests"
   test "--cc:vcc --threads:on -d:noIntrinsicsBitOpts -d:noIntrinsicsEndians", "tests/all_tests"
+  test "--cc:vcc --threads:off", "tests/all_tests2"
+  test "--cc:vcc --threads:on -d:nimTypeNames", "tests/all_tests2"
+  test "--cc:vcc --threads:on -d:noIntrinsicsBitOpts -d:noIntrinsicsEndians", "tests/all_tests2"
