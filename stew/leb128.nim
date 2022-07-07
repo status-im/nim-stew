@@ -113,7 +113,7 @@ template read7(shift: untyped) =
     b = x[shift div 7]
     valb = b and 0x7f'u8 # byte without high bit
     val = I(valb)
-    vals = val shl shift
+    vals = val shl min(sizeof(I) * 8, shift)
 
   when shift > (sizeof(val) * 8 - 7):
     # Check for overflow in the "unused" bits of the byte we just read
