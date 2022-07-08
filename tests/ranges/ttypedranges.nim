@@ -1,5 +1,5 @@
 import
-  unittest, sets,
+  unittest2, sets,
   ../../stew/ranges/[typedranges, ptr_arith]
 
 suite "Typed ranges":

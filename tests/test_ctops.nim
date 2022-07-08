@@ -1,4 +1,4 @@
-import unittest
+import unittest2
 import ../stew/ctops
 
 suite "Constant-time operations test suite":

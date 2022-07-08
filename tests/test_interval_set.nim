@@ -10,7 +10,7 @@
 # distributed except according to those terms.
 
 import
-  std/unittest,
+  unittest2,
   ../stew/interval_set
 
 const

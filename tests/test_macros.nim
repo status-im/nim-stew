@@ -1,5 +1,5 @@
 import
-  unittest,
+  unittest2,
   ../stew/shims/macros
 
 

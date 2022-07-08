@@ -10,7 +10,7 @@
 {.used.}
 
 import
-  std/unittest,
+  unittest2,
   ../stew/arrayops
 
 suite "arrayops":
