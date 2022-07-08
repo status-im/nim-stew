@@ -1,4 +1,4 @@
-import unittest
+import unittest2
 import ../stew/base58
 
 when defined(nimHasUsed): {.used.}

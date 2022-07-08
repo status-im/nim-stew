@@ -9,7 +9,8 @@
 # according to those terms.
 
 import
-  std/[algorithm, sequtils, strformat, strutils, tables, unittest],
+  std/[algorithm, sequtils, strformat, strutils, tables],
+  unittest2,
   ../stew/keyed_queue,
   ../stew/keyed_queue/kq_debug
 

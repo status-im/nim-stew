@@ -1,5 +1,5 @@
 import
-  unittest, random,
+  unittest2, random,
   ../stew/[varints, byteutils]
 
 const edgeValues = {

@@ -1,5 +1,5 @@
 import
-  unittest, math,
+  unittest2, math,
   ../../stew/ptrops,
   ../../stew/ranges/[stackarrays]
 

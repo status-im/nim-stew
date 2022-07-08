@@ -1,5 +1,5 @@
 import
-  unittest, strformat,
+  unittest2, strformat,
   ../stew/[bitseqs]
 
 suite "Bit fields":
