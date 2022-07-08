@@ -174,6 +174,7 @@ jobs:
       - name: Test using VCC
         if: runner.os == 'Windows'
         run: |
+          export NIMFLAGS="-d:nimRawSetjmp"
           nimble install -y --depsOnly
           env TEST_LANG=c nimble testvcc
           env TEST_LANG=cpp nimble testvcc
