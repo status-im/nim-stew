@@ -109,11 +109,16 @@ template read7(shift: untyped) =
   if (shift div 7) >= xlen:
     return (I(0), 0'i8) # Not enough data - return 0 bytes read
 
+  when shift >= sizeof(I) * 8:
+    # avoid shift overflows: https://github.com/nim-lang/Nim/issues/19983
+    if true:
+      return (I(0), -cast[int8]((shift div 7) + 1))
+
   let
     b = x[shift div 7]
     valb = b and 0x7f'u8 # byte without high bit
     val = I(valb)
-    vals = val shl min(sizeof(I) * 8, shift)
+    vals = val shl shift
 
   when shift > (sizeof(val) * 8 - 7):
     # Check for overflow in the "unused" bits of the byte we just read
