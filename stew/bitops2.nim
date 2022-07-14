@@ -443,20 +443,6 @@ template getBitBE*(x: BitIndexable, bit: Natural): bool =
   ## `getBitLE` is considering the default indexing scheme.
   (x and mostSignificantBit(x.type) shr bit) != 0
 
-func changeBit*(x: var BitIndexable, bit: Natural, val: bool) {.inline.} =
-  ## changes a bit in `x` to val, assuming 0 to be the position of the
-  ## least significant bit
-  type T = type(x)
-  x = (x and not (T(1) shl bit)) or (T(val) shl bit)
-
-template changeBitLE*(x: var BitIndexable, bit: Natural, val: bool) =
-  setBit(x, bit, val)
-
-func changeBitBE*(x: var BitIndexable, bit: Natural, val: bool) {.inline.} =
-  ## changes a bit in `x` to val, assuming 0 to be the position of the
-  ## most significant bit
-  changeBit(x, bitsof(x) - 1 - bit, val)
-
 func setBit*(x: var BitIndexable, bit: Natural) {.inline.} =
   ## sets bit in `x`, assuming 0 to be the position of the
   ## least significant bit
@@ -472,6 +458,20 @@ func setBitBE*(x: var BitIndexable, bit: Natural) {.inline.} =
   ## most significant bit
   let mask = mostSignificantBit(x.type) shr bit
   x = x or mask
+
+func changeBit*(x: var BitIndexable, bit: Natural, val: bool) {.inline.} =
+  ## changes a bit in `x` to val, assuming 0 to be the position of the
+  ## least significant bit
+  type T = type(x)
+  x = (x and not (T(1) shl bit)) or (T(val) shl bit)
+
+template changeBitLE*(x: var BitIndexable, bit: Natural, val: bool) =
+  setBit(x, bit, val)
+
+func changeBitBE*(x: var BitIndexable, bit: Natural, val: bool) {.inline.} =
+  ## changes a bit in `x` to val, assuming 0 to be the position of the
+  ## most significant bit
+  changeBit(x, bitsof(x) - 1 - bit, val)
 
 func clearBit*(x: var BitIndexable, bit: Natural) {.inline.} =
   ## clears bit in a byte, assuming 0 to be the position of the
