@@ -849,13 +849,17 @@ iterator increasing*[P,S](
   ##    any interval already visited. Intervals not visited yet must not be
   ##    deleted as the loop would become unpredictable.
   var rc = ds.leftPos.ge(minPt)
-  while rc.isOk:
-    let key = rc.value.key
-    if high(P) <= rc.value.right and ds.lastHigh:
-      yield Interval[P,S].new(rc.value.left,high(P))
-    else:
-      yield Interval[P,S].new(rc.value)
-    rc = ds.leftPos.gt(key)
+  if rc.isErr:
+    if ds.lastHigh:
+      yield Interval[P,S].new(high(P),high(P))
+  else:
+    while rc.isOk:
+      let key = rc.value.key
+      if high(P) <= rc.value.right and ds.lastHigh:
+        yield Interval[P,S].new(rc.value.left,high(P))
+      else:
+        yield Interval[P,S].new(rc.value)
+      rc = ds.leftPos.gt(key)
 
 iterator decreasing*[P,S](
     ds: IntervalSetRef[P,S];
@@ -866,8 +870,10 @@ iterator decreasing*[P,S](
   ##
   ## See the note at the `increasing()` function comment about deleting items.
   var rc = ds.leftPos.le(maxPt)
-
-  if rc.isOk:
+  if rc.isErr:
+    if ds.lastHigh:
+      yield Interval[P,S].new(high(P),high(P))
+  else:
     let key = rc.value.key
     # last entry: check for additional point
     if high(P) <= rc.value.right and ds.lastHigh:
@@ -877,10 +883,10 @@ iterator decreasing*[P,S](
     # find the next smaller one
     rc = ds.leftPos.lt(key)
 
-  while rc.isOk:
-    let key = rc.value.key
-    yield Interval[P,S].new(rc.value)
-    rc = ds.leftPos.lt(key)
+    while rc.isOk:
+      let key = rc.value.key
+      yield Interval[P,S].new(rc.value)
+      rc = ds.leftPos.lt(key)
 
 # ------------------------------------------------------------------------------
 # Public interval operators
