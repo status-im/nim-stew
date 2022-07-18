@@ -49,8 +49,11 @@ when defined(windows):
 else:
   proc alloca(n: int): pointer {.importc, header: "<alloca.h>".}
 
+when not declared(RangeDefect):
+  type RangeDefect = RangeError
+
 proc raiseRangeError(s: string) =
-  raise newException(RangeError, s)
+  raise newException(RangeDefect, s)
 
 proc raiseOutOfRange =
   raiseRangeError "index out of range"
