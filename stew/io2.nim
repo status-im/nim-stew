@@ -233,6 +233,15 @@ elif defined(posix):
       O_CLOEXEC = cint(0x1000000)
       F_NOCACHE = cint(48)
 
+  type
+    FlockStruct* {.importc: "struct flock", final, pure,
+                   header: "<fcntl.h>".} = object
+      ltype* {.importc: "l_type".}: cshort
+      lwhence* {.importc: "l_whence".}: cshort
+      start* {.importc: "l_whence".}: int
+      length* {.importc: "l_whence".}: int
+      pid* {.importc: "l_pid".}: Pid
+
   var errno {.importc, header: "<errno.h>".}: cint
 
   proc write(a1: cint, a2: pointer, a3: csize_t): int {.
@@ -274,12 +283,11 @@ type
   LockHandleFlag = enum
     AutoClose
 
-  LockHandle* = object
+  IoLockHandle* = object
     handle*: IoHandle
-    flags: set[LockHandleFlag]
-    when defined(windows):
-      sizeLow: uint32
-      sizeHigh: uint32
+    flags*: set[LockHandleFlag]
+    offset*: int
+    size*: int
 
 const
   NimErrorCode = 100_000
@@ -1190,6 +1198,8 @@ proc writeFile*(pathName: string, data: openArray[byte],
 when defined(windows):
   template makeInt64(a, b: uint32): int64 =
     (int64(a and 0x7FFF_FFFF'u32) shl 32) or int64(b and 0xFFFF_FFFF'u32)
+  template makeUint32(a: uint64): tuple[lowPart: uint32, highPart: uint32] =
+    (uint32(a and 0xFFFF_FFFF'u64), uint32((a shr 32) and 0xFFFF_FFFF'u64))
 
 proc writeFile*(pathName: string, data: openArray[char],
                 createMode: int = 0o644,
@@ -1358,87 +1368,107 @@ proc readAllFile*(pathName: string): IoResult[seq[byte]] =
   ## Alias for ``readAllBytes()``.
   readAllBytes(pathName)
 
-proc lockFile*(handle: IoHandle): IoResult[LockHandle] =
-  ## Exclusively lock file handle ``handle`` to current process. All other
-  ## processes will be unable to obtain lock for this file handle.
+proc lockFile*(handle: IoHandle, offset: int, size: int): IoResult[void] =
+  ## Locks the specified file for exclusive access by the calling process.
   ##
-  ## On success returns ``LockHandle`` object which could be used for unlock.
-  let lockFlags: set[LockHandleFlag] = {}
+  ## ``offset`` - starting byte offset in the file where the lock should
+  ## begin
+  ## ``size`` - length of the byte range to be locked.
   when defined(posix):
+    var flockObj = FlockStruct(ltype: posix.F_RDLCK or posix.F_WRLCK,
+                               lwhence: posix.SEEK_SET, start: offset,
+                               length: size)
     while true:
-      let res = flock(cint(handle), LOCK_NB or LOCK_EX)
-      if res == 0:
-        return ok(LockHandle(handle: handle, flags: lockFlags))
-      else:
+      let res = posix.fcntl(cint(handle), posix.F_SETLK, addr flockObj)
+      if res == -1:
         let errCode = ioLastError()
         if errCode == EINTR:
           continue
         else:
           return err(errCode)
+      else:
+        return ok()
   elif defined(windows):
-    let (lowPart, highPart) =
-      block:
-        var highPart: uint32
-        let res = getFileSize(uint(handle), highPart)
-        if res == INVALID_FILE_SIZE:
-          let errCode = ioLastError()
-          if errCode != NO_ERROR:
-            return err(errCode)
-          (res, highPart)
-        else:
-          (res, highPart)
-
-    var ovl = OVERLAPPED()
-    let flags = LOCKFILE_EXCLUSIVE_LOCK or LOCKFILE_FAIL_IMMEDIATELY
-    let res = lockFileEx(uint(handle), flags, 0'u32, lowPart, highPart,
-                         cast[pointer](addr ovl))
-    if res != 0:
-      ok(LockHandle(handle: handle, flags: lockFlags,
-                  sizeLow: lowPart, sizeHigh: highPart))
-    else:
+    let (lowOffsetPart, highOffsetPart) = makeUint32(uint64(offset))
+    let (lowSizePart, highSizePart) = makeUint32(uint64(size))
+    var ovl = OVERLAPPED(offset: lowOffsetPart, offsetHigh: highOffsetPart)
+    let
+      flags = LOCKFILE_EXCLUSIVE_LOCK or LOCKFILE_FAIL_IMMEDIATELY
+      res = lockFileEx(uint(handle), flags, 0'u32, lowSizePart,
+                       highSizePart, addr ovl)
+    if res == 0:
       err(ioLastError())
+    else:
+      ok()
+
+proc unlockFile*(handle: IoHandle, offset: int, size: int): IoResult[void] =
+  when defined(posix):
+    var flockObj = FlockStruct(ltype: posix.F_UNLCK,
+                               lwhence: posix.SEEK_SET, start: offset,
+                               length: size)
+    while true:
+      let res = posix.fcntl(cint(handle), F_SETLK, addr flockObj)
+      if res == -1:
+        let errCode = ioLastError()
+        if errCode == EINTR:
+          continue
+        else:
+          return err(errCode)
+      else:
+        return ok()
+  elif defined(windows):
+    let
+      (lowOffsetPart, highOffsetPart) = makeUint32(uint64(offset))
+      (lowSizePart, highSizePart) = makeUint32(uint64(size))
+    var ovl = OVERLAPPED(offset: lowOffsetPart, offsetHigh: highOffsetPart)
+    let res = unlockFileEx(uint(handle), 0'u32, lowSizePart,
+                           highSizePart, addr ovl)
+    if res == 0:
+      err(ioLastError())
+    else:
+      ok()
+
+proc lockFile*(handle: IoHandle): IoResult[IoLockHandle] =
+  ## Exclusively lock file handle ``handle`` to current process. All other
+  ## processes will be unable to obtain lock for this file handle.
+  ##
+  ## On success returns ``IoLockHandle`` object which could be used for unlock.
+  let size =
+    block:
+      let res = ? getFileSize(handle)
+      when sizeof(int) == 4:
+        if res > int64(high(int)):
+          high(int)
+        else:
+          int(res)
+      else:
+        int(res)
+  ? lockFile(handle, 0, size)
+  ok(IoLockHandle(handle: handle, flags: {}, offset: 0, size: size))
+
+proc unlockFile*(lock: IoLockHandle): IoResult[void] =
+  ## Unlocks previously locked file handle using ``lock`` object.
+  let res = unlockFile(lock.handle, lock.offset, lock.size)
+  if res.isErr():
+    if LockHandleFlag.AutoClose in lock.flags:
+      discard closeFile(lock.handle)
+    err(res.error())
+  else:
+    if LockHandleFlag.AutoClose in lock.flags:
+      ? closeFile(lock.handle)
+    ok()
 
 proc lockFile*(path: string,
                flags: set[OpenFlags] = {OpenFlags.Create, OpenFlags.ShareRead,
                                         OpenFlags.ShareWrite, OpenFlags.Read,
                                         OpenFlags.Write},
                createMode: int = 0o644,
-               secDescriptor: pointer = nil): IoResult[LockHandle] =
+               secDescriptor: pointer = nil): IoResult[IoLockHandle] =
   ## Exclusively open and lock file ``path`` to current process. All other
   ## processes will be unable to obtain lock for this file handle.
   ##
-  ## On success returns ``LockHandle`` object which could be used for unlock.
+  ## On success returns ``IoLockHandle`` object which could be used for unlock.
   let handle = ? openFile(path, flags, createMode, secDescriptor)
   var lockHandle = ? lockFile(handle)
   lockHandle.flags.incl(LockHandleFlag.AutoClose)
   ok(lockHandle)
-
-proc unlockFile*(lock: LockHandle): IoResult[void] =
-  ## Unlocks previously locked file handle using ``lock`` object.
-  when defined(posix):
-    while true:
-      let res = flock(cint(lock.handle), LOCK_UN)
-      if res == 0:
-        if LockHandleFlag.AutoClose in lock.flags:
-          ? closeFile(lock.handle)
-        return ok()
-      else:
-        let errCode = ioLastError()
-        if errCode == EINTR:
-          continue
-        else:
-          if LockHandleFlag.AutoClose in lock.flags:
-            discard closeFile(lock.handle)
-          return err(errCode)
-  elif defined(windows):
-    var ovl = OVERLAPPED()
-    let res = unlockFileEx(uint(lock.handle), 0'u32, lock.sizeLow,
-                           lock.sizeHigh, cast[pointer](addr ovl))
-    if res != 0:
-      if LockHandleFlag.AutoClose in lock.flags:
-        ? closeFile(lock.handle)
-      ok()
-    else:
-      if LockHandleFlag.AutoClose in lock.flags:
-        discard closeFile(lock.handle)
-      err(ioLastError())
