@@ -1,3 +1,5 @@
+{.used.}
+
 # nim-result is also available stand-alone from https://github.com/arnetheduck/nim-result/
 
 import ../stew/results
