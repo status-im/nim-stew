@@ -412,7 +412,7 @@ macro unpackArgs*(callee: untyped, args: untyped): untyped =
   for arg in args:
     let arg = if arg.kind == nnkHiddenStdConv: arg[1]
               else: arg
-    if arg.kind == nnkArglist:
+    if arg.kind == nnkArgList:
       for subarg in arg:
         result.add subarg
     else:
