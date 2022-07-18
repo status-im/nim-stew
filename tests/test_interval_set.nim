@@ -195,6 +195,11 @@ suite "IntervalSet: Intervals of FancyPoint entries over FancyScalar":
         (ivVal, ivSet) = (iv, true)
       check ivVal == iv(uHigh,uHigh)
 
+    br.clear() # from blockchain sync crash
+    check br.total == 0 and br.chunks == 0
+    check br.merge(1477152,uHigh) == uHigh - 1477151
+    check br.merge(1477151,1477151) == 1
+
   test "Merge disjunct intervals on 1st set":
     br.clear()
     check br.merge(  0,  99) == 100

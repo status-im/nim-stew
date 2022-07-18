@@ -347,9 +347,9 @@ proc new[P,S](T: type Interval[P,S]; kvp: DataRef[P,S]): T =
 
 proc overlapOrLeftJoin[P,S](ds: Desc[P,S]; l, r: P): Rc[P,S] =
   ## Find and return
-  ## * either the rightmost `[l,r)` overlapping interval `[a,b)`
+  ## * either the rightmost interval `[a,b)` which overlaps `r`
   ## * or `[a,b)` with `b==l`
-  doAssert l < r
+  doAssert l <= r
   let rc = ds.leftPos.le(r) # search for `max(a) <= r`
   if rc.isOk:
     # note that `b` is the first point outside right of `[a,b)`
