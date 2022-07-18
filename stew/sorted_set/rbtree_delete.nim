@@ -119,8 +119,9 @@ proc rbTreeDelete*[C,K](rbt: RbTreeRef[C,K]; key: K): RbResult[C] =
       dirY = q.linkLeft.isNil.toDir
     parent.link[dirX] = q.link[dirY];
     # clear node cache if this was the one to be deleted
-    if not rbt.cache.isNil and rbt.cmp(rbt.cache.casket,key) == 0:
-      rbt.cache = nil
+    if not rbt.cache.isNil:
+      if rbt.cmp(rbt.cache.casket,key) == 0:
+        rbt.cache = nil
     q = nil # some hint for the GC to recycle that node
 
     rbt.size.dec

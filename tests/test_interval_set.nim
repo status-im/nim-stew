@@ -177,6 +177,24 @@ suite "IntervalSet: Intervals of FancyPoint entries over FancyScalar":
     check br.total.truncate(uint64) == (uHigh - 10000000) + 1
     check br.verify.isOk
 
+    br.clear()
+    check br.total == 0 and br.chunks == 0
+    check br.merge(uHigh,uHigh) == 1
+
+    block:
+      var (ivVal, ivSet) = (iv(0,0), false)
+      for iv in br.increasing:
+        check ivSet == false
+        (ivVal, ivSet) = (iv, true)
+      check ivVal == iv(uHigh,uHigh)
+
+    block:
+      var (ivVal, ivSet) = (iv(0,0), false)
+      for iv in br.decreasing:
+        check ivSet == false
+        (ivVal, ivSet) = (iv, true)
+      check ivVal == iv(uHigh,uHigh)
+
   test "Merge disjunct intervals on 1st set":
     br.clear()
     check br.merge(  0,  99) == 100
