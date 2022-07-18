@@ -28,10 +28,15 @@ proc test(args, path: string) =
        styleCheckStyle & " " & path
 
 proc buildHelper(args, path: string) =
+  let styleCheckStyle =
+    if (NimMajor, NimMinor) < (1, 6):
+      "hint"
+    else:
+      "error"
   exec "nim " & getEnv("TEST_LANG", "c") & " " & getEnv("NIMFLAGS") &
        " " & args &
-       " --hints:off --skipParentCfg --styleCheck:usages --styleCheck:error" &
-       " " & path
+       " --hints:off --skipParentCfg --styleCheck:usages --styleCheck:" &
+       styleCheckStyle & " " & path
 
 task test, "Run all tests":
   # Building `test_helper.nim`.
