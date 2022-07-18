@@ -2,12 +2,12 @@
 
 import ../ptrops, typetraits, hashes
 
+when (NimMajor, NimMinor) < (1, 4):
+  import ../shims/stddefects
+
+
 const rangesGCHoldEnabled = not defined(rangesDisableGCHold)
 const unsafeAPIEnabled* = defined(rangesEnableUnsafeAPI)
-
-when not declared(RangeDefect):
-  type RangeDefect = RangeError
-  type IndexDefect = IndexError
 
 type
   # A view into immutable array

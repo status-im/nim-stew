@@ -2,8 +2,9 @@ import
   unittest2, sets,
   ../../stew/ranges/[typedranges, ptr_arith]
 
-when not declared(IndexDefect):
-  type IndexDefect = IndexError
+when (NimMajor, NimMinor) < (1, 4):
+  import ../../stew/shims/stddefects
+
 
 suite "Typed ranges":
   test "basic stuff":

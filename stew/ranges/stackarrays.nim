@@ -37,6 +37,9 @@
 ## be reasonable for short-lived allocations.
 ##
 
+when (NimMajor, NimMinor) < (1, 4):
+  import ../shims/stddefects
+
 type
   StackArray*[T] = object
     bufferLen: int32
@@ -48,9 +51,6 @@ when defined(windows):
   proc alloca(n: int): pointer {.importc, header: "<malloc.h>".}
 else:
   proc alloca(n: int): pointer {.importc, header: "<alloca.h>".}
-
-when not declared(RangeDefect):
-  type RangeDefect = RangeError
 
 proc raiseRangeError(s: string) =
   raise newException(RangeDefect, s)

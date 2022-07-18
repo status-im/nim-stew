@@ -3,8 +3,8 @@ import
   ../../stew/ptrops,
   ../../stew/ranges/[stackarrays]
 
-when not declared(RangeDefect):
-  type RangeDefect = RangeError
+when (NimMajor, NimMinor) < (1, 4):
+  import ../../stew/shims/stddefects
 
 suite "Stack arrays":
   test "Basic operations work as expected":
