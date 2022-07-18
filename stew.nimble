@@ -12,9 +12,19 @@ requires "nim >= 1.2.0",
 
 ### Helper functions
 proc test(args, path: string) =
+  # nnkArglist was changed to nnkArgList, so can't always use --styleCheck:error
+  # https://github.com/nim-lang/Nim/pull/17529
+  # https://github.com/nim-lang/Nim/pull/19822
+  let styleCheckStyle =
+    if (NimMajor, NimMinor) < (1, 6):
+      "hint"
+    else:
+      "error"
+
   # Compilation language is controlled by TEST_LANG
-  exec "nim " & getEnv("TEST_LANG", "c") & " " & getEnv("NIMFLAGS") & " " & args &
-    " -r --hints:off --skipParentCfg --styleCheck:usages --styleCheck:error " & path
+  exec "nim " & getEnv("TEST_LANG", "c") & " " & getEnv("NIMFLAGS") & " " &
+    args & " -r --hints:off --skipParentCfg --styleCheck:usages --styleCheck:" &
+    styleCheckStyle & " " & path
 
 task test, "Run all tests":
   test "--threads:off", "tests/all_tests"

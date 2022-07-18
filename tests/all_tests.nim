@@ -1,5 +1,5 @@
 # stew
-# Copyright 2018-2019 Status Research & Development GmbH
+# Copyright 2018-2022 Status Research & Development GmbH
 # Licensed under either of
 #
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)

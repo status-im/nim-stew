@@ -1,6 +1,6 @@
 # Nimbus - Types, data structures and shared utilities used in network sync
 #
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
 #    http://www.apache.org/licenses/LICENSE-2.0)
@@ -8,6 +8,8 @@
 #    http://opensource.org/licenses/MIT)
 # at your option. This file may not be copied, modified, or
 # distributed except according to those terms.
+
+{.used.}
 
 import
   unittest2,
