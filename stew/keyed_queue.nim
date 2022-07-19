@@ -380,12 +380,14 @@ proc delete*[K,V](rq: var KeyedQueue[K,V]; key: K):
   ## Delete the item with key `key` from the queue and returns the key-value
   ## item pair just deleted (if any).
   if rq.tab.hasKey(key):
-    noKeyError("delete"):
+    try:
       let kvp = KeyedQueuePair[K,V](
         key: key,
         data: rq.tab[key].data)
       rq.deleteImpl(key)
       return ok(kvp)
+    except KeyError:
+      raiseAssert "We've checked that the key is present above"
   err()
 
 proc del*[K,V](rq: var KeyedQueue[K,V]; key: K) =
