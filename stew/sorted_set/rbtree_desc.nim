@@ -170,7 +170,7 @@ type
     start*: bool                       ## `true` after a rewind operation
     stop*: bool                        ## End of traversal
 
-when (NimMajor, NimMinor) < (1, 6):
+when (NimMajor, NimMinor) < (1, 4):
   {.push raises: [Defect].}
 else:
   {.push raises: [].}

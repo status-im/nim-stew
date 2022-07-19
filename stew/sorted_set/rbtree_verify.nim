@@ -33,7 +33,7 @@ type
     pr: RbPrnFn
     msg: string              ## collect data
 
-when (NimMajor, NimMinor) < (1, 6):
+when (NimMajor, NimMinor) < (1, 4):
   {.push raises: [Defect].}
 else:
   {.push raises: [].}
