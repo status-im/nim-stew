@@ -238,8 +238,8 @@ elif defined(posix):
                    header: "<fcntl.h>".} = object
       ltype* {.importc: "l_type".}: cshort
       lwhence* {.importc: "l_whence".}: cshort
-      start* {.importc: "l_whence".}: int
-      length* {.importc: "l_whence".}: int
+      start* {.importc: "l_start".}: int
+      length* {.importc: "l_len".}: int
       pid* {.importc: "l_pid".}: Pid
 
   var errno {.importc, header: "<errno.h>".}: cint
@@ -254,8 +254,6 @@ elif defined(posix):
        importc: "free", header: "<stdlib.h>".}
   proc getcwd(a1: cstring, a2: int): cstring {.
        importc, header: "<unistd.h>", sideEffect.}
-  proc flock(fd: cint, operation: cint): cint {.
-       importc: "flock", header: "<sys/file.h>", sideEffect.}
 
   proc `==`*(a: IoErrorCode, b: cint): bool {.inline.} =
     (cint(a) == b)
