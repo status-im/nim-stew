@@ -538,8 +538,8 @@ suite "OS Input/Output procedures test suite":
     proc removeLockFile(path: string): IoResult[void] =
       io2.removeFile(path)
 
-    proc lockTest(path: string, flags: set[OpenFlags]
-                 ): IoResult[array[3, TestResult]] =
+    proc lockTest(path: string, flags: set[OpenFlags],
+                  lockType: LockType): IoResult[array[3, TestResult]] =
       const HelperPath =
         when defined(windows):
           "test_helper "
@@ -547,7 +547,7 @@ suite "OS Input/Output procedures test suite":
           "tests/test_helper "
       let
         handle = ? openFile(path, flags)
-        lock = ? lockFile(handle)
+        lock = ? lockFile(handle, lockType)
       let res1 =
         try:
           execCmdEx(HelperPath & path)
@@ -582,111 +582,152 @@ suite "OS Input/Output procedures test suite":
           LockTests = [
             (
               {OpenFlags.Read},
-              "E33:E33:E33:E33:E33:E33:E33",
-              "OK:OK:OK:OK:OK:OK:OK",
-              "OK:OK:OK:OK:OK:OK:OK"
+              LockType.Shared,
+              "OK:E33:E33:OK:OK:E33:E33:OK:E33",
+              "OK:OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK:OK"
             ),
             (
               {OpenFlags.Write},
-              "E32:E32:E32:E32:E32:E32:E32",
-              "E32:E32:E32:E32:E32:E32:E32",
-              "OK:OK:OK:OK:OK:OK:OK"
+              LockType.Exclusive,
+              "E32:E32:E32:E32:E32:E32:E32:E32:E32",
+              "E32:E32:E32:E32:E32:E32:E32:E32:E32",
+              "OK:OK:OK:OK:OK:OK:OK:OK:OK"
             ),
             (
               {OpenFlags.Read, OpenFlags.Write},
-              "E32:E32:E32:E32:E32:E32:E32",
-              "E32:E32:E32:E32:E32:E32:E32",
-              "OK:OK:OK:OK:OK:OK:OK"
+              LockType.Shared,
+              "E32:E32:E32:E32:E32:E32:E32:E32:E32",
+              "E32:E32:E32:E32:E32:E32:E32:E32:E32",
+              "OK:OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Read, OpenFlags.Write},
+              LockType.Exclusive,
+              "E32:E32:E32:E32:E32:E32:E32:E32:E32",
+              "E32:E32:E32:E32:E32:E32:E32:E32:E32",
+              "OK:OK:OK:OK:OK:OK:OK:OK:OK"
             ),
             (
               {OpenFlags.Read, OpenFlags.ShareRead},
-              "E33:E33:E33:E33:E33:E33:E33",
-              "OK:OK:OK:OK:OK:OK:OK",
-              "OK:OK:OK:OK:OK:OK:OK"
+              LockType.Shared,
+              "OK:E33:E33:OK:OK:E33:E33:OK:E33",
+              "OK:OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK:OK"
             ),
             (
               {OpenFlags.Write, OpenFlags.ShareWrite},
-              "E32:E32:E32:E32:E32:E32:E32",
-              "E32:E32:E32:E32:E32:E32:E32",
-              "OK:OK:OK:OK:OK:OK:OK"
+              LockType.Exclusive,
+              "E32:E32:E32:E32:E32:E32:E32:E32:E32",
+              "E32:E32:E32:E32:E32:E32:E32:E32:E32",
+              "OK:OK:OK:OK:OK:OK:OK:OK:OK"
             ),
             (
               {OpenFlags.Read, OpenFlags.Write, OpenFlags.ShareRead,
                OpenFlags.ShareWrite},
-              "E32:E32:E32:E32:E32:E32:E32",
-              "E32:E32:E32:E32:E32:E32:E32",
-              "OK:OK:OK:OK:OK:OK:OK"
+              LockType.Shared,
+              "E32:E32:E32:E32:E32:E32:E32:E32:E32",
+              "E32:E32:E32:E32:E32:E32:E32:E32:E32",
+              "OK:OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Read, OpenFlags.Write, OpenFlags.ShareRead,
+               OpenFlags.ShareWrite},
+              LockType.Exclusive,
+              "E32:E32:E32:E32:E32:E32:E32:E32:E32",
+              "E32:E32:E32:E32:E32:E32:E32:E32:E32",
+              "OK:OK:OK:OK:OK:OK:OK:OK:OK"
             ),
             (
               {OpenFlags.Truncate, OpenFlags.Create, OpenFlags.Write,
                OpenFlags.ShareWrite},
-              "E32:E32:E32:E32:E32:E32:E32",
-              "E32:E32:E32:E32:E32:E32:E32",
-              "OK:OK:OK:OK:OK:OK:OK",
+              LockType.Exclusive,
+              "E32:E32:E32:E32:E32:E32:E32:E32:E32",
+              "E32:E32:E32:E32:E32:E32:E32:E32:E32",
+              "OK:OK:OK:OK:OK:OK:OK:OK:OK",
             )
           ]
       else:
-        let eagain = "E" & $EAGAIN & ":E" & $EAGAIN & ":E" & $EAGAIN & ":E" &
-                     $EAGAIN & ":E" & $EAGAIN & ":E" & $EAGAIN & ":E" &
-                     $EAGAIN
         let
           LockTests = [
             (
               {OpenFlags.Read},
-              eagain,
-              "OK:OK:OK:OK:OK:OK:OK",
-              "OK:OK:OK:OK:OK:OK:OK"
+              LockType.Shared,
+              "OK:E$1:E$1:OK:OK:E$1:E$1:OK:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK:OK"
             ),
             (
               {OpenFlags.Write},
-              eagain,
-              "OK:OK:OK:OK:OK:OK:OK",
-              "OK:OK:OK:OK:OK:OK:OK"
+              LockType.Exclusive,
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK:OK",
             ),
             (
               {OpenFlags.Read, OpenFlags.Write},
-              eagain,
-              "OK:OK:OK:OK:OK:OK:OK",
-              "OK:OK:OK:OK:OK:OK:OK"
+              LockType.Shared,
+              "OK:E$1:E$1:OK:OK:E$1:E$1:OK:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Read, OpenFlags.Write},
+              LockType.Exclusive,
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK:OK"
             ),
             (
               {OpenFlags.Read, OpenFlags.ShareRead},
-              eagain,
-              "OK:OK:OK:OK:OK:OK:OK",
-              "OK:OK:OK:OK:OK:OK:OK"
+              LockType.Shared,
+              "OK:E$1:E$1:OK:OK:E$1:E$1:OK:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK:OK",
             ),
             (
               {OpenFlags.Write, OpenFlags.ShareWrite},
-              eagain,
-              "OK:OK:OK:OK:OK:OK:OK",
-              "OK:OK:OK:OK:OK:OK:OK"
+              LockType.Exclusive,
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK:OK"
             ),
             (
               {OpenFlags.Read, OpenFlags.Write, OpenFlags.ShareRead,
                OpenFlags.ShareWrite},
-              eagain,
-              "OK:OK:OK:OK:OK:OK:OK",
-              "OK:OK:OK:OK:OK:OK:OK"
+              LockType.Shared,
+              "OK:E$1:E$1:OK:OK:E$1:E$1:OK:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK:OK",
+            ),
+            (
+              {OpenFlags.Read, OpenFlags.Write, OpenFlags.ShareRead,
+               OpenFlags.ShareWrite},
+              LockType.Exclusive,
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK:OK"
             ),
             (
               {OpenFlags.Truncate, OpenFlags.Create, OpenFlags.Write,
                OpenFlags.ShareWrite},
-              eagain,
-              "OK:OK:OK:OK:OK:OK:OK",
-              "OK:OK:OK:OK:OK:OK:OK"
+              LockType.Exclusive,
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK:OK"
             )
           ]
 
       ? createLockFile(path1)
       for item in LockTests:
-        let res = ? lockTest(path1, item[0])
+        let res = ? lockTest(path1, item[0], item[1])
         check:
           res[0].status == 0
           res[1].status == 0
           res[2].status == 0
-          res[0].output == item[1]
-          res[1].output == item[2]
-          res[2].output == item[3]
+          res[0].output == item[2]
+          res[1].output == item[3]
+          res[2].output == item[4]
       ? removeLockFile(path1)
       ok()
 

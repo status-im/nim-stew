@@ -280,6 +280,9 @@ type
   AccessFlags* {.pure.} = enum
     Find, Read, Write, Execute
 
+  LockType* {.pure.} = enum
+    Shared, Exclusive
+
   LockHandleFlag = enum
     AutoClose
 
@@ -1368,16 +1371,22 @@ proc readAllFile*(pathName: string): IoResult[seq[byte]] =
   ## Alias for ``readAllBytes()``.
   readAllBytes(pathName)
 
-proc lockFile*(handle: IoHandle, offset: int, size: int): IoResult[void] =
+proc lockFile*(handle: IoHandle, kind: LockType, offset: int,
+               size: int): IoResult[void] =
   ## Locks the specified file for exclusive access by the calling process.
   ##
   ## ``offset`` - starting byte offset in the file where the lock should
   ## begin
   ## ``size`` - length of the byte range to be locked.
   when defined(posix):
-    var flockObj = FlockStruct(ltype: posix.F_RDLCK or posix.F_WRLCK,
-                               lwhence: posix.SEEK_SET, start: offset,
-                               length: size)
+    let ltype =
+      case kind
+      of LockType.Shared:
+        cshort(posix.F_RDLCK)
+      of LockType.Exclusive:
+        cshort(posix.F_WRLCK)
+    var flockObj = FlockStruct(ltype: ltype, lwhence: cshort(posix.SEEK_SET),
+                               start: offset, length: size)
     while true:
       let res = posix.fcntl(cint(handle), posix.F_SETLK, addr flockObj)
       if res == -1:
@@ -1393,7 +1402,12 @@ proc lockFile*(handle: IoHandle, offset: int, size: int): IoResult[void] =
     let (lowSizePart, highSizePart) = makeUint32(uint64(size))
     var ovl = OVERLAPPED(offset: lowOffsetPart, offsetHigh: highOffsetPart)
     let
-      flags = LOCKFILE_EXCLUSIVE_LOCK or LOCKFILE_FAIL_IMMEDIATELY
+      flags =
+        case kind
+        of LockType.Shared:
+          LOCKFILE_FAIL_IMMEDIATELY
+        of LockType.Exclusive:
+          LOCKFILE_FAIL_IMMEDIATELY or LOCKFILE_EXCLUSIVE_LOCK
       res = lockFileEx(uint(handle), flags, 0'u32, lowSizePart,
                        highSizePart, addr ovl)
     if res == 0:
@@ -1403,9 +1417,9 @@ proc lockFile*(handle: IoHandle, offset: int, size: int): IoResult[void] =
 
 proc unlockFile*(handle: IoHandle, offset: int, size: int): IoResult[void] =
   when defined(posix):
-    var flockObj = FlockStruct(ltype: posix.F_UNLCK,
-                               lwhence: posix.SEEK_SET, start: offset,
-                               length: size)
+    let ltype = cshort(posix.F_UNLCK)
+    var flockObj = FlockStruct(ltype: ltype, lwhence: cshort(posix.SEEK_SET),
+                               start: offset, length: size)
     while true:
       let res = posix.fcntl(cint(handle), F_SETLK, addr flockObj)
       if res == -1:
@@ -1428,7 +1442,7 @@ proc unlockFile*(handle: IoHandle, offset: int, size: int): IoResult[void] =
     else:
       ok()
 
-proc lockFile*(handle: IoHandle): IoResult[IoLockHandle] =
+proc lockFile*(handle: IoHandle, lockType: LockType): IoResult[IoLockHandle] =
   ## Exclusively lock file handle ``handle`` to current process. All other
   ## processes will be unable to obtain lock for this file handle.
   ##
@@ -1443,7 +1457,7 @@ proc lockFile*(handle: IoHandle): IoResult[IoLockHandle] =
           int(res)
       else:
         int(res)
-  ? lockFile(handle, 0, size)
+  ? lockFile(handle, lockType, 0, size)
   ok(IoLockHandle(handle: handle, flags: {}, offset: 0, size: size))
 
 proc unlockFile*(lock: IoLockHandle): IoResult[void] =
@@ -1462,6 +1476,7 @@ proc lockFile*(path: string,
                flags: set[OpenFlags] = {OpenFlags.Create, OpenFlags.ShareRead,
                                         OpenFlags.ShareWrite, OpenFlags.Read,
                                         OpenFlags.Write},
+               lockType: LockType = LockType.Exclusive,
                createMode: int = 0o644,
                secDescriptor: pointer = nil): IoResult[IoLockHandle] =
   ## Exclusively open and lock file ``path`` to current process. All other
@@ -1469,6 +1484,6 @@ proc lockFile*(path: string,
   ##
   ## On success returns ``IoLockHandle`` object which could be used for unlock.
   let handle = ? openFile(path, flags, createMode, secDescriptor)
-  var lockHandle = ? lockFile(handle)
+  var lockHandle = ? lockFile(handle, lockType)
   lockHandle.flags.incl(LockHandleFlag.AutoClose)
   ok(lockHandle)
