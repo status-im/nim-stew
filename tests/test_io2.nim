@@ -664,70 +664,66 @@ suite "OS Input/Output procedures test suite":
             (
               {OpenFlags.Read},
               LockType.Shared,
-              "OK:E$1:E$1:OK:OK:E$1:E$1:OK:E$1" % [$EAGAIN],
-              "OK:OK:OK:OK:OK:OK:OK:OK:OK",
-              "OK:OK:OK:OK:OK:OK:OK:OK:OK"
+              "OK:E$1:OK:E$1:OK:E$1:OK:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK"
             ),
             (
               {OpenFlags.Write},
               LockType.Exclusive,
-              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" % [$EAGAIN],
-              "OK:OK:OK:OK:OK:OK:OK:OK:OK",
-              "OK:OK:OK:OK:OK:OK:OK:OK:OK",
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK"
             ),
             (
               {OpenFlags.Read, OpenFlags.Write},
               LockType.Shared,
-              "OK:E$1:E$1:OK:OK:E$1:E$1:OK:E$1" % [$EAGAIN],
-              "OK:OK:OK:OK:OK:OK:OK:OK:OK",
-              "OK:OK:OK:OK:OK:OK:OK:OK:OK"
+              "OK:E$1:OK:E$1:OK:E$1:OK:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK"
             ),
             (
               {OpenFlags.Read, OpenFlags.Write},
               LockType.Exclusive,
-              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" % [$EAGAIN],
-              "OK:OK:OK:OK:OK:OK:OK:OK:OK",
-              "OK:OK:OK:OK:OK:OK:OK:OK:OK"
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK"
             ),
             (
               {OpenFlags.Read, OpenFlags.ShareRead},
               LockType.Shared,
-              "OK:E$1:E$1:OK:OK:E$1:E$1:OK:E$1" % [$EAGAIN],
-              "OK:OK:OK:OK:OK:OK:OK:OK:OK",
-              "OK:OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:E$1:OK:E$1:OK:E$1:OK:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK"
             ),
             (
               {OpenFlags.Write, OpenFlags.ShareWrite},
               LockType.Exclusive,
-              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" % [$EAGAIN],
-              "OK:OK:OK:OK:OK:OK:OK:OK:OK",
-              "OK:OK:OK:OK:OK:OK:OK:OK:OK"
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK"
             ),
             (
               {OpenFlags.Read, OpenFlags.Write, OpenFlags.ShareRead,
                OpenFlags.ShareWrite},
               LockType.Shared,
-              "OK:E$1:E$1:OK:OK:E$1:E$1:OK:E$1" % [$EAGAIN],
-              "OK:OK:OK:OK:OK:OK:OK:OK:OK",
-              "OK:OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:E$1:OK:E$1:OK:E$1:OK:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK",
             ),
             (
               {OpenFlags.Read, OpenFlags.Write, OpenFlags.ShareRead,
                OpenFlags.ShareWrite},
               LockType.Exclusive,
-              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" % [$EAGAIN],
-              "OK:OK:OK:OK:OK:OK:OK:OK:OK",
-              "OK:OK:OK:OK:OK:OK:OK:OK:OK"
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK"
             ),
           ]
 
       ? createLockFile(path1)
       for item in LockTests:
         let res = ? lockTest(path1, item[0], item[1])
-        echo item[0], " === ", item[1]
-        echo res[0].output
-        echo res[1].output
-        echo res[2].output
         check:
           res[0].status == 0
           res[1].status == 0

@@ -281,12 +281,8 @@ type
   LockType* {.pure.} = enum
     Shared, Exclusive
 
-  LockHandleFlag = enum
-    AutoClose
-
   IoLockHandle* = object
     handle*: IoHandle
-    flags*: set[LockHandleFlag]
     offset*: int
     size*: int
 
@@ -1371,10 +1367,16 @@ proc readAllFile*(pathName: string): IoResult[seq[byte]] =
 
 proc lockFile*(handle: IoHandle, kind: LockType, offset: int,
                size: int): IoResult[void] =
-  ## Locks the specified file for exclusive access by the calling process.
+  ## Apply shared or exclusive file segment lock for file handle ``handle`` and
+  ## range specified by ``offset`` and ``size`` parameters.
+  ##
+  ## ``kind`` - type of lock (shared or exclusive). Please not that only
+  ## exclusive locks has cross-platform compatible behavior. But exclusive
+  ## locks require ``handle`` to be opened for writing.
   ##
   ## ``offset`` - starting byte offset in the file where the lock should
-  ## begin
+  ## begin.
+  ##
   ## ``size`` - length of the byte range to be locked.
   when defined(posix):
     let ltype =
@@ -1414,6 +1416,8 @@ proc lockFile*(handle: IoHandle, kind: LockType, offset: int,
       ok()
 
 proc unlockFile*(handle: IoHandle, offset: int, size: int): IoResult[void] =
+  ## Clear shared or exclusive file segment lock for file handle ``handle`` and
+  ## range specified by ``offset`` and ``size`` parameters.
   when defined(posix):
     let ltype = cshort(posix.F_UNLCK)
     var flockObj = FlockStruct(ltype: ltype, lwhence: cshort(posix.SEEK_SET),
@@ -1440,9 +1444,13 @@ proc unlockFile*(handle: IoHandle, offset: int, size: int): IoResult[void] =
     else:
       ok()
 
-proc lockFile*(handle: IoHandle, lockType: LockType): IoResult[IoLockHandle] =
-  ## Exclusively lock file handle ``handle`` to current process. All other
-  ## processes will be unable to obtain lock for this file handle.
+proc lockFile*(handle: IoHandle, kind: LockType): IoResult[IoLockHandle] =
+  ## Apply exclusive or shared lock to whole file specified by file handle
+  ## ``handle``.
+  ##
+  ## ``kind`` - type of lock (shared or exclusive). Please not that only
+  ## exclusive locks has cross-platform compatible behavior. But exclusive
+  ## locks require ``handle`` to be opened for writing.
   ##
   ## On success returns ``IoLockHandle`` object which could be used for unlock.
   let size =
@@ -1455,33 +1463,13 @@ proc lockFile*(handle: IoHandle, lockType: LockType): IoResult[IoLockHandle] =
           int(res)
       else:
         int(res)
-  ? lockFile(handle, lockType, 0, size)
-  ok(IoLockHandle(handle: handle, flags: {}, offset: 0, size: size))
+  ? lockFile(handle, kind, 0, size)
+  ok(IoLockHandle(handle: handle, offset: 0, size: size))
 
 proc unlockFile*(lock: IoLockHandle): IoResult[void] =
-  ## Unlocks previously locked file handle using ``lock`` object.
+  ## Clear shared or exclusive lock ``lock``.
   let res = unlockFile(lock.handle, lock.offset, lock.size)
   if res.isErr():
-    if LockHandleFlag.AutoClose in lock.flags:
-      discard closeFile(lock.handle)
     err(res.error())
   else:
-    if LockHandleFlag.AutoClose in lock.flags:
-      ? closeFile(lock.handle)
     ok()
-
-proc lockFile*(path: string,
-               flags: set[OpenFlags] = {OpenFlags.Create, OpenFlags.ShareRead,
-                                        OpenFlags.ShareWrite, OpenFlags.Read,
-                                        OpenFlags.Write},
-               lockType: LockType = LockType.Exclusive,
-               createMode: int = 0o644,
-               secDescriptor: pointer = nil): IoResult[IoLockHandle] =
-  ## Exclusively open and lock file ``path`` to current process. All other
-  ## processes will be unable to obtain lock for this file handle.
-  ##
-  ## On success returns ``IoLockHandle`` object which could be used for unlock.
-  let handle = ? openFile(path, flags, createMode, secDescriptor)
-  var lockHandle = ? lockFile(handle, lockType)
-  lockHandle.flags.incl(LockHandleFlag.AutoClose)
-  ok(lockHandle)
