@@ -578,74 +578,85 @@ suite "OS Input/Output procedures test suite":
       let path1 = "testfile.lock"
 
       when defined(windows):
+        const
+          ERROR_LOCK_VIOLATION = 33
+          ERROR_SHARING_VIOLATION = 32
         let
           LockTests = [
             (
               {OpenFlags.Read},
               LockType.Shared,
-              "OK:E33:E33:OK:OK:E33:E33:OK:E33",
-              "OK:OK:OK:OK:OK:OK:OK:OK:OK",
-              "OK:OK:OK:OK:OK:OK:OK:OK:OK"
+              "OK:E$1:E$1:E$1:OK:E$1:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "OK:E$1:E$1:E$1:OK:E$1:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "OK:OK:OK:OK:OK:OK:OK:OK"
             ),
             (
               {OpenFlags.Write},
               LockType.Exclusive,
-              "E32:E32:E32:E32:E32:E32:E32:E32:E32",
-              "E32:E32:E32:E32:E32:E32:E32:E32:E32",
-              "OK:OK:OK:OK:OK:OK:OK:OK:OK"
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "OK:OK:OK:OK:OK:OK:OK:OK"
             ),
             (
               {OpenFlags.Read, OpenFlags.Write},
               LockType.Shared,
-              "E32:E32:E32:E32:E32:E32:E32:E32:E32",
-              "E32:E32:E32:E32:E32:E32:E32:E32:E32",
-              "OK:OK:OK:OK:OK:OK:OK:OK:OK"
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "OK:OK:OK:OK:OK:OK:OK:OK"
             ),
             (
               {OpenFlags.Read, OpenFlags.Write},
               LockType.Exclusive,
-              "E32:E32:E32:E32:E32:E32:E32:E32:E32",
-              "E32:E32:E32:E32:E32:E32:E32:E32:E32",
-              "OK:OK:OK:OK:OK:OK:OK:OK:OK"
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "OK:OK:OK:OK:OK:OK:OK:OK"
             ),
             (
               {OpenFlags.Read, OpenFlags.ShareRead},
               LockType.Shared,
-              "OK:E33:E33:OK:OK:E33:E33:OK:E33",
-              "OK:OK:OK:OK:OK:OK:OK:OK:OK",
-              "OK:OK:OK:OK:OK:OK:OK:OK:OK"
+              "OK:E$1:E$1:E$1:OK:E$1:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "OK:E$1:E$1:E$1:OK:E$1:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "OK:OK:OK:OK:OK:OK:OK:OK"
             ),
             (
               {OpenFlags.Write, OpenFlags.ShareWrite},
               LockType.Exclusive,
-              "E32:E32:E32:E32:E32:E32:E32:E32:E32",
-              "E32:E32:E32:E32:E32:E32:E32:E32:E32",
-              "OK:OK:OK:OK:OK:OK:OK:OK:OK"
+              "E$1:E$1:E$1:E$1:E$1:E$2:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION, $ERROR_LOCK_VIOLATION],
+              "E$1:E$1:E$1:E$1:E$1:OK:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "OK:OK:OK:OK:OK:OK:OK:OK"
             ),
             (
               {OpenFlags.Read, OpenFlags.Write, OpenFlags.ShareRead,
                OpenFlags.ShareWrite},
               LockType.Shared,
-              "E32:E32:E32:E32:E32:E32:E32:E32:E32",
-              "E32:E32:E32:E32:E32:E32:E32:E32:E32",
-              "OK:OK:OK:OK:OK:OK:OK:OK:OK"
+              "E$1:E$1:E$1:E$1:E$1:E$1:OK:E$2" %
+                [$ERROR_SHARING_VIOLATION, $ERROR_LOCK_VIOLATION],
+              "E$1:E$1:E$1:E$1:E$1:E$1:OK:OK" %
+                [$ERROR_SHARING_VIOLATION],
+              "OK:OK:OK:OK:OK:OK:OK:OK"
             ),
             (
               {OpenFlags.Read, OpenFlags.Write, OpenFlags.ShareRead,
                OpenFlags.ShareWrite},
               LockType.Exclusive,
-              "E32:E32:E32:E32:E32:E32:E32:E32:E32",
-              "E32:E32:E32:E32:E32:E32:E32:E32:E32",
-              "OK:OK:OK:OK:OK:OK:OK:OK:OK"
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$2:E$2" %
+                [$ERROR_SHARING_VIOLATION, $ERROR_LOCK_VIOLATION],
+              "E$1:E$1:E$1:E$1:E$1:E$1:OK:OK" %
+                [$ERROR_SHARING_VIOLATION],
+              "OK:OK:OK:OK:OK:OK:OK:OK"
             ),
-            (
-              {OpenFlags.Truncate, OpenFlags.Create, OpenFlags.Write,
-               OpenFlags.ShareWrite},
-              LockType.Exclusive,
-              "E32:E32:E32:E32:E32:E32:E32:E32:E32",
-              "E32:E32:E32:E32:E32:E32:E32:E32:E32",
-              "OK:OK:OK:OK:OK:OK:OK:OK:OK",
-            )
           ]
       else:
         let
@@ -708,19 +719,15 @@ suite "OS Input/Output procedures test suite":
               "OK:OK:OK:OK:OK:OK:OK:OK:OK",
               "OK:OK:OK:OK:OK:OK:OK:OK:OK"
             ),
-            (
-              {OpenFlags.Truncate, OpenFlags.Create, OpenFlags.Write,
-               OpenFlags.ShareWrite},
-              LockType.Exclusive,
-              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" % [$EAGAIN],
-              "OK:OK:OK:OK:OK:OK:OK:OK:OK",
-              "OK:OK:OK:OK:OK:OK:OK:OK:OK"
-            )
           ]
 
       ? createLockFile(path1)
       for item in LockTests:
         let res = ? lockTest(path1, item[0], item[1])
+        echo item[0], " === ", item[1]
+        echo res[0].output
+        echo res[1].output
+        echo res[2].output
         check:
           res[0].status == 0
           res[1].status == 0

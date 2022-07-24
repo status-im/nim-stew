@@ -4,7 +4,8 @@ import ../stew/io2, ../stew/results
 proc lockFileFlags(path: string, flags: set[OpenFlags],
                    lockType: LockType): IoResult[void] =
   let handle = ? openFile(path, flags)
-  let info {.used.} = ? lockFile(handle, lockType)
+  let info = ? lockFile(handle, lockType)
+  ? unlockFile(info)
   ? closeFile(handle)
   ok()
 
@@ -15,16 +16,17 @@ when isMainModule:
     const TestFlags = [
       ({OpenFlags.Read}, LockType.Shared),
       ({OpenFlags.Write}, LockType.Exclusive),
-      ({OpenFlags.Read, OpenFlags.Write}, LockType.Exclusive),
+
       ({OpenFlags.Read, OpenFlags.Write}, LockType.Shared),
+      ({OpenFlags.Read, OpenFlags.Write}, LockType.Exclusive),
+
       ({OpenFlags.Read, OpenFlags.ShareRead}, LockType.Shared),
       ({OpenFlags.Write, OpenFlags.ShareWrite}, LockType.Exclusive),
-      ({OpenFlags.Read, OpenFlags.Write,
-        OpenFlags.ShareRead, OpenFlags.ShareWrite}, LockType.Exclusive),
+
       ({OpenFlags.Read, OpenFlags.Write,
         OpenFlags.ShareRead, OpenFlags.ShareWrite}, LockType.Shared),
-      ({OpenFlags.Truncate, OpenFlags.Create, OpenFlags.Write,
-       OpenFlags.ShareWrite}, LockType.Exclusive)
+      ({OpenFlags.Read, OpenFlags.Write,
+        OpenFlags.ShareRead, OpenFlags.ShareWrite}, LockType.Exclusive),
     ]
     let pathName = paramStr(1)
     let response =
