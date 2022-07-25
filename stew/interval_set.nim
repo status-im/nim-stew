@@ -779,7 +779,9 @@ proc ge*[P,S](ds: IntervalSetRef[P,S]; minPt: P): IntervalRc[P,S] =
       return ok(Interval[P,S].new(rc.value.left, high(P)))
     return ok(Interval[P,S].new(rc.value))
   if ds.lastHigh:
-    return ok(Interval[P,S].new(high(P),high(P)))
+    const preHigh = high(P) - scalarOne
+    if ds.covered(preHigh,preHigh) == scalarZero:
+      return ok(Interval[P,S].new(high(P),high(P)))
   err()
 
 proc ge*[P,S](ds: IntervalSetRef[P,S]): IntervalRc[P,S] =
@@ -793,13 +795,18 @@ proc le*[P,S](ds: IntervalSetRef[P,S]; maxPt: P): IntervalRc[P,S] =
   if rc.isOk:
     # only the left end of segment [left,right) is guaranteed to be <= maxPt
     if rc.value.right - scalarOne <= maxPt:
-      if high(P) <= maxPt and ds.lastHigh:
-        # Check for fringe case intervals [a,b] gap [high(P),high(P)] <= maxPt
-        if rc.value.right < high(P):
-          return ok(Interval[P,S].new(high(P),high(P)))
-        # Check for fringe case intervals [a,b] + [high(P),high(P)] <= maxPt
+      if ds.lastHigh:
+        if high(P) <= maxPt:
+          # Check for fringe case intervals [a,b] gap [high(P),high(P)] <= maxPt
+          if rc.value.right < high(P):
+            return ok(Interval[P,S].new(high(P),high(P)))
+          # Check for fringe case intervals [a,b] + [high(P),high(P)] <= maxPt
+          if high(P) <= rc.value.right:
+            return ok(Interval[P,S].new(rc.value.left,high(P)))
+        # So maxPt < high(P)
         if high(P) <= rc.value.right:
-          return ok(Interval[P,S].new(rc.value.left,high(P)))
+          # Now `maxPt` is fully within the inner part of `[left,high(P)]`
+          return err()
       return ok(Interval[P,S].new(rc.value))
     # find the next smaller one
     let xc = ds.leftPos.lt(rc.value.key)

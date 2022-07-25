@@ -177,6 +177,7 @@ suite "IntervalSet: Intervals of FancyPoint entries over FancyScalar":
     check br.total.truncate(uint64) == (uHigh - 10000000) + 1
     check br.verify.isOk
 
+  test "More edge cases detected and fixed":
     br.clear()
     check br.total == 0 and br.chunks == 0
     check br.merge(uHigh,uHigh) == 1
@@ -187,7 +188,6 @@ suite "IntervalSet: Intervals of FancyPoint entries over FancyScalar":
         check ivSet == false
         (ivVal, ivSet) = (iv, true)
       check ivVal == iv(uHigh,uHigh)
-
     block:
       var (ivVal, ivSet) = (iv(0,0), false)
       for iv in br.decreasing:
@@ -199,6 +199,25 @@ suite "IntervalSet: Intervals of FancyPoint entries over FancyScalar":
     check br.total == 0 and br.chunks == 0
     check br.merge(1477152,uHigh) == uHigh - 1477151
     check br.merge(1477151,1477151) == 1
+
+    br.clear() # from blockchain snap sync odd behaviour
+    check br.merge(0,uHigh) == 0
+    check br.chunks == 1
+    check br.total == 0
+    check br.ge(1000) == ivError
+    check 0 < br.reduce(99999,uHigh-1)
+    check br.ge(1000) == iv(uHigh,uHigh)
+
+    br.clear()
+    check br.merge(0,uHigh) == 0
+    check br.chunks == 1
+    check br.total == 0
+    check br.le(uHigh) == iv(0,uHigh)
+    check br.le(uHigh-1) == ivError
+    check 0 < br.reduce(99999,uHigh-1)
+    check br.le(uHigh) == iv(uHigh,uHigh)
+    check br.le(uHigh-1) == iv(0,99998)
+    check br.le(uHigh-2) == iv(0,99998)
 
   test "Merge disjunct intervals on 1st set":
     br.clear()
