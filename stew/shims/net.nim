@@ -5,7 +5,10 @@ type
   ValidIpAddress* {.requiresInit.} = object
     value: IpAddress
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 proc ipv4*(address: array[4, byte]): ValidIpAddress =
   ValidIpAddress(value: IpAddress(family: IPv4, address_v4: address))

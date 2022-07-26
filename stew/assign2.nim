@@ -2,7 +2,10 @@ import
   std/typetraits,
   ./shims/macros
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 func assign*[T](tgt: var seq[T], src: openArray[T]) {.gcsafe.}
 func assign*[T](tgt: var openArray[T], src: openArray[T]) {.gcsafe.}

@@ -16,7 +16,10 @@ import
 # backwards compat
 export arrayops.`&`, arrayops.initArrayWith, arrayops.`[]=`
 
-{.push raises: [Defect].}
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
 
 ########################################################################################################
 #####################################   Hex utilities   ################################################
