@@ -10,6 +10,10 @@ import
   unittest2, sets,
   ../../stew/ranges/[typedranges, ptr_arith]
 
+when (NimMajor, NimMinor) < (1, 4):
+  import ../../stew/shims/stddefects
+
+
 suite "Typed ranges":
   test "basic stuff":
     var r = newRange[int](5)
@@ -169,7 +173,7 @@ suite "Typed ranges":
       try:
         a.advance(b)
         res = 1
-      except IndexError:
+      except IndexDefect:
         res = 2
       res
 
@@ -221,7 +225,7 @@ suite "Typed ranges":
       try:
         a.advance(b)
         res = 1
-      except IndexError:
+      except IndexDefect:
         res = 2
       res
 

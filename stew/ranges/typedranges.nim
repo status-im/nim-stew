@@ -2,6 +2,10 @@
 
 import ../ptrops, typetraits, hashes
 
+when (NimMajor, NimMinor) < (1, 4):
+  import ../shims/stddefects
+
+
 const rangesGCHoldEnabled = not defined(rangesDisableGCHold)
 const unsafeAPIEnabled* = defined(rangesEnableUnsafeAPI)
 
@@ -159,17 +163,11 @@ proc `[]=`*[T, U, V](r: MutRange[T], s: HSlice[U, V], v: openArray[T]) =
   if L == v.len:
     for i in 0..<L: r[i + a] = v[i]
   else:
-    raise newException(RangeError, "different lengths for slice assignment")
+    raise newException(RangeDefect, "different lengths for slice assignment")
 
 template toOpenArray*[T](r: Range[T]): auto =
-  when false:
-  # when (NimMajor,NimMinor,NimPatch)>=(0,19,9):
-    # error message in Nim HEAD 2019-01-02:
-    # "for a 'var' type a variable needs to be passed, but 'toOpenArray(cast[ptr UncheckedArray[T]](curHash.start), 0, high(curHash))' is immutable"
-    toOpenArray(cast[ptr UncheckedArray[T]](r.start), 0, r.high)
-  else:
-    # NOTE: `0` in `array[0, T]` is irrelevant
-    toOpenArray(cast[ptr array[0, T]](r.start)[], 0, r.high)
+  # NOTE: `0` in `array[0, T]` is irrelevant
+  toOpenArray(cast[ptr array[0, T]](r.start)[], 0, r.high)
 
 proc `[]=`*[T, U, V](r: MutRange[T], s: HSlice[U, V], v: Range[T]) {.inline.} =
   r[s] = toOpenArray(v)
@@ -246,7 +244,7 @@ proc tryAdvance*[T](x: var MutRange[T], idx: int): bool {.inline.} =
 proc advance*[T](x: var Range[T], idx: int) =
   ## Move internal start offset of range ``x`` by ``idx`` elements forward.
   let res = x.advanceImpl(idx)
-  if not res: raise newException(IndexError, "Advance Error")
+  if not res: raise newException(IndexDefect, "Advance Error")
 
 proc advance*[T](x: var MutRange[T], idx: int) {.inline.} =
   ## Move internal start offset of range ``x`` by ``idx`` elements forward.

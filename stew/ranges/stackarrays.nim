@@ -37,6 +37,9 @@
 ## be reasonable for short-lived allocations.
 ##
 
+when (NimMajor, NimMinor) < (1, 4):
+  import ../shims/stddefects
+
 type
   StackArray*[T] = object
     bufferLen: int32
@@ -50,7 +53,7 @@ else:
   proc alloca(n: int): pointer {.importc, header: "<alloca.h>".}
 
 proc raiseRangeError(s: string) =
-  raise newException(RangeError, s)
+  raise newException(RangeDefect, s)
 
 proc raiseOutOfRange =
   raiseRangeError "index out of range"
