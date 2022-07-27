@@ -102,6 +102,9 @@ proc le(br: FancyRanges; start: uint64): Result[FancyInterval,void] =
 proc ge(br: FancyRanges; start: uint64): Result[FancyInterval,void] =
   br.ge(start.to(FancyPoint))
 
+proc envelope(br: FancyRanges; start: uint64): Result[FancyInterval,void] =
+  br.envelope(start.to(FancyPoint))
+
 proc iv(left, right: uint64): FancyInterval =
   FancyInterval.new(left.to(FancyPoint), right.to(FancyPoint))
 
@@ -202,22 +205,39 @@ suite "IntervalSet: Intervals of FancyPoint entries over FancyScalar":
 
     br.clear() # from blockchain snap sync odd behaviour
     check br.merge(0,uHigh) == 0
-    check br.chunks == 1
-    check br.total == 0
     check br.ge(1000) == ivError
     check 0 < br.reduce(99999,uHigh-1)
     check br.ge(1000) == iv(uHigh,uHigh)
 
     br.clear()
     check br.merge(0,uHigh) == 0
-    check br.chunks == 1
-    check br.total == 0
     check br.le(uHigh) == iv(0,uHigh)
     check br.le(uHigh-1) == ivError
     check 0 < br.reduce(99999,uHigh-1)
     check br.le(uHigh) == iv(uHigh,uHigh)
     check br.le(uHigh-1) == iv(0,99998)
     check br.le(uHigh-2) == iv(0,99998)
+
+  test "Interval envelopes":
+    br.clear()
+    check br.merge(0,uHigh) == 0
+    check br.ge(1000) == ivError
+    check br.le(1000) == ivError
+    check br.envelope(1000) == iv(0,uHigh)
+
+    check 0 < br.reduce(1000,1000)
+    check br.envelope(1000) == ivError
+
+    check 0 < br.reduce(uHigh,uHigh)
+    check br.envelope(2000) == iv(1001,uHigh-1)
+    check br.envelope(uHigh-1) == iv(1001,uHigh-1)
+
+    check 0 < br.merge(0,uHigh) # actually == 2
+    check 0 < br.reduce(uHigh-1,uHigh-1)
+    check br.envelope(uHigh-1) == ivError
+    check br.envelope(uHigh-2) == iv(0,uHigh-2)
+    check br.ge(uHigh) == iv(uHigh,uHigh)
+    check br.envelope(uHigh) == iv(uHigh,uHigh)
 
   test "Merge disjunct intervals on 1st set":
     br.clear()

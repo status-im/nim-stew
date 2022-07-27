@@ -825,6 +825,21 @@ proc le*[P,S](ds: IntervalSetRef[P,S]): IntervalRc[P,S] =
   ds.le(high(P))
 
 
+proc envelope*[P,S](ds: IntervalSetRef[P,S]; pt: P): IntervalRc[P,S] =
+  ## Find the interval that contains the argument point `pt` (if any)
+  let rc = ds.leftPos.le(pt)
+  if rc.isOk:
+    if ds.lastHigh and high(P) <= rc.value.right:
+      # This interval ranges `[left,high(P)]`, so `pt` is certainly contained
+      return ok(Interval[P,S].new(rc.value.left,high(P)))
+    if pt < rc.value.right:
+      return ok(Interval[P,S].new(rc.value))
+    # Otherwise: interval `[left,right)` ends before `pt`
+  if ds.lastHigh and high(P) <= pt:
+    return ok(Interval[P,S].new(high(P),high(P)))
+  err()
+
+
 proc delete*[P,S](ds: IntervalSetRef[P,S]; minPt: P): IntervalRc[P,S] =
   ## Find the interval `[minPt,maxPt]` for some point `maxPt` in the interval
   ## set `ds` and remove it from `ds`. The function returns the deleted
