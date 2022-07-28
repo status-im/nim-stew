@@ -103,8 +103,8 @@ when defined(windows):
       fileAttributes: uint32
 
     OVERLAPPED* {.pure, inheritable.} = object
-      internal*: uint64
-      internalHigh*: uint64
+      internal*: uint
+      internalHigh*: uint
       offset*: uint32
       offsetHigh*: uint32
       hEvent*: IoHandle
@@ -149,40 +149,44 @@ when defined(windows):
                       arguments: pointer): uint32 {.
        importc: "FormatMessageW", stdcall, dynlib: "kernel32".}
   proc localFree(p: pointer): uint {.
-       importc: "LocalFree", stdcall, dynlib: "kernel32".}
+       importc: "LocalFree", stdcall, dynlib: "kernel32", sideEffect.}
   proc getLongPathNameW(lpszShortPath: WideCString, lpszLongPath: WideCString,
                         cchBuffer: uint32): uint32 {.
-       importc: "GetLongPathNameW", dynlib: "kernel32.dll", stdcall.}
+       importc: "GetLongPathNameW", dynlib: "kernel32.dll", stdcall,
+       sideEffect.}
   proc findFirstFileW(lpFileName: WideCString,
                       lpFindFileData: var WIN32_FIND_DATAW): uint {.
-       importc: "FindFirstFileW", dynlib: "kernel32", stdcall.}
+       importc: "FindFirstFileW", dynlib: "kernel32", stdcall, sideEffect.}
   proc findClose(hFindFile: uint): int32 {.
-       importc: "FindClose", dynlib: "kernel32", stdcall.}
+       importc: "FindClose", dynlib: "kernel32", stdcall, sideEffect.}
   proc getFileInformationByHandle(hFile: uint,
                                  info: var BY_HANDLE_FILE_INFORMATION): int32 {.
-       importc: "GetFileInformationByHandle", dynlib: "kernel32", stdcall.}
+       importc: "GetFileInformationByHandle", dynlib: "kernel32", stdcall,
+       sideEffect.}
   proc getFileInformationByHandleEx(hFile: uint, information: uint32,
                                     lpFileInformation: pointer,
                                     dwBufferSize: uint32): int32 {.
-       importc: "GetFileInformationByHandleEx", dynlib: "kernel32", stdcall.}
+       importc: "GetFileInformationByHandleEx", dynlib: "kernel32", stdcall,
+       sideEffect.}
   proc setFileInformationByHandle(hFile: uint, information: uint32,
                                   lpFileInformation: pointer,
                                   dwBufferSize: uint32): int32 {.
-       importc: "SetFileInformationByHandle", dynlib: "kernel32", stdcall.}
+       importc: "SetFileInformationByHandle", dynlib: "kernel32", stdcall,
+       sideEffect.}
   proc getFileSize(hFile: uint, lpFileSizeHigh: var uint32): uint32 {.
-       importc: "GetFileSize", dynlib: "kernel32", stdcall.}
+       importc: "GetFileSize", dynlib: "kernel32", stdcall, sideEffect.}
   proc setFilePointerEx(hFile: uint, liDistanceToMove: int64,
                         lpNewFilePointer: ptr int64,
                         dwMoveMethod: uint32): int32 {.
-       importc: "SetFilePointerEx", dynlib: "kernel32", stdcall.}
+       importc: "SetFilePointerEx", dynlib: "kernel32", stdcall, sideEffect.}
   proc lockFileEx(hFile: uint, dwFlags, dwReserved: uint32,
                   nNumberOfBytesToLockLow, nNumberOfBytesToLockHigh: uint32,
                   lpOverlapped: pointer): uint32 {.
-        importc: "LockFileEx", dynlib: "kernel32", stdcall, sideEffect.}
+       importc: "LockFileEx", dynlib: "kernel32", stdcall, sideEffect.}
   proc unlockFileEx(hFile: uint, dwReserved: uint32,
                     nNumberOfBytesToLockLow, nNumberOfBytesToLockHigh: uint32,
                     lpOverlapped: pointer): uint32 {.
-        importc: "UnlockFileEx", dynlib: "kernel32", stdcall, sideEffect.}
+       importc: "UnlockFileEx", dynlib: "kernel32", stdcall, sideEffect.}
 
   const
     NO_ERROR = IoErrorCode(0)
@@ -1370,14 +1374,17 @@ proc lockFile*(handle: IoHandle, kind: LockType, offset: int,
   ## Apply shared or exclusive file segment lock for file handle ``handle`` and
   ## range specified by ``offset`` and ``size`` parameters.
   ##
-  ## ``kind`` - type of lock (shared or exclusive). Please not that only
-  ## exclusive locks has cross-platform compatible behavior. But exclusive
+  ## ``kind`` - type of lock (shared or exclusive). Please note that only
+  ## exclusive locks have cross-platform compatible behavior. Hovewer, exclusive
   ## locks require ``handle`` to be opened for writing.
   ##
   ## ``offset`` - starting byte offset in the file where the lock should
-  ## begin.
+  ## begin. ``offset`` should be always bigger or equal to ``0``.
   ##
-  ## ``size`` - length of the byte range to be locked.
+  ## ``size`` - length of the byte range to be locked. ``size`` should be always
+  ## bigger or equal to ``0``.
+  doAssert(offset >= 0)
+  doAssert(size >= 0)
   when defined(posix):
     let ltype =
       case kind
@@ -1398,8 +1405,9 @@ proc lockFile*(handle: IoHandle, kind: LockType, offset: int,
       else:
         return ok()
   elif defined(windows):
-    let (lowOffsetPart, highOffsetPart) = makeUint32(uint64(offset))
-    let (lowSizePart, highSizePart) = makeUint32(uint64(size))
+    let
+      (lowOffsetPart, highOffsetPart) = makeUint32(uint64(offset))
+      (lowSizePart, highSizePart) = makeUint32(uint64(size))
     var ovl = OVERLAPPED(offset: lowOffsetPart, offsetHigh: highOffsetPart)
     let
       flags =
@@ -1418,6 +1426,14 @@ proc lockFile*(handle: IoHandle, kind: LockType, offset: int,
 proc unlockFile*(handle: IoHandle, offset: int, size: int): IoResult[void] =
   ## Clear shared or exclusive file segment lock for file handle ``handle`` and
   ## range specified by ``offset`` and ``size`` parameters.
+  ##
+  ## ``offset`` - starting byte offset in the file where the lock placed.
+  ## ``offset`` should be always bigger or equal to ``0``.
+  ##
+  ## ``size`` - length of the byte range to be unlocked. ``size`` should be
+  ## always bigger or equal to ``0``.
+  doAssert(offset >= 0)
+  doAssert(size >= 0)
   when defined(posix):
     let ltype = cshort(posix.F_UNLCK)
     var flockObj = FlockStruct(ltype: ltype, lwhence: cshort(posix.SEEK_SET),
@@ -1448,8 +1464,8 @@ proc lockFile*(handle: IoHandle, kind: LockType): IoResult[IoLockHandle] =
   ## Apply exclusive or shared lock to whole file specified by file handle
   ## ``handle``.
   ##
-  ## ``kind`` - type of lock (shared or exclusive). Please not that only
-  ## exclusive locks has cross-platform compatible behavior. But exclusive
+  ## ``kind`` - type of lock (shared or exclusive). Please note that only
+  ## exclusive locks have cross-platform compatible behavior. Hovewer, exclusive
   ## locks require ``handle`` to be opened for writing.
   ##
   ## On success returns ``IoLockHandle`` object which could be used for unlock.
