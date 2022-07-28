@@ -191,8 +191,14 @@ proc recordFields*(typeImpl: NimNode): seq[FieldDescription] =
       result.add FieldDescription(typ: typeImpl[i], name: ident("Field" & $(i - 1)))
     return
 
-  typeImpl.expectKind nnkTypeDef
-  collectFieldsInHierarchy(result, typeImpl[2])
+  let objectType = case typeImpl.kind
+    of nnkObjectTy: typeImpl
+    of nnkTypeDef: typeImpl[2]
+    else:
+      macros.error("object type expected", typeImpl)
+      return
+
+  collectFieldsInHierarchy(result, objectType)
 
 macro field*(obj: typed, fieldName: static string): untyped =
   newDotExpr(obj, ident fieldName)
