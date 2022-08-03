@@ -30,7 +30,7 @@ jobs:
             shell: bash
           - target:
               os: macos
-            builder: macos-10.15
+            builder: macos-12
             shell: bash
           - target:
               os: windows
@@ -159,21 +159,21 @@ jobs:
           env TEST_LANG=c nimble test
           env TEST_LANG=cpp nimble test
 
-      - name: Setup VCC (Windows-i386)
-        if: runner.os == 'Windows' && matrix.target.cpu == 'i386'
-        uses: ilammy/msvc-dev-cmd@v1.5.0
-        with:
-          arch: amd64_x86
+      # - name: Setup VCC (Windows-i386)
+      #   if: runner.os == 'Windows' && matrix.target.cpu == 'i386'
+      #   uses: ilammy/msvc-dev-cmd@v1.5.0
+      #   with:
+      #     arch: amd64_x86
 
-      - name: Setup VCC (Windows-amd64)
-        if: runner.os == 'Windows' && matrix.target.cpu == 'amd64'
-        uses: ilammy/msvc-dev-cmd@v1.5.0
-        with:
-          arch: x64
+      # - name: Setup VCC (Windows-amd64)
+      #   if: runner.os == 'Windows' && matrix.target.cpu == 'amd64'
+      #   uses: ilammy/msvc-dev-cmd@v1.5.0
+      #   with:
+      #     arch: x64
 
-      - name: Test using VCC
-        if: runner.os == 'Windows'
-        run: |
-          nimble install -y --depsOnly
-          env TEST_LANG=c nimble testvcc
-          env TEST_LANG=cpp nimble testvcc
+      # - name: Test using VCC
+      #   if: runner.os == 'Windows'
+      #   run: |
+      #     nimble install -y --depsOnly
+      #     env TEST_LANG=c nimble testvcc
+      #     env TEST_LANG=cpp nimble testvcc
