@@ -244,18 +244,18 @@ elif defined(posix):
       lwhence* {.importc: "l_whence".}: cshort
       start* {.importc: "l_start".}: int
       length* {.importc: "l_len".}: int
-      pid* {.importc: "l_pid".}: Pid
+      pid* {.importc: "l_pid".}: int32
 
   var errno {.importc, header: "<errno.h>".}: cint
 
   proc write(a1: cint, a2: pointer, a3: csize_t): int {.
-       importc, header: "<unistd.h>".}
+       importc, header: "<unistd.h>", sideEffect.}
   proc read(a1: cint, a2: pointer, a3: csize_t): int {.
-       importc, header: "<unistd.h>".}
+       importc, header: "<unistd.h>", sideEffect.}
   proc c_strerror(errnum: cint): cstring {.
-       importc: "strerror", header: "<string.h>".}
+       importc: "strerror", header: "<string.h>", sideEffect.}
   proc c_free(p: pointer) {.
-       importc: "free", header: "<stdlib.h>".}
+       importc: "free", header: "<stdlib.h>", sideEffect.}
   proc getcwd(a1: cstring, a2: int): cstring {.
        importc, header: "<unistd.h>", sideEffect.}
 
@@ -287,8 +287,8 @@ type
 
   IoLockHandle* = object
     handle*: IoHandle
-    offset*: int
-    size*: int
+    offset*: int64
+    size*: int64
 
 const
   NimErrorCode = 100_000
@@ -1369,8 +1369,8 @@ proc readAllFile*(pathName: string): IoResult[seq[byte]] =
   ## Alias for ``readAllBytes()``.
   readAllBytes(pathName)
 
-proc lockFile*(handle: IoHandle, kind: LockType, offset: int,
-               size: int): IoResult[void] =
+proc lockFile*(handle: IoHandle, kind: LockType, offset,
+               size: int64): IoResult[void] =
   ## Apply shared or exclusive file segment lock for file handle ``handle`` and
   ## range specified by ``offset`` and ``size`` parameters.
   ##
@@ -1383,6 +1383,9 @@ proc lockFile*(handle: IoHandle, kind: LockType, offset: int,
   ##
   ## ``size`` - length of the byte range to be locked. ``size`` should be always
   ## bigger or equal to ``0``.
+  ##
+  ## If both ``offset`` and ``size`` are equal to ``0`` whole file would be
+  ## locked.
   doAssert(offset >= 0)
   doAssert(size >= 0)
   when defined(posix):
@@ -1392,8 +1395,23 @@ proc lockFile*(handle: IoHandle, kind: LockType, offset: int,
         cshort(posix.F_RDLCK)
       of LockType.Exclusive:
         cshort(posix.F_WRLCK)
-    var flockObj = FlockStruct(ltype: ltype, lwhence: cshort(posix.SEEK_SET),
-                               start: offset, length: size)
+    var flockObj =
+      when sizeof(int) == 8:
+        # There is no need to perform overflow check, so we just cast.
+        FlockStruct(ltype: ltype, lwhence: cshort(posix.SEEK_SET),
+                    start: cast[int](offset), length: cast[int](size))
+      else:
+        # Currently we do not support `__USE_FILE_OFFSET64` because its
+        # Linux specific #define, and it not present in BSD systems. So
+        # on 32bit systems we do not support range locks which exceed `int32`
+        # value size.
+        if offset > int64(high(int)):
+          return err(IoErrorCode(EFBIG))
+        if size > int64(high(int)):
+          return err(IoErrorCode(EFBIG))
+        # We already made overflow check, so we just cast.
+        FlockStruct(ltype: ltype, lwhence: cshort(posix.SEEK_SET),
+                    start: cast[int](offset), length: cast[int](size))
     while true:
       let res = posix.fcntl(cint(handle), posix.F_SETLK, addr flockObj)
       if res == -1:
@@ -1405,9 +1423,16 @@ proc lockFile*(handle: IoHandle, kind: LockType, offset: int,
       else:
         return ok()
   elif defined(windows):
-    let
-      (lowOffsetPart, highOffsetPart) = makeUint32(uint64(offset))
-      (lowSizePart, highSizePart) = makeUint32(uint64(size))
+    let (lowOffsetPart, highOffsetPart, lowSizePart, highSizePart) =
+      if offset == 0'i64 and size == 0'i64:
+        # We try to keep cross-platform behavior on Windows. And we can do it
+        # because: Locking a region that goes beyond the current end-of-file
+        # position is not an error.
+        (0'u32, 0'u32, 0xFFFF_FFFF'u32, 0xFFFF_FFFF'u32)
+      else:
+        let offsetTuple = makeUint32(uint64(offset))
+        let sizeTuple = makeUint32(uint64(size))
+        (offsetTuple[0], offsetTuple[1], sizeTuple[0], sizeTuple[1])
     var ovl = OVERLAPPED(offset: lowOffsetPart, offsetHigh: highOffsetPart)
     let
       flags =
@@ -1423,7 +1448,7 @@ proc lockFile*(handle: IoHandle, kind: LockType, offset: int,
     else:
       ok()
 
-proc unlockFile*(handle: IoHandle, offset: int, size: int): IoResult[void] =
+proc unlockFile*(handle: IoHandle, offset, size: int64): IoResult[void] =
   ## Clear shared or exclusive file segment lock for file handle ``handle`` and
   ## range specified by ``offset`` and ``size`` parameters.
   ##
@@ -1436,8 +1461,23 @@ proc unlockFile*(handle: IoHandle, offset: int, size: int): IoResult[void] =
   doAssert(size >= 0)
   when defined(posix):
     let ltype = cshort(posix.F_UNLCK)
-    var flockObj = FlockStruct(ltype: ltype, lwhence: cshort(posix.SEEK_SET),
-                               start: offset, length: size)
+    var flockObj =
+      when sizeof(int) == 8:
+        # There is no need to perform overflow check, so we just cast.
+        FlockStruct(ltype: ltype, lwhence: cshort(posix.SEEK_SET),
+                    start: cast[int](offset), length: cast[int](size))
+      else:
+        # Currently we do not support `__USE_FILE_OFFSET64` because its
+        # Linux specific #define, and it not present in BSD systems. So
+        # on 32bit systems we do not support range locks which exceed `int32`
+        # value size.
+        if offset > int64(high(int)):
+          return err(IoErrorCode(EFBIG))
+        if size > int64(high(int)):
+          return err(IoErrorCode(EFBIG))
+        # We already made overflow check, so we just cast.
+        FlockStruct(ltype: ltype, lwhence: cshort(posix.SEEK_SET),
+                    start: cast[int](offset), length: cast[int](size))
     while true:
       let res = posix.fcntl(cint(handle), F_SETLK, addr flockObj)
       if res == -1:
@@ -1449,9 +1489,16 @@ proc unlockFile*(handle: IoHandle, offset: int, size: int): IoResult[void] =
       else:
         return ok()
   elif defined(windows):
-    let
-      (lowOffsetPart, highOffsetPart) = makeUint32(uint64(offset))
-      (lowSizePart, highSizePart) = makeUint32(uint64(size))
+    let (lowOffsetPart, highOffsetPart, lowSizePart, highSizePart) =
+      if offset == 0'i64 and size == 0'i64:
+        # We try to keep cross-platform behavior on Windows. And we can do it
+        # because: Locking a region that goes beyond the current end-of-file
+        # position is not an error.
+        (0'u32, 0'u32, 0xFFFF_FFFF'u32, 0xFFFF_FFFF'u32)
+      else:
+        let offsetTuple = makeUint32(uint64(offset))
+        let sizeTuple = makeUint32(uint64(size))
+        (offsetTuple[0], offsetTuple[1], sizeTuple[0], sizeTuple[1])
     var ovl = OVERLAPPED(offset: lowOffsetPart, offsetHigh: highOffsetPart)
     let res = unlockFileEx(uint(handle), 0'u32, lowSizePart,
                            highSizePart, addr ovl)
@@ -1469,18 +1516,8 @@ proc lockFile*(handle: IoHandle, kind: LockType): IoResult[IoLockHandle] =
   ## locks require ``handle`` to be opened for writing.
   ##
   ## On success returns ``IoLockHandle`` object which could be used for unlock.
-  let size =
-    block:
-      let res = ? getFileSize(handle)
-      when sizeof(int) == 4:
-        if res > int64(high(int)):
-          high(int)
-        else:
-          int(res)
-      else:
-        int(res)
-  ? lockFile(handle, kind, 0, size)
-  ok(IoLockHandle(handle: handle, offset: 0, size: size))
+  ? lockFile(handle, kind, 0'i64, 0'i64)
+  ok(IoLockHandle(handle: handle, offset: 0'i64, size: 0'i64))
 
 proc unlockFile*(lock: IoLockHandle): IoResult[void] =
   ## Clear shared or exclusive lock ``lock``.
