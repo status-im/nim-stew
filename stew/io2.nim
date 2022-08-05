@@ -1384,8 +1384,7 @@ proc lockFile*(handle: IoHandle, kind: LockType, offset,
   ## ``size`` - length of the byte range to be locked. ``size`` should be always
   ## bigger or equal to ``0``.
   ##
-  ## If both ``offset`` and ``size`` are equal to ``0`` whole file would be
-  ## locked.
+  ## If ``offset`` and ``size`` are both equal to ``0`` the entire file is locked.
   doAssert(offset >= 0)
   doAssert(size >= 0)
   when defined(posix):
