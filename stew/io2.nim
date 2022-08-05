@@ -1400,10 +1400,10 @@ proc lockFile*(handle: IoHandle, kind: LockType, offset,
         FlockStruct(ltype: ltype, lwhence: cshort(posix.SEEK_SET),
                     start: cast[int](offset), length: cast[int](size))
       else:
-        # Currently we do not support `__USE_FILE_OFFSET64` because its
-        # Linux specific #define, and it not present in BSD systems. So
-        # on 32bit systems we do not support range locks which exceed `int32`
-        # value size.
+        # Currently we do not support `__USE_FILE_OFFSET64` or
+        # `__USE_LARGEFILE64` because its Linux specific #defines, and is not
+        # present on BSD systems. Therefore, on 32bit systems we do not support
+        # range locks which exceed `int32` value size.
         if offset > int64(high(int)):
           return err(IoErrorCode(EFBIG))
         if size > int64(high(int)):
