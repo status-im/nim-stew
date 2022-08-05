@@ -7,7 +7,11 @@
 {.used.}
 
 import unittest2
+import std/[osproc, strutils]
 import ../stew/io2
+
+when defined(posix):
+  from std/posix import EAGAIN
 
 suite "OS Input/Output procedures test suite":
   test "getCurrentDir() test":
@@ -521,3 +525,213 @@ suite "OS Input/Output procedures test suite":
       positions[2] == 0'i64
       positions[3] == 10'i64
       positions[4] == 20'i64
+
+  test "lockFile(handle)/unlockFile(handle) test":
+    type
+      TestResult = object
+        output: string
+        status: int
+
+    proc createLockFile(path: string): IoResult[void] =
+      io2.writeFile(path, "LOCKFILEDATA")
+
+    proc removeLockFile(path: string): IoResult[void] =
+      io2.removeFile(path)
+
+    proc lockTest(path: string, flags: set[OpenFlags],
+                  lockType: LockType): IoResult[array[3, TestResult]] =
+      const HelperPath =
+        when defined(windows):
+          "test_helper "
+        else:
+          "tests/test_helper "
+      let
+        handle = ? openFile(path, flags)
+        lock = ? lockFile(handle, lockType)
+      let res1 =
+        try:
+          execCmdEx(HelperPath & path)
+        except CatchableError as exc:
+          echo "Exception happens [", $exc.name, "]: ", $exc.msg
+          ("", -1)
+      ? unlockFile(lock)
+      let res2 =
+        try:
+          execCmdEx(HelperPath & path)
+        except CatchableError as exc:
+          echo "Exception happens [", $exc.name, "]: ", $exc.msg
+          ("", -1)
+      ? closeFile(handle)
+      let res3 =
+        try:
+          execCmdEx(HelperPath & path)
+        except CatchableError as exc:
+          echo "Exception happens [", $exc.name, "]: ", $exc.msg
+          ("", -1)
+      ok([
+        TestResult(output: strip(res1.output), status: res1.exitCode),
+        TestResult(output: strip(res2.output), status: res2.exitCode),
+        TestResult(output: strip(res3.output), status: res3.exitCode),
+      ])
+
+    proc performTest(): IoResult[void] =
+      let path1 = "testfile.lock"
+
+      when defined(windows):
+        const
+          ERROR_LOCK_VIOLATION = 33
+          ERROR_SHARING_VIOLATION = 32
+        let
+          LockTests = [
+            (
+              {OpenFlags.Read},
+              LockType.Shared,
+              "OK:E$1:E$1:E$1:OK:E$1:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "OK:E$1:E$1:E$1:OK:E$1:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Write},
+              LockType.Exclusive,
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Read, OpenFlags.Write},
+              LockType.Shared,
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Read, OpenFlags.Write},
+              LockType.Exclusive,
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Read, OpenFlags.ShareRead},
+              LockType.Shared,
+              "OK:E$1:E$1:E$1:OK:E$1:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "OK:E$1:E$1:E$1:OK:E$1:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Write, OpenFlags.ShareWrite},
+              LockType.Exclusive,
+              "E$1:E$1:E$1:E$1:E$1:E$2:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION, $ERROR_LOCK_VIOLATION],
+              "E$1:E$1:E$1:E$1:E$1:OK:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Read, OpenFlags.Write, OpenFlags.ShareRead,
+               OpenFlags.ShareWrite},
+              LockType.Shared,
+              "E$1:E$1:E$1:E$1:E$1:E$1:OK:E$2" %
+                [$ERROR_SHARING_VIOLATION, $ERROR_LOCK_VIOLATION],
+              "E$1:E$1:E$1:E$1:E$1:E$1:OK:OK" %
+                [$ERROR_SHARING_VIOLATION],
+              "OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Read, OpenFlags.Write, OpenFlags.ShareRead,
+               OpenFlags.ShareWrite},
+              LockType.Exclusive,
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$2:E$2" %
+                [$ERROR_SHARING_VIOLATION, $ERROR_LOCK_VIOLATION],
+              "E$1:E$1:E$1:E$1:E$1:E$1:OK:OK" %
+                [$ERROR_SHARING_VIOLATION],
+              "OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+          ]
+      else:
+        let
+          LockTests = [
+            (
+              {OpenFlags.Read},
+              LockType.Shared,
+              "OK:E$1:OK:E$1:OK:E$1:OK:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Write},
+              LockType.Exclusive,
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Read, OpenFlags.Write},
+              LockType.Shared,
+              "OK:E$1:OK:E$1:OK:E$1:OK:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Read, OpenFlags.Write},
+              LockType.Exclusive,
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Read, OpenFlags.ShareRead},
+              LockType.Shared,
+              "OK:E$1:OK:E$1:OK:E$1:OK:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Write, OpenFlags.ShareWrite},
+              LockType.Exclusive,
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Read, OpenFlags.Write, OpenFlags.ShareRead,
+               OpenFlags.ShareWrite},
+              LockType.Shared,
+              "OK:E$1:OK:E$1:OK:E$1:OK:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK",
+            ),
+            (
+              {OpenFlags.Read, OpenFlags.Write, OpenFlags.ShareRead,
+               OpenFlags.ShareWrite},
+              LockType.Exclusive,
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+          ]
+
+      ? createLockFile(path1)
+      for item in LockTests:
+        let res = ? lockTest(path1, item[0], item[1])
+        check:
+          res[0].status == 0
+          res[1].status == 0
+          res[2].status == 0
+          res[0].output == item[2]
+          res[1].output == item[3]
+          res[2].output == item[4]
+      ? removeLockFile(path1)
+      ok()
+
+    check performTest().isOk()

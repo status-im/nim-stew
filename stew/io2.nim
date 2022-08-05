@@ -33,8 +33,10 @@ when defined(windows):
     TRUNCATE_EXISTING = 5'u32
 
     FILE_FLAG_OVERLAPPED = 0x40000000'u32
+    FILE_SHARE_READ = 0x00000001'u32
+    FILE_SHARE_WRITE = 0x00000002'u32
+
     FILE_FLAG_NO_BUFFERING = 0x20000000'u32
-    FILE_SHARE_READ = 1'u32
     FILE_ATTRIBUTE_READONLY = 0x00000001'u32
     FILE_ATTRIBUTE_DIRECTORY = 0x00000010'u32
 
@@ -100,6 +102,13 @@ when defined(windows):
       changeTime: uint64
       fileAttributes: uint32
 
+    OVERLAPPED* {.pure, inheritable.} = object
+      internal*: uint
+      internalHigh*: uint
+      offset*: uint32
+      offsetHigh*: uint32
+      hEvent*: IoHandle
+
   proc getLastError(): uint32 {.
        importc: "GetLastError", stdcall, dynlib: "kernel32", sideEffect.}
   proc createDirectoryW(pathName: WideCString,
@@ -140,35 +149,49 @@ when defined(windows):
                       arguments: pointer): uint32 {.
        importc: "FormatMessageW", stdcall, dynlib: "kernel32".}
   proc localFree(p: pointer): uint {.
-       importc: "LocalFree", stdcall, dynlib: "kernel32".}
+       importc: "LocalFree", stdcall, dynlib: "kernel32", sideEffect.}
   proc getLongPathNameW(lpszShortPath: WideCString, lpszLongPath: WideCString,
                         cchBuffer: uint32): uint32 {.
-       importc: "GetLongPathNameW", dynlib: "kernel32.dll", stdcall.}
+       importc: "GetLongPathNameW", dynlib: "kernel32.dll", stdcall,
+       sideEffect.}
   proc findFirstFileW(lpFileName: WideCString,
                       lpFindFileData: var WIN32_FIND_DATAW): uint {.
-       importc: "FindFirstFileW", dynlib: "kernel32", stdcall.}
+       importc: "FindFirstFileW", dynlib: "kernel32", stdcall, sideEffect.}
   proc findClose(hFindFile: uint): int32 {.
-       importc: "FindClose", dynlib: "kernel32", stdcall.}
+       importc: "FindClose", dynlib: "kernel32", stdcall, sideEffect.}
   proc getFileInformationByHandle(hFile: uint,
                                  info: var BY_HANDLE_FILE_INFORMATION): int32 {.
-       importc: "GetFileInformationByHandle", dynlib: "kernel32", stdcall.}
+       importc: "GetFileInformationByHandle", dynlib: "kernel32", stdcall,
+       sideEffect.}
   proc getFileInformationByHandleEx(hFile: uint, information: uint32,
                                     lpFileInformation: pointer,
                                     dwBufferSize: uint32): int32 {.
-       importc: "GetFileInformationByHandleEx", dynlib: "kernel32", stdcall.}
+       importc: "GetFileInformationByHandleEx", dynlib: "kernel32", stdcall,
+       sideEffect.}
   proc setFileInformationByHandle(hFile: uint, information: uint32,
                                   lpFileInformation: pointer,
                                   dwBufferSize: uint32): int32 {.
-       importc: "SetFileInformationByHandle", dynlib: "kernel32", stdcall.}
+       importc: "SetFileInformationByHandle", dynlib: "kernel32", stdcall,
+       sideEffect.}
   proc getFileSize(hFile: uint, lpFileSizeHigh: var uint32): uint32 {.
-       importc: "GetFileSize", dynlib: "kernel32", stdcall.}
+       importc: "GetFileSize", dynlib: "kernel32", stdcall, sideEffect.}
   proc setFilePointerEx(hFile: uint, liDistanceToMove: int64,
                         lpNewFilePointer: ptr int64,
                         dwMoveMethod: uint32): int32 {.
-       importc: "SetFilePointerEx", dynlib: "kernel32", stdcall.}
+       importc: "SetFilePointerEx", dynlib: "kernel32", stdcall, sideEffect.}
+  proc lockFileEx(hFile: uint, dwFlags, dwReserved: uint32,
+                  nNumberOfBytesToLockLow, nNumberOfBytesToLockHigh: uint32,
+                  lpOverlapped: pointer): uint32 {.
+       importc: "LockFileEx", dynlib: "kernel32", stdcall, sideEffect.}
+  proc unlockFileEx(hFile: uint, dwReserved: uint32,
+                    nNumberOfBytesToLockLow, nNumberOfBytesToLockHigh: uint32,
+                    lpOverlapped: pointer): uint32 {.
+       importc: "UnlockFileEx", dynlib: "kernel32", stdcall, sideEffect.}
 
   const
     NO_ERROR = IoErrorCode(0)
+    LOCKFILE_EXCLUSIVE_LOCK = 0x00000002'u32
+    LOCKFILE_FAIL_IMMEDIATELY = 0x00000001'u32
 
   proc `==`*(a: IoErrorCode, b: uint32): bool {.inline.} =
     (uint32(a) == b)
@@ -180,6 +203,11 @@ elif defined(posix):
     DirSep* = '/'
     AltSep* = '/'
     BothSeps* = {'/'}
+
+    LOCK_SH* = 0x01
+    LOCK_EX* = 0x02
+    LOCK_NB* = 0x04
+    LOCK_UN* = 0x08
 
   type
     IoHandle* = distinct cint
@@ -209,18 +237,28 @@ elif defined(posix):
       O_CLOEXEC = cint(0x1000000)
       F_NOCACHE = cint(48)
 
+  type
+    FlockStruct* {.importc: "struct flock", final, pure,
+                   header: "<fcntl.h>".} = object
+      ltype* {.importc: "l_type".}: cshort
+      lwhence* {.importc: "l_whence".}: cshort
+      start* {.importc: "l_start".}: int
+      length* {.importc: "l_len".}: int
+      pid* {.importc: "l_pid".}: int32
+
   var errno {.importc, header: "<errno.h>".}: cint
 
   proc write(a1: cint, a2: pointer, a3: csize_t): int {.
-       importc, header: "<unistd.h>".}
+       importc, header: "<unistd.h>", sideEffect.}
   proc read(a1: cint, a2: pointer, a3: csize_t): int {.
-       importc, header: "<unistd.h>".}
+       importc, header: "<unistd.h>", sideEffect.}
   proc c_strerror(errnum: cint): cstring {.
-       importc: "strerror", header: "<string.h>".}
+       importc: "strerror", header: "<string.h>", sideEffect.}
   proc c_free(p: pointer) {.
-       importc: "free", header: "<stdlib.h>".}
+       importc: "free", header: "<stdlib.h>", sideEffect.}
   proc getcwd(a1: cstring, a2: int): cstring {.
        importc, header: "<unistd.h>", sideEffect.}
+
   proc `==`*(a: IoErrorCode, b: cint): bool {.inline.} =
     (cint(a) == b)
 
@@ -229,7 +267,7 @@ type
 
   OpenFlags* {.pure.} = enum
     Read, Write, Create, Exclusive, Append, Truncate,
-    Inherit, NonBlock, Direct
+    Inherit, NonBlock, Direct, ShareRead, ShareWrite
 
   Permission* = enum
     UserRead, UserWrite, UserExec,
@@ -243,6 +281,14 @@ type
 
   AccessFlags* {.pure.} = enum
     Find, Read, Write, Execute
+
+  LockType* {.pure.} = enum
+    Shared, Exclusive
+
+  IoLockHandle* = object
+    handle*: IoHandle
+    offset*: int64
+    size*: int64
 
 const
   NimErrorCode = 100_000
@@ -1010,6 +1056,11 @@ proc openFile*(pathName: string, flags: set[OpenFlags],
        ((dwAccess and (GENERIC_READ or GENERIC_WRITE)) == GENERIC_READ):
       dwShareMode = dwShareMode or FILE_SHARE_READ
 
+    if OpenFlags.ShareRead in flags:
+      dwShareMode = dwShareMode or FILE_SHARE_READ
+    if OpenFlags.ShareWrite in flags:
+      dwShareMode = dwShareMode or FILE_SHARE_WRITE
+
     if OpenFlags.NonBlock in flags:
       dwFlags = dwFlags or FILE_FLAG_OVERLAPPED
     if OpenFlags.Direct in flags:
@@ -1148,6 +1199,8 @@ proc writeFile*(pathName: string, data: openArray[byte],
 when defined(windows):
   template makeInt64(a, b: uint32): int64 =
     (int64(a and 0x7FFF_FFFF'u32) shl 32) or int64(b and 0xFFFF_FFFF'u32)
+  template makeUint32(a: uint64): tuple[lowPart: uint32, highPart: uint32] =
+    (uint32(a and 0xFFFF_FFFF'u64), uint32((a shr 32) and 0xFFFF_FFFF'u64))
 
 proc writeFile*(pathName: string, data: openArray[char],
                 createMode: int = 0o644,
@@ -1315,3 +1368,160 @@ proc readAllChars*(pathName: string): IoResult[string] =
 proc readAllFile*(pathName: string): IoResult[seq[byte]] =
   ## Alias for ``readAllBytes()``.
   readAllBytes(pathName)
+
+proc lockFile*(handle: IoHandle, kind: LockType, offset,
+               size: int64): IoResult[void] =
+  ## Apply shared or exclusive file segment lock for file handle ``handle`` and
+  ## range specified by ``offset`` and ``size`` parameters.
+  ##
+  ## ``kind`` - type of lock (shared or exclusive). Please note that only
+  ## exclusive locks have cross-platform compatible behavior. Hovewer, exclusive
+  ## locks require ``handle`` to be opened for writing.
+  ##
+  ## ``offset`` - starting byte offset in the file where the lock should
+  ## begin. ``offset`` should be always bigger or equal to ``0``.
+  ##
+  ## ``size`` - length of the byte range to be locked. ``size`` should be always
+  ## bigger or equal to ``0``.
+  ##
+  ## If ``offset`` and ``size`` are both equal to ``0`` the entire file is locked.
+  doAssert(offset >= 0)
+  doAssert(size >= 0)
+  when defined(posix):
+    let ltype =
+      case kind
+      of LockType.Shared:
+        cshort(posix.F_RDLCK)
+      of LockType.Exclusive:
+        cshort(posix.F_WRLCK)
+    var flockObj =
+      when sizeof(int) == 8:
+        # There is no need to perform overflow check, so we just cast.
+        FlockStruct(ltype: ltype, lwhence: cshort(posix.SEEK_SET),
+                    start: cast[int](offset), length: cast[int](size))
+      else:
+        # Currently we do not support `__USE_FILE_OFFSET64` or
+        # `__USE_LARGEFILE64` because its Linux specific #defines, and is not
+        # present on BSD systems. Therefore, on 32bit systems we do not support
+        # range locks which exceed `int32` value size.
+        if offset > int64(high(int)):
+          return err(IoErrorCode(EFBIG))
+        if size > int64(high(int)):
+          return err(IoErrorCode(EFBIG))
+        # We already made overflow check, so we just cast.
+        FlockStruct(ltype: ltype, lwhence: cshort(posix.SEEK_SET),
+                    start: cast[int](offset), length: cast[int](size))
+    while true:
+      let res = posix.fcntl(cint(handle), posix.F_SETLK, addr flockObj)
+      if res == -1:
+        let errCode = ioLastError()
+        if errCode == EINTR:
+          continue
+        else:
+          return err(errCode)
+      else:
+        return ok()
+  elif defined(windows):
+    let (lowOffsetPart, highOffsetPart, lowSizePart, highSizePart) =
+      if offset == 0'i64 and size == 0'i64:
+        # We try to keep cross-platform behavior on Windows. And we can do it
+        # because: Locking a region that goes beyond the current end-of-file
+        # position is not an error.
+        (0'u32, 0'u32, 0xFFFF_FFFF'u32, 0xFFFF_FFFF'u32)
+      else:
+        let offsetTuple = makeUint32(uint64(offset))
+        let sizeTuple = makeUint32(uint64(size))
+        (offsetTuple[0], offsetTuple[1], sizeTuple[0], sizeTuple[1])
+    var ovl = OVERLAPPED(offset: lowOffsetPart, offsetHigh: highOffsetPart)
+    let
+      flags =
+        case kind
+        of LockType.Shared:
+          LOCKFILE_FAIL_IMMEDIATELY
+        of LockType.Exclusive:
+          LOCKFILE_FAIL_IMMEDIATELY or LOCKFILE_EXCLUSIVE_LOCK
+      res = lockFileEx(uint(handle), flags, 0'u32, lowSizePart,
+                       highSizePart, addr ovl)
+    if res == 0:
+      err(ioLastError())
+    else:
+      ok()
+
+proc unlockFile*(handle: IoHandle, offset, size: int64): IoResult[void] =
+  ## Clear shared or exclusive file segment lock for file handle ``handle`` and
+  ## range specified by ``offset`` and ``size`` parameters.
+  ##
+  ## ``offset`` - starting byte offset in the file where the lock placed.
+  ## ``offset`` should be always bigger or equal to ``0``.
+  ##
+  ## ``size`` - length of the byte range to be unlocked. ``size`` should be
+  ## always bigger or equal to ``0``.
+  doAssert(offset >= 0)
+  doAssert(size >= 0)
+  when defined(posix):
+    let ltype = cshort(posix.F_UNLCK)
+    var flockObj =
+      when sizeof(int) == 8:
+        # There is no need to perform overflow check, so we just cast.
+        FlockStruct(ltype: ltype, lwhence: cshort(posix.SEEK_SET),
+                    start: cast[int](offset), length: cast[int](size))
+      else:
+        # Currently we do not support `__USE_FILE_OFFSET64` because its
+        # Linux specific #define, and it not present in BSD systems. So
+        # on 32bit systems we do not support range locks which exceed `int32`
+        # value size.
+        if offset > int64(high(int)):
+          return err(IoErrorCode(EFBIG))
+        if size > int64(high(int)):
+          return err(IoErrorCode(EFBIG))
+        # We already made overflow check, so we just cast.
+        FlockStruct(ltype: ltype, lwhence: cshort(posix.SEEK_SET),
+                    start: cast[int](offset), length: cast[int](size))
+    while true:
+      let res = posix.fcntl(cint(handle), F_SETLK, addr flockObj)
+      if res == -1:
+        let errCode = ioLastError()
+        if errCode == EINTR:
+          continue
+        else:
+          return err(errCode)
+      else:
+        return ok()
+  elif defined(windows):
+    let (lowOffsetPart, highOffsetPart, lowSizePart, highSizePart) =
+      if offset == 0'i64 and size == 0'i64:
+        # We try to keep cross-platform behavior on Windows. And we can do it
+        # because: Locking a region that goes beyond the current end-of-file
+        # position is not an error.
+        (0'u32, 0'u32, 0xFFFF_FFFF'u32, 0xFFFF_FFFF'u32)
+      else:
+        let offsetTuple = makeUint32(uint64(offset))
+        let sizeTuple = makeUint32(uint64(size))
+        (offsetTuple[0], offsetTuple[1], sizeTuple[0], sizeTuple[1])
+    var ovl = OVERLAPPED(offset: lowOffsetPart, offsetHigh: highOffsetPart)
+    let res = unlockFileEx(uint(handle), 0'u32, lowSizePart,
+                           highSizePart, addr ovl)
+    if res == 0:
+      err(ioLastError())
+    else:
+      ok()
+
+proc lockFile*(handle: IoHandle, kind: LockType): IoResult[IoLockHandle] =
+  ## Apply exclusive or shared lock to whole file specified by file handle
+  ## ``handle``.
+  ##
+  ## ``kind`` - type of lock (shared or exclusive). Please note that only
+  ## exclusive locks have cross-platform compatible behavior. Hovewer, exclusive
+  ## locks require ``handle`` to be opened for writing.
+  ##
+  ## On success returns ``IoLockHandle`` object which could be used for unlock.
+  ? lockFile(handle, kind, 0'i64, 0'i64)
+  ok(IoLockHandle(handle: handle, offset: 0'i64, size: 0'i64))
+
+proc unlockFile*(lock: IoLockHandle): IoResult[void] =
+  ## Clear shared or exclusive lock ``lock``.
+  let res = unlockFile(lock.handle, lock.offset, lock.size)
+  if res.isErr():
+    err(res.error())
+  else:
+    ok()
