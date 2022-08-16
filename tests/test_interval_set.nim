@@ -239,6 +239,18 @@ suite "IntervalSet: Intervals of FancyPoint entries over FancyScalar":
     check br.ge(uHigh) == iv(uHigh,uHigh)
     check br.envelope(uHigh) == iv(uHigh,uHigh)
 
+  test "Merge overlapping intervals":
+    br.clear()
+    check br.merge(100, 199) == 100
+    check br.merge(150, 200) == 1
+    check br.total == 101
+    check br.chunks == 1
+    check br.verify.isOk
+    check br.merge( 99, 150) == 1
+    check br.total == 102
+    check br.chunks == 1
+    check br.verify.isOk
+
   test "Merge disjunct intervals on 1st set":
     br.clear()
     check br.merge(  0,  99) == 100
