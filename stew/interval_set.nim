@@ -426,14 +426,15 @@ proc merge[P,S](ds: Desc[P,S]; iv: Segm[P,S]): Segm[P,S] =
     #     iv:     ...----------------)
     #     p:      ...-----)
     #
-    p.blk.size += iv.len # update database
-    ds.ptsCount += iv.len   # update database
+    let extend = iv.right - p.right
+    p.blk.size += extend   # update database
+    ds.ptsCount += extend  # update database
     #
     #     iv:     ...----------------)
     #     p:      ...----------------)
     #     result:          [---------)
     #
-    return Segm[P,S].new(p.right, iv.right)
+    return Segm[P,S].new(p.right - extend, iv.right)
 
   # now: iv.right <= p.right and p.left <= iv.left:
   if p.left <= iv.left:
