@@ -74,7 +74,7 @@ type
     ##
     ## # ... or `Result[void, E]` as a replacement for `bool`, providing extra error
     ## # information!
-    ## let y = Resul[void, string].err("computation failed")
+    ## let y = Result[void, string].err("computation failed")
     ## echo y.error()
     ##
     ## ```
