@@ -167,7 +167,7 @@ template fromBytes*(
     I: type SomeUnsignedInt,
     x: Leb128Buf): tuple[val: I, len: int8] =
   # x is not guaranteed to be valid, so we treat it like any other buffer!
-  I.fromBytes(x.toOpenArray(), Leb128)
+  fromBytes(I, x.toOpenArray(), Leb128)
 
 func scan*(
     I: type SomeUnsignedInt,
