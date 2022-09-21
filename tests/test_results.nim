@@ -403,3 +403,15 @@ block: # Experiments
     counter2 += 1
 
   doAssert counter2 == 1, "one-item collection when set"
+
+block:
+  type
+    ValidatorSig = object
+      blob: array[96, byte]
+    SyncDutyAndProof = object
+      slotSig: Opt[ValidatorSig]
+  const
+    DefaultSyncDutyAndProof =
+      SyncDutyAndProof(slotSig: Opt.none(ValidatorSig))
+
+  echo DefaultSyncDutyAndProof
