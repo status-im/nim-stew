@@ -46,7 +46,7 @@ func hexToByteArrayImpl(hexStr: openArray[char], output: var openArray[byte], fr
   ## Allows specifying the byte range to process into the array
   var sIdx = skip0xPrefix(hexStr)
 
-  if fromIdx <= 0 or toIdx <= fromIdx or fromIdx > output.len or toIdx > output.len:
+  if fromIdx < 0 or toIdx < fromIdx or fromIdx > output.len or toIdx > output.len:
     raise (ref ValueError)(msg: "hex value is invalid")
 
   let sz = toIdx - fromIdx + 1

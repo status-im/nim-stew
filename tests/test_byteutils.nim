@@ -65,6 +65,9 @@ suite "Byte utils":
     expect(ValueError): discard hexToByteArray[1]("")
     expect(ValueError): discard hexToByteArray[1]("1")
 
+  test "hexToByteArray: Nully value":
+    expect(ValueError): discard hexToByteArray[1]("0x")
+
   test "array.fromHex":
     let
       s = "0x12345678"
