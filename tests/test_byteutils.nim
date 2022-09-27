@@ -73,10 +73,14 @@ suite "Byte utils":
       hexToByteArray("0x", buffer)
 
     expect(ValueError):
-      var buffer: distinct seq[byte]
-      hexToByteArray("0x", (openArray[byte])buffer)
+      var buffer: seq[byte]
+      hexToByteArray("0x", openArray[byte](buffer))
 
     expect(ValueError): discard hexToByteArray[1]("0x")
+
+  test "valid hex with empty array":
+    var buffer: seq[byte]
+    hexToByteArray("0x123", openArray[byte](buffer))
 
   test "array.fromHex":
     let

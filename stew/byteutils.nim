@@ -49,7 +49,10 @@ func hexToByteArrayImpl(hexStr: openArray[char], output: var openArray[byte], fr
   if hexStr.len - sIdx < 1:
     raise (ref ValueError)(msg: "hex value too short")
 
-  doAssert(fromIdx >= 0 and toIdx >= fromIdx and fromIdx < output.len and toIdx < output.len)
+  # Ensure we have at least some output buffer
+  if output.len > 0:
+    doAssert(fromIdx >= 0 and toIdx >= fromIdx)
+    doAssert(fromIdx < output.len and toIdx < output.len)
 
   let sz = toIdx - fromIdx + 1
 
