@@ -11,6 +11,8 @@ import
   unittest2,
   ../stew/byteutils
 
+import typetraits
+
 proc compilationTest {.exportc: "compilationTest".} =
   var bytes = @[1.byte, 2, 3, 4]
   writeFile("test", bytes)
@@ -65,7 +67,15 @@ suite "Byte utils":
     expect(ValueError): discard hexToByteArray[1]("")
     expect(ValueError): discard hexToByteArray[1]("1")
 
-  test "hexToByteArray: Nully value":
+  test "hexToByteArray: Invalid value":
+    expect(ValueError):
+      var buffer: array[1, byte]
+      hexToByteArray("0x", buffer)
+
+    expect(ValueError):
+      var buffer: distinct seq[byte]
+      hexToByteArray("0x", (openArray[byte])buffer)
+
     expect(ValueError): discard hexToByteArray[1]("0x")
 
   test "array.fromHex":
