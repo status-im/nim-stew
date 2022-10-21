@@ -46,9 +46,6 @@ func hexToByteArrayImpl(hexStr: openArray[char], output: var openArray[byte], fr
   ## Allows specifying the byte range to process into the array
   var sIdx = skip0xPrefix(hexStr)
 
-  if hexStr.len - sIdx < 1:
-    raise (ref ValueError)(msg: "hex value too short")
-
   # Ensure we have at least some output buffer
   if output.len > 0:
     doAssert(fromIdx >= 0 and toIdx >= fromIdx)
