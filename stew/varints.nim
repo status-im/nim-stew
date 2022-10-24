@@ -113,11 +113,12 @@ func feedByte*(p: var VarintParser, b: byte): VarintState =
   ##     has been exceed. The supplied input can be considered invalid.
   ##
   const maxShift = maxBits type(p)
+  type IntType = p.IntType
 
   if p.shift >= maxShift:
     return Overflow
 
-  p.res = p.res or (p.IntType(b and 0x7F'u8) shl p.shift)
+  p.res = p.res or (IntType(b and 0x7F'u8) shl p.shift)
   p.shift += 7
 
   if (b and 0x80'u8) == 0'u8:

@@ -24,16 +24,22 @@ type
   MutByteRange* = MutRange[byte]
 
 proc isLiteral[T](s: seq[T]): bool {.inline.} =
-  type
-    SeqHeader = object
-      length, reserved: int
-  (cast[ptr SeqHeader](s).reserved and (1 shl (sizeof(int) * 8 - 2))) != 0
+  when defined(gcOrc) or defined(gcArc):
+    false
+  else:
+    type
+      SeqHeader = object
+        length, reserved: int
+    (cast[ptr SeqHeader](s).reserved and (1 shl (sizeof(int) * 8 - 2))) != 0
 
 proc toImmutableRange[T](a: seq[T]): Range[T] =
   if a.len != 0:
     when rangesGCHoldEnabled:
-      if not isLiteral(a):
-        shallowCopy(result.gcHold, a)
+      when declared(shallowCopy):
+        if not isLiteral(a):
+          shallowCopy(result.gcHold, a)
+        else:
+          result.gcHold = a
       else:
         result.gcHold = a
     result.start = addr result.gcHold[0]
@@ -135,7 +141,10 @@ proc sliceNormalized[T](r: Range[T], ibegin, iend: int): Range[T] =
                             # an empty range
 
   when rangesGCHoldEnabled:
-    shallowCopy(result.gcHold, r.gcHold)
+    when declared(shallowCopy):
+      shallowCopy(result.gcHold, r.gcHold)
+    else:
+      result.gcHold = r.gcHold
   result.start = r.start.offset(ibegin)
   result.mLen = iend - ibegin + 1
 

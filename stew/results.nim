@@ -414,6 +414,10 @@ template err*(): auto = err(typeof(result))
 template isOk*(self: Result): bool = self.o
 template isErr*(self: Result): bool = not self.o
 
+when not defined(nimHasEffectsOfs):
+  template effectsOf(f: untyped) {.pragma.}
+{.push effectsOf: f.}
+
 func map*[T0, E, T1](
     self: Result[T0, E], f: proc(x: T0): T1): Result[T1, E] {.inline.} =
   ## Transform value using f, or return error
@@ -533,6 +537,8 @@ func mapErr*[T](
   else:
     f()
     result.err()
+
+{.pop.}
 
 func mapConvert*[T0, E](
     self: Result[T0, E], T1: type): Result[T1, E] {.inline.} =
@@ -846,6 +852,8 @@ func flatten*[T, E](self: Result[Result[T, E], E]): Result[T, E] =
     else:
       err(Result[T, E], self.error)
 
+{.push effectsOf: callback.}
+
 func filter*[T, E](
     self: Result[T, E],
     callback: proc(x: T): Result[void, E]): Result[T, E] =
@@ -881,6 +889,8 @@ func filter*[T](
       Result[T, void].err()
   else:
     self
+
+{.pop.}
 
 # Options compatibility
 
