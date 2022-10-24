@@ -113,11 +113,12 @@ func feedByte*(p: var VarintParser, b: byte): VarintState =
   ##     has been exceed. The supplied input can be considered invalid.
   ##
   const maxShift = maxBits type(p)
-  type IntType = p.IntType
 
   if p.shift >= maxShift:
     return Overflow
 
+  # workaround https://github.com/nim-lang/Nim/issues/20645
+  type IntType = p.IntType
   p.res = p.res or (IntType(b and 0x7F'u8) shl p.shift)
   p.shift += 7
 
