@@ -117,9 +117,7 @@ func feedByte*(p: var VarintParser, b: byte): VarintState =
   if p.shift >= maxShift:
     return Overflow
 
-  # workaround https://github.com/nim-lang/Nim/issues/20645
-  type IntType = p.IntType
-  p.res = p.res or (IntType(b and 0x7F'u8) shl p.shift)
+  p.res = p.res or (p.IntType(b and 0x7F'u8) shl p.shift)
   p.shift += 7
 
   if (b and 0x80'u8) == 0'u8:
