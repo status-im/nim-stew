@@ -7,8 +7,9 @@
 #
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+when declared(shallowCopy):
+  import ranges/all
 import
-  ranges/all,
   test_assign2,
   test_arrayops,
   test_base10,
