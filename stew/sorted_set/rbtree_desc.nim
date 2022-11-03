@@ -194,7 +194,7 @@ proc newRbTreeRef*[C,K](cmp: RbCmpFn[C,K]; mkc: RbMkcFn[C,K]): RbTreeRef[C,K] =
 proc newWalkId*[C,K](rbt: RbTreeRef[C,K]): uint {.inline.} =
   ## Generate new free walk ID, returns zero in (theoretical) case all other
   ## IDs are exhausted.
-  for id in rbt.walkIdGen .. rbt.walkIdGen.high:
+  for id in rbt.walkIdGen .. high(type rbt.walkIdGen):
     if not rbt.walks.hasKey(id):
       rbt.walkIdGen = id
       return id
