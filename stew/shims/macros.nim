@@ -414,11 +414,19 @@ iterator baseTypes*(exceptionType: NimNode): NimNode =
     yield typ
 
 macro unpackArgs*(callee: untyped, args: untyped): untyped =
+  # nnkArglist was changed to nnkArgList
+  # https://github.com/nim-lang/Nim/pull/17529
+  # https://github.com/nim-lang/Nim/pull/19822
+  const ArgKind = when (NimMajor, NimMinor) < (1, 6):
+                    nnkArglist
+                  else:
+                    nnkArgList
+
   result = newCall(callee)
   for arg in args:
     let arg = if arg.kind == nnkHiddenStdConv: arg[1]
               else: arg
-    if arg.kind == nnkArgList:
+    if arg.kind == ArgKind:
       for subarg in arg:
         result.add subarg
     else:

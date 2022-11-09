@@ -414,8 +414,12 @@ template err*(): auto = err(typeof(result))
 template isOk*(self: Result): bool = self.o
 template isErr*(self: Result): bool = not self.o
 
+when not defined(nimHasEffectsOfs):
+  template effectsOf(f: untyped) {.pragma.}
+
 func map*[T0, E, T1](
-    self: Result[T0, E], f: proc(x: T0): T1): Result[T1, E] {.inline.} =
+    self: Result[T0, E], f: proc(x: T0): T1):
+    Result[T1, E] {.inline, effectsOf: f.} =
   ## Transform value using f, or return error
   ##
   ## ```
@@ -431,7 +435,8 @@ func map*[T0, E, T1](
       result.err(self.e)
 
 func map*[T, E](
-    self: Result[T, E], f: proc(x: T)): Result[void, E] {.inline.} =
+    self: Result[T, E], f: proc(x: T)):
+    Result[void, E] {.inline, effectsOf: f.} =
   ## Transform value using f, or return error
   ##
   ## ```
@@ -448,7 +453,8 @@ func map*[T, E](
       result.err(self.e)
 
 func map*[E, T1](
-    self: Result[void, E], f: proc(): T1): Result[T1, E] {.inline.} =
+    self: Result[void, E], f: proc(): T1):
+    Result[T1, E] {.inline, effectsOf: f.} =
   ## Transform value using f, or return error
   if self.o:
     result.ok(f())
@@ -459,7 +465,8 @@ func map*[E, T1](
       result.err(self.e)
 
 func map*[E](
-    self: Result[void, E], f: proc()): Result[void, E] {.inline.} =
+    self: Result[void, E], f: proc()):
+    Result[void, E] {.inline, effectsOf: f.} =
   ## Call f if value is
   if self.o:
     f()
@@ -471,7 +478,8 @@ func map*[E](
       result.err(self.e)
 
 func flatMap*[T0, E, T1](
-    self: Result[T0, E], f: proc(x: T0): Result[T1, E]): Result[T1, E] {.inline.} =
+    self: Result[T0, E], f: proc(x: T0): Result[T1, E]):
+    Result[T1, E] {.inline, effectsOf: f.} =
   if self.o: f(self.v)
   else:
     when E is void:
@@ -480,7 +488,8 @@ func flatMap*[T0, E, T1](
       Result[T1, E].err(self.e)
 
 func flatMap*[E, T1](
-    self: Result[void, E], f: proc(): Result[T1, E]): Result[T1, E] {.inline.} =
+    self: Result[void, E], f: proc(): Result[T1, E]):
+    Result[T1, E] {.inline, effectsOf: f.} =
   if self.o: f()
   else:
     when E is void:
@@ -489,7 +498,8 @@ func flatMap*[E, T1](
       Result[T1, E].err(self.e)
 
 func mapErr*[T, E0, E1](
-    self: Result[T, E0], f: proc(x: E0): E1): Result[T, E1] {.inline.} =
+    self: Result[T, E0], f: proc(x: E0): E1):
+    Result[T, E1] {.inline, effectsOf: f.} =
   ## Transform error using f, or leave untouched
   if self.o:
     when T is void:
@@ -500,7 +510,8 @@ func mapErr*[T, E0, E1](
     result.err(f(self.e))
 
 func mapErr*[T, E1](
-    self: Result[T, void], f: proc(): E1): Result[T, E1] {.inline.} =
+    self: Result[T, void], f: proc(): E1):
+    Result[T, E1] {.inline, effectsOf: f.} =
   ## Transform error using f, or return value
   if self.o:
     when T is void:
@@ -511,7 +522,8 @@ func mapErr*[T, E1](
     result.err(f())
 
 func mapErr*[T, E0](
-    self: Result[T, E0], f: proc(x: E0)): Result[T, void] {.inline.} =
+    self: Result[T, E0], f: proc(x: E0)):
+    Result[T, void] {.inline, effectsOf: f.} =
   ## Transform error using f, or return value
   if self.o:
     when T is void:
@@ -523,7 +535,8 @@ func mapErr*[T, E0](
     result.err()
 
 func mapErr*[T](
-    self: Result[T, void], f: proc()): Result[T, void] {.inline.} =
+    self: Result[T, void], f: proc()):
+    Result[T, void] {.inline, effectsOf: f.} =
   ## Transform error using f, or return value
   if self.o:
     when T is void:
@@ -848,7 +861,8 @@ func flatten*[T, E](self: Result[Result[T, E], E]): Result[T, E] =
 
 func filter*[T, E](
     self: Result[T, E],
-    callback: proc(x: T): Result[void, E]): Result[T, E] =
+    callback: proc(x: T): Result[void, E]):
+    Result[T, E] {.effectsOf: callback.} =
   ## Apply `callback` to the `self`, iff `self` is not an error. If `callback`
   ## returns an error, return that error, else return `self`
 
@@ -859,7 +873,8 @@ func filter*[T, E](
 
 func filter*[E](
     self: Result[void, E],
-    callback: proc(): Result[void, E]): Result[void, E] =
+    callback: proc(): Result[void, E]):
+    Result[void, E] {.effectsOf: callback.} =
   ## Apply `callback` to the `self`, iff `self` is not an error. If `callback`
   ## returns an error, return that error, else return `self`
 
@@ -870,7 +885,8 @@ func filter*[E](
 
 func filter*[T](
     self: Result[T, void],
-    callback: proc(x: T): bool): Result[T, void] =
+    callback: proc(x: T): bool):
+    Result[T, void] {.effectsOf: callback.} =
   ## Apply `callback` to the `self`, iff `self` is not an error. If `callback`
   ## returns an error, return that error, else return `self`
 

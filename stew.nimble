@@ -12,31 +12,17 @@ requires "nim >= 1.2.0",
 
 ### Helper functions
 proc test(args, path: string) =
-  # nnkArglist was changed to nnkArgList, so can't always use --styleCheck:error
-  # https://github.com/nim-lang/Nim/pull/17529
-  # https://github.com/nim-lang/Nim/pull/19822
-  let styleCheckStyle =
-    if (NimMajor, NimMinor) < (1, 6):
-      "hint"
-    else:
-      "error"
-
   # Compilation language is controlled by TEST_LANG
   exec "nim " & getEnv("TEST_LANG", "c") & " " & getEnv("NIMFLAGS") &
        " " & args &
-       " -r --hints:off --skipParentCfg --styleCheck:usages --styleCheck:" &
-       styleCheckStyle & " " & path
+       " -r --hints:off --skipParentCfg --styleCheck:usages --styleCheck:error" &
+       " " & path
 
 proc buildHelper(args, path: string) =
-  let styleCheckStyle =
-    if (NimMajor, NimMinor) < (1, 6):
-      "hint"
-    else:
-      "error"
   exec "nim " & getEnv("TEST_LANG", "c") & " " & getEnv("NIMFLAGS") &
        " " & args &
-       " --hints:off --skipParentCfg --styleCheck:usages --styleCheck:" &
-       styleCheckStyle & " " & path
+       " --hints:off --skipParentCfg --styleCheck:usages --styleCheck:error" &
+       " " & path
 
 task test, "Run all tests":
   # Building `test_helper.nim`.
