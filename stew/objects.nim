@@ -62,6 +62,8 @@ when not compiles(len((1, 2))):
 proc baseType*(obj: RootObj): cstring {.deprecated.} =
   when not defined(nimTypeNames):
     raiseAssert("you need to compile this with '-d:nimTypeNames'")
+  when defined(arc) or defined(orc):
+    raiseAssert("baseType doesn't work with arc / orc")
   else:
     {.emit: "result = `obj`->m_type->name;".}
 
