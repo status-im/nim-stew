@@ -9,6 +9,9 @@ when defined(nimHasUsed):
 
 suite "Objects":
   test "baseType":
+    when (not defined(nimTypeNames)) or defined(gcOrc) or defined(gcArc):
+      skip()
+      return
     type
       Foo = ref object of RootObj
       Bar = ref object of Foo
@@ -23,19 +26,18 @@ suite "Objects":
       bob = Bob()
       bill = Bill()
 
-    when defined(nimTypeNames):
-      check:
-        foo.baseType == "Foo:ObjectType"
-        bar.baseType == "Bar:ObjectType"
-        baz.baseType == "Baz"
-        bob.baseType == "Bob"
-        bill.baseType == "Bill:ObjectType"
+    check:
+      foo.baseType == "Foo:ObjectType"
+      bar.baseType == "Bar:ObjectType"
+      baz.baseType == "Baz"
+      bob.baseType == "Bob"
+      bill.baseType == "Bill:ObjectType"
 
-      proc f(o: Foo) =
-        check $o.type == "Foo"
-        check o.baseType == "Bar:ObjectType"
+    proc f(o: Foo) =
+      check $o.type == "Foo"
+      check o.baseType == "Bar:ObjectType"
 
-      f(bar)
+    f(bar)
 
   test "declval":
     type
