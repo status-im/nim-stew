@@ -12,32 +12,33 @@ suite "Objects":
     when (not defined(nimTypeNames)) or defined(gcOrc) or defined(gcArc):
       skip()
       return
-    type
-      Foo = ref object of RootObj
-      Bar = ref object of Foo
-      Baz = object of RootObj
-      Bob = object of Baz
-      Bill = ref object of Bob
+    else:
+      type
+        Foo = ref object of RootObj
+        Bar = ref object of Foo
+        Baz = object of RootObj
+        Bob = object of Baz
+        Bill = ref object of Bob
 
-    var
-      foo = Foo()
-      bar = Bar()
-      baz = Baz()
-      bob = Bob()
-      bill = Bill()
+      var
+        foo = Foo()
+        bar = Bar()
+        baz = Baz()
+        bob = Bob()
+        bill = Bill()
 
-    check:
-      foo.baseType == "Foo:ObjectType"
-      bar.baseType == "Bar:ObjectType"
-      baz.baseType == "Baz"
-      bob.baseType == "Bob"
-      bill.baseType == "Bill:ObjectType"
+      check:
+        foo.baseType == "Foo:ObjectType"
+        bar.baseType == "Bar:ObjectType"
+        baz.baseType == "Baz"
+        bob.baseType == "Bob"
+        bill.baseType == "Bill:ObjectType"
 
-    proc f(o: Foo) =
-      check $o.type == "Foo"
-      check o.baseType == "Bar:ObjectType"
+      proc f(o: Foo) =
+        check $o.type == "Foo"
+        check o.baseType == "Bar:ObjectType"
 
-    f(bar)
+      f(bar)
 
   test "declval":
     type

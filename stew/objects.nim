@@ -59,15 +59,15 @@ when not compiles(len((1, 2))):
 # Get an object's base type, as a cstring. Ref objects will have an ":ObjectType"
 # suffix.
 # From: https://gist.github.com/stefantalpalaru/82dc71bb547d6f9178b916e3ed5b527d
-proc baseType*(obj: RootObj): cstring {.deprecated.} =
+proc baseType*[T: RootObj](obj: T): cstring {.deprecated.} =
   when not defined(nimTypeNames):
-    raiseAssert("you need to compile this with '-d:nimTypeNames'")
+    {.error: "baseType requires -d:nimTypeNames".}
   when defined(gcArc) or defined(gcOrc):
-    raiseAssert("baseType doesn't work with arc / orc")
+    {.error: "baseType doesn't work with arc / orc".}
   else:
     {.emit: "result = `obj`->m_type->name;".}
 
-proc baseType*(obj: ref RootObj): cstring {.deprecated.} =
+proc baseType*[T: RootObj](obj: ref T): cstring {.deprecated.} =
   obj[].baseType
 
 macro enumRangeInt64*(a: type[enum]): untyped =
