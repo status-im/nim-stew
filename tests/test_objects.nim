@@ -9,21 +9,24 @@ when defined(nimHasUsed):
 
 suite "Objects":
   test "baseType":
-    type
-      Foo = ref object of RootObj
-      Bar = ref object of Foo
-      Baz = object of RootObj
-      Bob = object of Baz
-      Bill = ref object of Bob
+    when (not defined(nimTypeNames)) or defined(gcOrc) or defined(gcArc):
+      skip()
+      return
+    else:
+      type
+        Foo = ref object of RootObj
+        Bar = ref object of Foo
+        Baz = object of RootObj
+        Bob = object of Baz
+        Bill = ref object of Bob
 
-    var
-      foo = Foo()
-      bar = Bar()
-      baz = Baz()
-      bob = Bob()
-      bill = Bill()
+      var
+        foo = Foo()
+        bar = Bar()
+        baz = Baz()
+        bob = Bob()
+        bill = Bill()
 
-    when defined(nimTypeNames):
       check:
         foo.baseType == "Foo:ObjectType"
         bar.baseType == "Bar:ObjectType"
