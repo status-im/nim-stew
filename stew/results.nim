@@ -304,11 +304,35 @@ type
     ## https://github.com/nim-lang/Nim/issues/13879 - double-zero-init slow
     ## https://github.com/nim-lang/Nim/issues/14318 - generic error raises pragma
 
-    case o: bool
-    of false:
-      e: E
-    of true:
-      v: T
+    # TODO https://github.com/nim-lang/Nim/issues/20699
+    # case o: bool
+    # of false:
+    #   e: E
+    # of true:
+    #   v: T
+
+    when T is void:
+      when E is void:
+        o: bool
+      else:
+        case o: bool
+        of false:
+          e: E
+        of true:
+          discard
+    else:
+      when E is void:
+        case o: bool
+        of false:
+          discard
+        of true:
+          v: T
+      else:
+        case o: bool
+        of false:
+          e: E
+        of true:
+          v: T
 
   Opt*[T] = Result[T, void]
 
