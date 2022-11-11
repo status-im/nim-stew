@@ -403,3 +403,15 @@ block: # Experiments
     counter2 += 1
 
   doAssert counter2 == 1, "one-item collection when set"
+
+block: # Constants
+  # TODO https://github.com/nim-lang/Nim/issues/20699
+  type
+    WithOpt = object
+      opt: Opt[int]
+  const
+    noneWithOpt =
+      WithOpt(opt: Opt.none(int))
+  proc checkIt(v: WithOpt) =
+    doAssert v.opt.isNone()
+  checkIt(noneWithOpt)
