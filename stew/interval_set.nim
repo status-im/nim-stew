@@ -327,7 +327,7 @@ proc len[P,S](iv: Segm[P,S]): S =
 
 # ------
 
-proc inc[P,S](a: var P; n: S) =
+proc incPt[P,S](a: var P; n: S) =
   ## Might not be generally available for point `P` and scalar `S`
   a = a + n
 
@@ -616,13 +616,13 @@ proc coveredImpl[P,S](ds: IntervalSetRef[P,S]; start: P; length: S): S =
         #    p:         [-------------)
         #    overlap:        <------->
         #
-        result.inc p.right - iv.left
+        result.incPt p.right - iv.left
       else:
         #    iv:             [--------)
         #    p:         [--------------------)
         #    overlap:        <------->
         #
-        result.inc iv.len
+        result.incPt iv.len
       break
     else:
       if iv.right < p.right:
@@ -631,13 +631,13 @@ proc coveredImpl[P,S](ds: IntervalSetRef[P,S]; start: P; length: S): S =
         #    p:              [--------------)
         #    overlap:        <-------->
         #
-        result.inc iv.right - p.left
+        result.incPt iv.right - p.left
       else:
         #    iv:        [----------------------)
         #    p:              [----------)
         #    overlap:        <--------->
         #
-        result.inc p.len
+        result.incPt p.len
 
       iv.size = p.left - iv.left
       #      iv:        [---)
