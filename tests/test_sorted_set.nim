@@ -117,25 +117,28 @@ suite "SortedSet: Sorted list based on red-black tree":
   test "Delete items":
     var seen: seq[int]
     let sub7 = keyList.len div 7
-    for n in toSeq(countup(0,sub7)).concat(toSeq(countup(3*sub7,4*sub7))):
-      let
-        key = keyList[n]
-        canDeleteOk = (key notin seen)
+    if sl.len == 0:
+      skip()
+    else:
+      for n in toSeq(countup(0,sub7)).concat(toSeq(countup(3*sub7,4*sub7))):
+        let
+          key = keyList[n]
+          canDeleteOk = (key notin seen)
 
-        data = sl.delete(key)
-        slCheck = sl.verify
+          data = sl.delete(key)
+          slCheck = sl.verify
 
-      if key notin seen:
-        seen.add key
+        if key notin seen:
+          seen.add key
 
-      if slCheck.isErr:
-        check slCheck.error[1] == rbOk # force message
-      check data.isOk == canDeleteOk
+        if slCheck.isErr:
+          check slCheck.error[1] == rbOk # force message
+        check data.isOk == canDeleteOk
 
-      if canDeleteOk:
-        check data.value.key == key
+        if data.isOk: # assuming data.isOk == canDeleteOk if correct
+          check data.value.key == key
 
-    check seen.len + sl.len + rej.len == keyList.len
+      check seen.len + sl.len + rej.len == keyList.len
 
 # ------------------------------------------------------------------------------
 # End
