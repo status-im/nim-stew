@@ -48,3 +48,13 @@ template distance*[T](a, b: ptr T): int =
   # Number of elements between a and b - undefined behavior when difference
   # exceeds what can be represented in an int
   distance(cast[pointer](a), cast[pointer](b)) div sizeof(T)
+
+proc baseAddr*[T](x: openArray[T]): ptr T =
+  # Return the address of the zero:th element of x or `nil` if x is empty
+  if x.len == 0: nil else: cast[ptr T](x)
+
+template makeOpenArray*[T](p: ptr T, len: Natural): openArray[T] =
+  toOpenArray(cast[ptr UncheckedArray[T]](p), 0, len - 1)
+
+template makeOpenArray*(p: pointer, T: type, len: Natural): openArray[T] =
+  toOpenArray(cast[ptr UncheckedArray[T]](p), 0, len - 1)
