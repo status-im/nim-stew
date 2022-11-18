@@ -10,32 +10,26 @@ skipDirs      = @["tests"]
 requires "nim >= 1.2.0",
          "unittest2"
 
-### Helper functions
-proc test(args, path: string) =
-  # Compilation language is controlled by TEST_LANG
-  exec "nim " & getEnv("TEST_LANG", "c") & " " & getEnv("NIMFLAGS") &
-       " " & args &
-       " -r --hints:off --skipParentCfg --styleCheck:usages --styleCheck:error" &
-       " " & path
+let nimc = getEnv("NIMC", "nim") # Which nim compiler to use
+let lang = getEnv("NIMLANG", "c") # Which backend (c/cpp/js)
+let flags = getEnv("NIMFLAGS", "") # Extra flags for the compiler
+let verbose = getEnv("V", "") notin ["", "0"]
 
-proc buildHelper(args, path: string) =
-  exec "nim " & getEnv("TEST_LANG", "c") & " " & getEnv("NIMFLAGS") &
-       " " & args &
-       " --hints:off --skipParentCfg --styleCheck:usages --styleCheck:error" &
-       " " & path
+let styleCheckStyle = if (NimMajor, NimMinor) < (1, 6): "hint" else: "error"
+let cfg =
+  " --styleCheck:usages --styleCheck:" & styleCheckStyle &
+  (if verbose: "" else: " --verbosity:0 --hints:off") &
+  " --skipParentCfg --skipUserCfg"
+
+proc build(args, path: string) =
+  exec nimc & " " & lang & " " & cfg & " " & flags & " " & args & " " & path
+
+proc run(args, path: string) =
+  build args & " -r", path
 
 task test, "Run all tests":
-  # Building `test_helper.nim`.
-  buildHelper("", "tests/test_helper")
-  test "--threads:off", "tests/all_tests"
-  test "--threads:on -d:nimTypeNames", "tests/all_tests"
-  test "--threads:on -d:noIntrinsicsBitOpts -d:noIntrinsicsEndians",
-       "tests/all_tests"
-
-task testvcc, "Run all tests with vcc compiler":
-  # Building `test_helper.nim`.
-  buildHelper("--cc:vcc", "tests/test_helper")
-  test "--cc:vcc --threads:off", "tests/all_tests"
-  test "--cc:vcc --threads:on -d:nimTypeNames", "tests/all_tests"
-  test "--cc:vcc --threads:on -d:noIntrinsicsBitOpts -d:noIntrinsicsEndians",
-       "tests/all_tests"
+  build "", "tests/test_helper"
+  run "--threads:off", "tests/all_tests"
+  run "--threads:on -d:nimTypeNames", "tests/all_tests"
+  run "--threads:on -d:noIntrinsicsBitOpts -d:noIntrinsicsEndians",
+      "tests/all_tests"
