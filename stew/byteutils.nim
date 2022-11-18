@@ -44,7 +44,7 @@ func hexToByteArrayImpl(
     hexStr: openArray[char], output: var openArray[byte], fromIdx, toIdx: int):
     int {.raises: [ValueError, Defect].} =
   var sIdx = skip0xPrefix(hexStr)
-  # Fun with open intervals
+  # Fun with closed intervals
   doAssert fromIdx >= 0 and
     toIdx <= output.high and
     fromIdx <= (toIdx + 1)
