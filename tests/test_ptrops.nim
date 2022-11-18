@@ -59,3 +59,30 @@ suite "ptrops":
       p0.distance(p0) == 0
       p0.distance(p1) == 2
       p1.distance(p0) == -2
+
+  test "baseAddr":
+    block arrays:
+      var
+        v0: array[0, int] = []
+        v1 = [22]
+
+      check:
+        baseAddr(v0) == nil
+        baseAddr(v1) == addr v1[0]
+        baseAddr(v1)[] == v1[0]
+
+    block seqs:
+      var
+        v0: seq[int]
+        v1 = @[22]
+
+      check:
+        baseAddr(v0) == nil
+        baseAddr(v1) == addr v1[0]
+        baseAddr(v1)[] == v1[0]
+
+    block oas:
+      var v = 56
+      check:
+        baseAddr(makeOpenArray(nil, int, 0)) == nil
+        baseAddr(makeOpenArray(addr v, 1)) == addr v
