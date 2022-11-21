@@ -10,6 +10,8 @@ import unittest2
 import std/[osproc, strutils]
 import ../stew/io2
 
+from os import getAppDir
+
 when defined(posix):
   from std/posix import EAGAIN
 
@@ -540,31 +542,27 @@ suite "OS Input/Output procedures test suite":
 
     proc lockTest(path: string, flags: set[OpenFlags],
                   lockType: LockType): IoResult[array[3, TestResult]] =
-      const HelperPath =
-        when defined(windows):
-          "test_helper "
-        else:
-          "tests/test_helper "
+      let helperPath = getAppDir() & "/test_helper "
       let
         handle = ? openFile(path, flags)
         lock = ? lockFile(handle, lockType)
       let res1 =
         try:
-          execCmdEx(HelperPath & path)
+          execCmdEx(helperPath & path)
         except CatchableError as exc:
           echo "Exception happens [", $exc.name, "]: ", $exc.msg
           ("", -1)
       ? unlockFile(lock)
       let res2 =
         try:
-          execCmdEx(HelperPath & path)
+          execCmdEx(helperPath & path)
         except CatchableError as exc:
           echo "Exception happens [", $exc.name, "]: ", $exc.msg
           ("", -1)
       ? closeFile(handle)
       let res3 =
         try:
-          execCmdEx(HelperPath & path)
+          execCmdEx(helperPath & path)
         except CatchableError as exc:
           echo "Exception happens [", $exc.name, "]: ", $exc.msg
           ("", -1)
