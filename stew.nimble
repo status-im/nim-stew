@@ -29,7 +29,8 @@ proc run(args, path: string) =
 
 task test, "Run all tests":
   build "", "tests/test_helper"
-  run "--threads:off", "tests/all_tests"
-  run "--threads:on -d:nimTypeNames", "tests/all_tests"
-  run "--threads:on -d:noIntrinsicsBitOpts -d:noIntrinsicsEndians",
-      "tests/all_tests"
+  for args in [
+    "--threads:off",
+    "--threads:on -d:nimTypeNames",
+    "--threads:on -d:noIntrinsicsBitOpts -d:noIntrinsicsEndians"
+  ]: run args, "tests/all_tests"
