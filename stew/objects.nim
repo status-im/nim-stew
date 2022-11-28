@@ -107,7 +107,17 @@ func checkedEnumAssign*[E: enum, I: SomeInteger](res: var E, value: I): bool =
   res = E value
   return true
 
+func sizeofUnpadded(x: auto): int {.compileTime.} =
+  when x is tuple|object:
+    var fieldSizes = 0
+    for name, value in x.fieldPairs:
+      fieldSizes += sizeofUnpadded(value)
+    fieldSizes
+  else:
+    sizeof(x)
+
 func isZeroMemory*[T](x: T): bool =
+  static: doAssert sizeofUnpadded(default(T)) == sizeof(x)
   # TODO: iterate over words here
   for b in cast[ptr array[sizeof(T), byte]](unsafeAddr x)[]:
     if b != 0:
