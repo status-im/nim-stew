@@ -508,11 +508,11 @@ proc rawCreateDir(dir: string, mode: int = 0o755,
   ## path ``dir`` is already exists.
   when defined(posix):
     when defined(solaris):
-      let existFlags = {EEXIST, ENOSYS}
+      let existFlags = [EEXIST, ENOSYS]
     elif defined(haiku):
-      let existFlags = {EEXIST, EROFS}
+      let existFlags = [EEXIST, EROFS]
     else:
-      let existFlags = {EEXIST}
+      let existFlags = [EEXIST]
     while true:
       let omask = setUmask(0)
       let res = posix.mkdir(cstring(dir), Mode(mode))
