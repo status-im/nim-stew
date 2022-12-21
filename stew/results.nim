@@ -808,7 +808,7 @@ func `$`*[T, E](self: Result[T, E]): string =
     when T is void: "ok()"
     else: "ok(" & $self.v & ")"
   else:
-    when E is void: "err()"
+    when E is void: "none()"
     else: "err(" & $self.e & ")"
 
 func error*[T, E](self: Result[T, E]): E =
