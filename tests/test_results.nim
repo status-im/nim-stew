@@ -332,7 +332,7 @@ block: # Result[T, void] aka `Opt`
 
   # string conversion
   doAssert $oOk == "ok(42)"
-  doAssert $oErr == "err()"
+  doAssert $oErr == "none()"
 
   proc optQuestion(): OptInt =
     let v = ? oOk
