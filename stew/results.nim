@@ -854,7 +854,18 @@ template valueOr*[T: not void, E](self: Result[T, E], def: untyped): T =
   ##   v = Result[int, string].err("hello")
   ##   x = v.valueOr: 42 # x == 42 now
   ##   y = v.valueOr: raise (ref ValueError)(msg: "v is an error, gasp!")
+  ##   # experimental: direct error access using an unqualified `error` symbol
+  ##   z = v.valueOr: raise (ref ValueError)(msg: error)
   ## ```
+  ##
+  ## `error` access:
+  ##
+  ## TODO experimental, might change in the future
+  ##
+  ## The template contains a shortcut for accessing the error of the result,
+  ## without specifying the error - it can only be used outside of generic code,
+  ## see https://github.com/status-im/nim-stew/issues/161#issuecomment-1397121386
+  ##
   let s = (self) # TODO avoid copy
   if s.o: s.v
   else:
