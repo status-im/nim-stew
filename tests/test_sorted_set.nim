@@ -11,7 +11,7 @@
 {.used.}
 
 import
-  std/[algorithm, sequtils, strformat, tables],
+  std/[algorithm, sequtils, strformat, sets, tables],
   ../stew/sorted_set,
   unittest2
 
@@ -26,8 +26,8 @@ const
     56,  107,  45, 180, 113, 233,  59, 246,  29, 212, 172, 161, 183, 207, 189,
     56,  198, 130,  62,  28,  53, 122]
 
-let
-  noisy = defined(debug)
+  numUniqeKeys = keyList.toHashSet.len
+  numKeyDups = keyList.len - numUniqeKeys
 
 # ------------------------------------------------------------------------------
 # Helpers
@@ -65,61 +65,66 @@ iterator revWalk(sl: var SortedSet[int,int]): int =
   w.destroy
 
 # ------------------------------------------------------------------------------
-# Test Runners
+# Setup functions
 # ------------------------------------------------------------------------------
 
-let
-  numUniqeKeys = keyList.toSeq.mapIt((it,false)).toTable.len
-  numKeyDups = keyList.len - numUniqeKeys
-
-suite "SortedSet: Sorted list based on red-black tree":
+proc insertKeyListItems(kl: openArray[int]): (SortedSet[int,int],seq[int]) =
   var
     sl = SortedSet[int,int].init
     rej: seq[int]
 
-  test &"Insert {keyList.len} items, reject {numKeyDups} duplicates":
-    for n in keyList:
-      let rc = sl.insert(n)
-      if rc.isErr:
-        rej.add n
-      else:
-        rc.value.data = -n
-      let check = sl.verify
-      if check.isErr:
-        check check.error[1] == rbOk # force message
-    check sl.len == numUniqeKeys
-    check rej.len == numKeyDups
-    check sl.len + rej.len == keyList.len
-
-  test &"Verify increasing/decreasing traversals":
-    check toSeq(sl.fwdItems) == toSeq(sl.fwdWalk)
-    check toSeq(sl.revItems) == toSeq(sl.revWalk)
-    check toSeq(sl.fwdItems) == toSeq(sl.revWalk).reversed
-    check toSeq(sl.revItems) == toSeq(sl.fwdWalk).reversed
-
-    # check `sLstEq()`
-    block:
-      var rc = sl.ge(0)
-      while rc.isOk:
-        check rc == sl.eq(rc.value.key)
-        rc = sl.gt(rc.value.key)
-
-    # check `sLstThis()`
-    block:
-      var
-        w = SortedSetWalkRef[int,int].init(sl)
-        rc = w.first
-      while rc.isOk:
-        check rc == w.this
-        rc = w.next
-      w.destroy
-
-  test "Delete items":
-    var seen: seq[int]
-    let sub7 = keyList.len div 7
-    if sl.len == 0:
-      skip()
+  for n in keyList:
+    let rc = sl.insert(n)
+    if rc.isErr:
+      rej.add n
     else:
+      rc.value.data = -n
+    let check = sl.verify
+    if check.isErr:
+      check check.error[1] == rbOk # force message
+
+  (sl,rej)
+
+# ------------------------------------------------------------------------------
+# Test Runners
+# ------------------------------------------------------------------------------
+
+proc sortedSetRunner(kl: openArray[int]) =
+  suite "SortedSet: Sorted list based on red-black tree":
+    setup:
+      var (sl, rej) = keyList.insertKeyListItems
+
+    test &"Insert {keyList.len} items, reject {numKeyDups} duplicates":
+      check sl.len == numUniqeKeys
+      check rej.len == numKeyDups
+      check sl.len + rej.len == keyList.len
+
+    test "Verify increasing/decreasing traversals":
+      check toSeq(sl.fwdItems) == toSeq(sl.fwdWalk)
+      check toSeq(sl.revItems) == toSeq(sl.revWalk)
+      check toSeq(sl.fwdItems) == toSeq(sl.revWalk).reversed
+      check toSeq(sl.revItems) == toSeq(sl.fwdWalk).reversed
+
+      # check `sLstEq()`
+      block:
+        var rc = sl.ge(0)
+        while rc.isOk:
+          check rc == sl.eq(rc.value.key)
+          rc = sl.gt(rc.value.key)
+
+      # check `sLstThis()`
+      block:
+        var
+          w = SortedSetWalkRef[int,int].init(sl)
+          rc = w.first
+        while rc.isOk:
+          check rc == w.this
+          rc = w.next
+        w.destroy
+
+    test "Delete items":
+      var seen: seq[int]
+      let sub7 = keyList.len div 7
       for n in toSeq(countup(0,sub7)).concat(toSeq(countup(3*sub7,4*sub7))):
         let
           key = keyList[n]
@@ -139,6 +144,12 @@ suite "SortedSet: Sorted list based on red-black tree":
           check data.value.key == key
 
       check seen.len + sl.len + rej.len == keyList.len
+
+# ------------------------------------------------------------------------------
+# Main
+# ------------------------------------------------------------------------------
+
+keyList.sortedSetRunner
 
 # ------------------------------------------------------------------------------
 # End
