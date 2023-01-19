@@ -309,9 +309,9 @@ type
     # of false:
     #   eResultPrivate: E
     # of true:
-    #   v: T
+    #   vResultPrivate: T
 
-    # TODO PrivateField works around
+    # TODO ResultPrivate works around
     # * https://github.com/nim-lang/Nim/issues/3770
     # * https://github.com/nim-lang/Nim/issues/20900
     #
