@@ -364,10 +364,15 @@ proc normPathEnd(path: var string, trailingSep: bool) =
 when defined(windows):
   proc fixPath(path: string): string =
     ## If ``path`` is absolute path and length of ``path`` exceedes
-    ## MAX_PATH number of characeters (260 characters) - ``path`` will be
-    ## prefixed with ``\\?\`` value which disable all string parsing and send
-    ## the string that follows it straight to the file system.
-    if len(path) < MAX_PATH: return path
+    ## MAX_PATH number of characeters - ``path`` will be prefixed with ``\\?\``
+    ## value which disable all string parsing and send the string that follows
+    ## prefix straight to the file system.
+    ##
+    ## MAX_PATH limitation has different meaning for directory paths, because
+    ## when creating directory 12 characters will be reserved for 8.3 filename,
+    ## that's why we going to apply prefix for all paths which are bigger than
+    ## MAX_PATH - 12.
+    if len(path) < MAX_PATH - 12: return path
     if ((path[0] in {'a' .. 'z', 'A' .. 'Z'}) and path[1] == ':'):
       "\\\\?\\" & path
     else:
