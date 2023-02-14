@@ -445,7 +445,7 @@ template isOk*(self: Result): bool = self.oResultPrivate
 template isErr*(self: Result): bool = not self.oResultPrivate
 
 when not defined(nimHasEffectsOfs):
-  template effectsOf(f: untyped) {.pragma.}
+  template effectsOf(f: untyped) {.pragma, used.}
 
 func map*[T0, E, T1](
     self: Result[T0, E], f: proc(x: T0): T1):

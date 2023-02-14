@@ -88,11 +88,17 @@ block:
   doAssert c.isErr
 
   # De-reference
+  when (NimMajor, NimMinor) >= (1, 6):
+    {.warning[BareExcept]:off.}
+
   try:
     echo rErr[]
     doAssert false
   except:
     discard
+
+  when (NimMajor, NimMinor) >= (1, 6):
+    {.warning[BareExcept]:on.}
 
   # Comparisons
   doAssert (rOk == rOk)

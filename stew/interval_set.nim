@@ -112,7 +112,7 @@ import
   "."/[results, sorted_set]
 
 when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
+  {.push raises: [Defect, CatchableError].}
 else:
   {.push raises: [].}
 

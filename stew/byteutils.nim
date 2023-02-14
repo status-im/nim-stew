@@ -25,7 +25,7 @@ else:
 #####################################   Hex utilities   ################################################
 
 proc readHexChar*(c: char): byte
-                 {.raises: [ValueError, Defect], noSideEffect, inline.} =
+                 {.raises: [ValueError], noSideEffect, inline.} =
   ## Converts an hex char to a byte
   case c
   of '0'..'9': result = byte(ord(c) - ord('0'))
@@ -42,7 +42,7 @@ template skip0xPrefix(hexStr: openArray[char]): int =
 
 func hexToByteArrayImpl(
     hexStr: openArray[char], output: var openArray[byte], fromIdx, toIdx: int):
-    int {.raises: [ValueError, Defect].} =
+    int {.raises: [ValueError].} =
   var sIdx = skip0xPrefix(hexStr)
   # Fun with closed intervals
   doAssert fromIdx >= 0 and
@@ -65,7 +65,7 @@ func hexToByteArrayImpl(
 
 func hexToByteArray*(
     hexStr: openArray[char], output: var openArray[byte], fromIdx, toIdx: int)
-    {.raises: [ValueError, Defect].} =
+    {.raises: [ValueError].} =
   ## Read hex-encoded data from `hexStr[mapHex(fromIdx..toIdx)]` and store
   ## corresponding bytes in `output[fromIdx..toIdx]` where `mapHex` takes into
   ## account stripped characters.
@@ -80,7 +80,7 @@ func hexToByteArray*(
   discard hexToByteArrayImpl(hexStr, output, fromIdx, toIdx)
 
 func hexToByteArray*(hexStr: openArray[char], output: var openArray[byte])
-                    {.raises: [ValueError, Defect].} =
+                    {.raises: [ValueError].} =
   ## Read hex-encoded data from `hexStr` and store corresponding bytes in
   ## `output`.
   ##
@@ -92,7 +92,7 @@ func hexToByteArray*(hexStr: openArray[char], output: var openArray[byte])
   hexToByteArray(hexStr, output, 0, output.high)
 
 func hexToByteArray*[N: static[int]](hexStr: openArray[char]): array[N, byte]
-                    {.raises: [ValueError, Defect], noinit.}=
+                    {.raises: [ValueError], noinit.}=
   ## Read hex-encoded data from `hexStr` returning an array of N bytes.
   ##
   ## * `0x`/`0X` is stripped if present
@@ -103,7 +103,7 @@ func hexToByteArray*[N: static[int]](hexStr: openArray[char]): array[N, byte]
   hexToByteArray(hexStr, result)
 
 func hexToByteArray*(hexStr: openArray[char], N: static int): array[N, byte]
-                    {.raises: [ValueError, Defect], noinit.}=
+                    {.raises: [ValueError], noinit.}=
   ## Read hex-encoded data from `hexStr` returning an array of N bytes.
   ##
   ## * `0x`/`0X` is stripped if present
@@ -114,7 +114,7 @@ func hexToByteArray*(hexStr: openArray[char], N: static int): array[N, byte]
   hexToByteArray(hexStr, result)
 
 func hexToByteArrayStrict*(hexStr: openArray[char], output: var openArray[byte])
-                          {.raises: [ValueError, Defect].} =
+                          {.raises: [ValueError].} =
   ## Read hex-encoded data from `hexStr` and store corresponding bytes in
   ## `output`.
   ##
@@ -148,7 +148,7 @@ func hexToByteArrayStrict*(hexStr: openArray[char], N: static int): array[N, byt
   hexToByteArrayStrict(hexStr, result)
 
 func fromHex*[N](A: type array[N, byte], hexStr: string): A
-             {.raises: [ValueError, Defect], noinit, inline.}=
+             {.raises: [ValueError], noinit, inline.}=
   ## Read hex-encoded data from `hexStr` returning an array of N bytes.
   ##
   ## * `0x`/`0X` is stripped if present
@@ -159,7 +159,7 @@ func fromHex*[N](A: type array[N, byte], hexStr: string): A
   hexToByteArray(hexStr, result)
 
 func hexToPaddedByteArray*[N: static[int]](hexStr: string): array[N, byte]
-                          {.raises: [ValueError, Defect].} =
+                          {.raises: [ValueError].} =
   ## Read a hex string and store it in a byte array `output`.
   ## The string may be shorter than the byte array.
   ## No "endianness" reordering is done.
@@ -188,7 +188,7 @@ func hexToPaddedByteArray*[N: static[int]](hexStr: string): array[N, byte]
     bIdx += shift shr 2
 
 func hexToSeqByte*(hexStr: string): seq[byte]
-                  {.raises: [ValueError, Defect].} =
+                  {.raises: [ValueError].} =
   ## Read an hex string and store it in a sequence of bytes. No "endianness" reordering is done.
   if (hexStr.len and 1) == 1:
     raise (ref ValueError)(msg: "hex string must have even length")
