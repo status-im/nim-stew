@@ -849,6 +849,15 @@ template unsafeError*[T](self: Result[T, void]) =
 template value*[T, E](self: Result[T, E]): T = self.get()
 template value*[T: not void, E](self: var Result[T, E]): var T = self.get()
 
+template valueOr*[T: not void, E](
+    self: Result[T, E], errorFieldName: untyped, def: untyped): T =
+  let s = (self) # TODO avoid copy
+  if s.oResultPrivate: s.vResultPrivate
+  else:
+    when E isnot void:
+      template errorFieldName: E {.used, inject.} = s.eResultPrivate
+    def
+
 template valueOr*[T: not void, E](self: Result[T, E], def: untyped): T =
   ## Fetch value of result if set, or evaluate `def`
   ## `def` is evaluated lazily, and must be an expression of `T` or exit
@@ -877,6 +886,15 @@ template valueOr*[T: not void, E](self: Result[T, E], def: untyped): T =
   else:
     when E isnot void:
       template error: E {.used, inject.} = s.eResultPrivate
+    def
+
+template errorOr*[T, E: not void](
+    self: Result[T, E], valueFieldName: untyped, def: untyped): E =
+  let s = (self) # TODO avoid copy
+  if not s.oResultPrivate: s.eResultPrivate
+  else:
+    when T isnot void:
+      template valueFieldName: T {.used, inject.} = s.vResultPrivate
     def
 
 template errorOr*[T, E: not void](self: Result[T, E], def: untyped): E =
