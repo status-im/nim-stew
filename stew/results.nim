@@ -603,6 +603,36 @@ func mapCast*[T0, E](
     else:
       result.err(self.eResultPrivate)
 
+func mapConvertErr*[T, E0](
+    self: Result[T, E0], E1: type): Result[T, E1] {.inline.} =
+  ## Convert result error to E1 using an conversion
+  # Would be nice if it was automatic...
+  when E0 is E1:
+    result = self
+  else:
+    if self.oResultPrivate:
+      when T is void:
+        result.ok()
+      else:
+        result.ok(self.vResultPrivate)
+    else:
+      when E1 is void:
+        result.err()
+      else:
+        result.err(E1(self.eResultPrivate))
+
+func mapCastErr*[T, E0](
+    self: Result[T, E0], E1: type): Result[T, E1] {.inline.} =
+  ## Convert result value to A using a cast
+  ## Would be nice with nicer syntax...
+  if self.oResultPrivate:
+    when T is void:
+      result.ok()
+    else:
+      result.ok(self.vResultPrivate)
+  else:
+    result.err(cast[E1](self.eResultPrivate))
+
 template `and`*[T0, E, T1](self: Result[T0, E], other: Result[T1, E]): Result[T1, E] =
   ## Evaluate `other` iff self.isOk, else return error
   ## fail-fast - will not evaluate other if a is an error
