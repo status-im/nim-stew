@@ -7,7 +7,7 @@
 {.used.}
 
 import unittest2
-import std/[osproc, strutils]
+import std/[osproc, strutils, algorithm]
 import ../stew/io2
 
 from os import getAppDir
@@ -733,3 +733,38 @@ suite "OS Input/Output procedures test suite":
       ok()
 
     check performTest().isOk()
+
+  test "Long path directory/file management test":
+    const MAX_PATH = 260 - 12
+    var
+      parentName = newString(MAX_PATH)
+      directoryName = newString(MAX_PATH)
+      fileName = newString(MAX_PATH)
+    parentName.fill('1')
+    directoryName.fill('2')
+    fileName.fill('3')
+
+    let workingDir = getAppDir()
+    let
+      firstDir = workingDir & DirSep & parentName
+      destDir = firstDir & DirSep & directoryName
+      destFile = firstDir & DirSep & fileName
+
+    check:
+      createPath(firstDir).isOk() == true
+      createPath(destDir).isOk() == true
+      io2.writeFile(destFile, "test").isOk() == true
+      isDir(destDir) == true
+      isDir(firstDir) == true
+      isFile(destFile) == true
+
+    let data = readAllChars(destFile).tryGet()
+
+    check:
+      data == "test"
+      removeFile(destFile).isOk() == true
+      removeDir(destDir).isOk() == true
+      removeDir(firstDir).isOk() == true
+      isDir(destDir) == false
+      isDir(firstDir) == false
+      isFile(destFile) == false

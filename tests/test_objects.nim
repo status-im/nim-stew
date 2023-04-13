@@ -7,6 +7,9 @@ when defined(nimHasUsed):
 
 {.experimental: "notnil".}
 
+template isZeroAndDefault(x: auto): bool =
+  isZeroMemory(x) and isDefaultValue(x)
+
 suite "Objects":
   test "baseType":
     when (not defined(nimTypeNames)) or defined(gcOrc) or defined(gcArc):
@@ -192,7 +195,7 @@ suite "Objects":
       not checkedEnumAssign(e3, -1)
       e3 == A3
 
-  test "isZeroMemory":
+  test "isZeroMemory/isDefaultValue":
     type
       Foo = object
         x: string
@@ -217,19 +220,19 @@ suite "Objects":
       z12: Baz
 
     check:
-      isZeroMemory z0
-      isZeroMemory z1
-      isZeroMemory z2
-      isZeroMemory z3
-      isZeroMemory z4
-      isZeroMemory z5
-      isZeroMemory z6
-      isZeroMemory z7
-      isZeroMemory z8
-      isZeroMemory z9
-      isZeroMemory z10
-      isZeroMemory z11
-      isZeroMemory z12
+      isZeroAndDefault z0
+      isZeroAndDefault z1
+      isZeroAndDefault z2
+      isZeroAndDefault z3
+      isZeroAndDefault z4
+      isZeroAndDefault z5
+      isZeroAndDefault z6
+      isZeroAndDefault z7
+      isZeroAndDefault z8
+      isZeroAndDefault z9
+      isZeroAndDefault z10
+      isZeroAndDefault z11
+      isZeroAndDefault z12
 
     var
       nz0 = 1
@@ -245,14 +248,14 @@ suite "Objects":
       nz10 = @[1, 2, 3]
 
     check:
-      not isZeroMemory nz0
-      not isZeroMemory nz1
-      not isZeroMemory nz2
-      not isZeroMemory nz3
-      not isZeroMemory nz4
-      not isZeroMemory nz5
-      not isZeroMemory nz6
-      not isZeroMemory nz7
-      not isZeroMemory nz8
-      not isZeroMemory nz9
-      not isZeroMemory nz10
+      not isZeroAndDefault nz0
+      not isZeroAndDefault nz1
+      not isZeroAndDefault nz2
+      not isZeroAndDefault nz3
+      not isZeroAndDefault nz4
+      not isZeroAndDefault nz5
+      not isZeroAndDefault nz6
+      not isZeroAndDefault nz7
+      not isZeroAndDefault nz8
+      not isZeroAndDefault nz9
+      not isZeroAndDefault nz10

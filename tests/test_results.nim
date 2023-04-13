@@ -88,11 +88,17 @@ block:
   doAssert c.isErr
 
   # De-reference
+  when (NimMajor, NimMinor) >= (1, 6):
+    {.warning[BareExcept]:off.}
+
   try:
     echo rErr[]
     doAssert false
   except:
     discard
+
+  when (NimMajor, NimMinor) >= (1, 6):
+    {.warning[BareExcept]:on.}
 
   # Comparisons
   doAssert (rOk == rOk)
@@ -332,7 +338,7 @@ block: # Result[T, void] aka `Opt`
 
   # string conversion
   doAssert $oOk == "ok(42)"
-  doAssert $oErr == "err()"
+  doAssert $oErr == "none()"
 
   proc optQuestion(): OptInt =
     let v = ? oOk

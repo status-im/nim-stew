@@ -123,3 +123,10 @@ func isZeroMemory*[T](x: T): bool =
     if b != 0:
       return false
   return true
+
+func isDefaultValue*[T](x: T): bool =
+  # TODO: There are ways to optimise this for simple POD types
+  #       (they can be mapped to `isZeroMemory`)
+  #       It may also be beneficial to store the RHS in a const.
+  #       Check the codegen.
+  x == default(T)

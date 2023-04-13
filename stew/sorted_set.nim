@@ -88,7 +88,7 @@ type
     RbResult[SortedSetItemRef[K,V]]
 
 when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
+  {.push raises: [Defect,CatchableError].}
 else:
   {.push raises: [].}
 
@@ -301,7 +301,7 @@ proc `$`*[K,V](rc: SortedSetResult[K,V]): string =
 
 proc verify*[K,V](sl: var SortedSet[K,V]):
                   Result[void,(SortedSetItemRef[K,V],RbInfo)]
-                    {.gcsafe, raises: [Defect,CatchableError].} =
+                    {.gcsafe.} =
   ## Checks for consistency, may print an error message. Returns `rbOk` if
   ## the argument list `sl` is consistent. This function traverses all the
   ## internal data nodes which might be time consuming. So it would not be

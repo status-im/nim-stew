@@ -361,6 +361,23 @@ proc normPathEnd(path: var string, trailingSep: bool) =
     else:
       path = $DirSep
 
+when defined(windows):
+  proc fixPath(path: string): string =
+    ## If ``path`` is absolute path and length of ``path`` exceedes
+    ## MAX_PATH number of characeters - ``path`` will be prefixed with ``\\?\``
+    ## value which disable all string parsing and send the string that follows
+    ## prefix straight to the file system.
+    ##
+    ## MAX_PATH limitation has different meaning for directory paths, because
+    ## when creating directory 12 characters will be reserved for 8.3 filename,
+    ## that's why we going to apply prefix for all paths which are bigger than
+    ## MAX_PATH - 12.
+    if len(path) < MAX_PATH - 12: return path
+    if ((path[0] in {'a' .. 'z', 'A' .. 'Z'}) and path[1] == ':'):
+      "\\\\?\\" & path
+    else:
+      path
+
 proc splitDrive*(path: string): tuple[head: string, tail: string] =
   ## Split the pathname ``path`` into drive/UNC sharepoint and relative path
   ## specifiers.
@@ -508,11 +525,11 @@ proc rawCreateDir(dir: string, mode: int = 0o755,
   ## path ``dir`` is already exists.
   when defined(posix):
     when defined(solaris):
-      let existFlags = {EEXIST, ENOSYS}
+      let existFlags = [EEXIST, ENOSYS]
     elif defined(haiku):
-      let existFlags = {EEXIST, EROFS}
+      let existFlags = [EEXIST, EROFS]
     else:
-      let existFlags = {EEXIST}
+      let existFlags = [EEXIST]
     while true:
       let omask = setUmask(0)
       let res = posix.mkdir(cstring(dir), Mode(mode))
@@ -533,7 +550,7 @@ proc rawCreateDir(dir: string, mode: int = 0o755,
       lpSecurityDescriptor: secDescriptor,
       bInheritHandle: 0
     )
-    let res = createDirectoryW(newWideCString(dir), sa)
+    let res = createDirectoryW(newWideCString(fixPath(dir)), sa)
     if res != 0'i32:
       ok(true)
     else:
@@ -557,7 +574,7 @@ proc removeDir*(dir: string): IoResult[void] =
         else:
           return err(errCode)
   elif defined(windows):
-    let res = removeDirectoryW(newWideCString(dir))
+    let res = removeDirectoryW(newWideCString(fixPath(dir)))
     if res != 0'i32:
       ok()
     else:
@@ -577,7 +594,7 @@ proc removeFile*(path: string): IoResult[void] =
     else:
       ok()
   elif defined(windows):
-    if deleteFileW(newWideCString(path)) == 0:
+    if deleteFileW(newWideCString(fixPath(path))) == 0:
       let errCode = ioLastError()
       if errCode == ERROR_FILE_NOT_FOUND:
         ok()
@@ -596,7 +613,7 @@ proc isFile*(path: string): bool =
     else:
       posix.S_ISREG(a.st_mode)
   elif defined(windows):
-    let res = getFileAttributes(newWideCString(path))
+    let res = getFileAttributes(newWideCString(fixPath(path)))
     if res == INVALID_FILE_ATTRIBUTES:
       false
     else:
@@ -612,7 +629,7 @@ proc isDir*(path: string): bool =
     else:
       posix.S_ISDIR(a.st_mode)
   elif defined(windows):
-    let res = getFileAttributes(newWideCString(path))
+    let res = getFileAttributes(newWideCString(fixPath(path)))
     if res == INVALID_FILE_ATTRIBUTES:
       false
     else:
@@ -748,7 +765,7 @@ proc getPermissions*(pathName: string): IoResult[int] =
     else:
       err(ioLastError())
   elif defined(windows):
-    let res = getFileAttributes(newWideCString(pathName))
+    let res = getFileAttributes(newWideCString(fixPath(pathName)))
     if res == INVALID_FILE_ATTRIBUTES:
       err(ioLastError())
     else:
@@ -802,7 +819,7 @@ proc getPermissionsSet*(handle: IoHandle): IoResult[Permissions] =
 proc setPermissions*(pathName: string, mask: int): IoResult[void] =
   ## Set permissions for file/folder ``pathame``.
   when defined(windows):
-    let gres = getFileAttributes(newWideCString(pathName))
+    let gres = getFileAttributes(newWideCString(fixPath(pathName)))
     if gres == INVALID_FILE_ATTRIBUTES:
       err(ioLastError())
     else:
@@ -811,7 +828,8 @@ proc setPermissions*(pathName: string, mask: int): IoResult[void] =
           gres or uint32(FILE_ATTRIBUTE_READONLY)
         else:
           gres and not(FILE_ATTRIBUTE_READONLY)
-      let sres = setFileAttributes(newWideCString(pathName), nmask)
+      let sres = setFileAttributes(newWideCString(fixPath(pathName)),
+                                   nmask)
       if sres == 0:
         err(ioLastError())
       else:
@@ -895,7 +913,7 @@ proc fileAccessible*(pathName: string, mask: set[AccessFlags]): bool =
     else:
       false
   elif defined(windows):
-    let res = getFileAttributes(newWideCString(pathName))
+    let res = getFileAttributes(newWideCString(fixPath(pathName)))
     if res == INVALID_FILE_ATTRIBUTES:
       return false
     if AccessFlags.Write in mask:
@@ -1068,8 +1086,8 @@ proc openFile*(pathName: string, flags: set[OpenFlags],
     if OpenFlags.Inherit in flags:
       sa.bInheritHandle = 1
 
-    let res = createFileW(newWideCString(pathName), dwAccess, dwShareMode,
-                          sa, dwCreation, dwFlags, 0'u32)
+    let res = createFileW(newWideCString(fixPath(pathName)), dwAccess,
+                          dwShareMode, sa, dwCreation, dwFlags, 0'u32)
     if res == INVALID_HANDLE_VALUE:
       err(ioLastError())
     else:
@@ -1224,7 +1242,7 @@ proc getFileSize*(pathName: string): IoResult[int64] =
       ok(int64(a.st_size))
   elif defined(windows):
     var wfd: WIN32_FIND_DATAW
-    let res = findFirstFileW(newWideCString(pathName), wfd)
+    let res = findFirstFileW(newWideCString(fixPath(pathName)), wfd)
     if res == INVALID_HANDLE_VALUE:
       err(ioLastError())
     else:

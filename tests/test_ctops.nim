@@ -9,6 +9,11 @@
 import unittest2
 import ../stew/ctops
 
+when (NimMajor, NimMinor) < (1, 6):
+  type DefectEx = AssertionError
+else:
+  type DefectEx = AssertionDefect
+
 suite "Constant-time operations test suite":
   test "isEqual() test":
     let
@@ -97,17 +102,17 @@ suite "Constant-time operations test suite":
         CT.isEqual(int64Arr, uint64Arr) == true
 
     # Empty arrays
-    expect(AssertionError):
+    expect(DefectEx):
       discard CT.isEqual(emptyArray, emptyArray)
-    expect(AssertionError):
+    expect(DefectEx):
       discard CT.isEqual(emptyArray, emptyString)
-    expect(AssertionError):
+    expect(DefectEx):
       discard CT.isEqual(emptyArray, emptySeq)
 
     # Arrays, where T is different type size
-    expect(AssertionError):
+    expect(DefectEx):
       discard CT.isEqual(int8Arr, int16Arr)
-    expect(AssertionError):
+    expect(DefectEx):
       discard CT.isEqual(int16Arr, int32Arr)
-    expect(AssertionError):
+    expect(DefectEx):
       discard CT.isEqual(int8Arr, intArr)

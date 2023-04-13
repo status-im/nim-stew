@@ -26,11 +26,11 @@ jobs:
             cpu: amd64
           #- os: windows
             #cpu: i386
-        branch: [version-1-2, version-1-4, version-1-6, devel]
+        branch: [version-1-2, version-1-4, version-1-6, version-2-0, devel]
         include:
           - target:
               os: linux
-            builder: ubuntu-18.04
+            builder: ubuntu-20.04
             shell: bash
           - target:
               os: macos
@@ -72,6 +72,13 @@ jobs:
           chmod 755 external/bin/gcc external/bin/g++
           echo '${{ github.workspace }}/external/bin' >> $GITHUB_PATH
 
+      - name: 'Install dependencies (macOS)'
+        if: runner.os == 'macOS' && matrix.branch == 'devel'
+        run: |
+          brew install openssl@1.1
+          ln -s $(brew --prefix)/opt/openssl/lib/libcrypto.1.1.dylib /usr/local/lib
+          ln -s $(brew --prefix)/opt/openssl/lib/libssl.1.1.dylib /usr/local/lib/
+
       - name: MSYS2 (Windows i386)
         if: runner.os == 'Windows' && matrix.target.cpu == 'i386'
         uses: msys2/setup-msys2@v2
@@ -96,7 +103,7 @@ jobs:
       - name: Restore Nim DLLs dependencies (Windows) from cache
         if: runner.os == 'Windows'
         id: windows-dlls-cache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: external/dlls-${{ matrix.target.cpu }}
           key: 'dlls-${{ matrix.target.cpu }}'
@@ -160,5 +167,6 @@ jobs:
           nim --version
           nimble --version
           nimble install -y --depsOnly
+          rm -f nimble.lock
           env NIMLANG=c nimble test
           env NIMLANG=cpp nimble test
