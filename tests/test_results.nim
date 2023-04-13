@@ -132,7 +132,7 @@ block:
   doAssert (rOk.orErr(failFast())).get() == rOk.get()
 
   doAssert rErr.mapConvertErr(cstring).error() == cstring(rErr.error())
-  doAssert rErr.mapCastErr(cstring).error() == cast[cstring](rErr.error())
+  doAssert rErr.mapCastErr(seq[byte]).error() == cast[seq[byte]](rErr.error())
 
   # string conversion
   doAssert $rOk == "ok(42)"
