@@ -30,7 +30,9 @@ proc run(args, path: string) =
 task test, "Run all tests":
   build "", "tests/test_helper"
   for args in [
-    "--threads:off",
-    "--threads:on -d:nimTypeNames",
-    "--threads:on -d:noIntrinsicsBitOpts -d:noIntrinsicsEndians"
-  ]: run args, "tests/all_tests"
+      "--threads:off",
+      "--threads:on -d:nimTypeNames",
+      "--threads:on -d:noIntrinsicsBitOpts -d:noIntrinsicsEndians"]:
+    run args, "tests/all_tests"
+    if (NimMajor, NimMinor) > (1, 6):
+      run args & " --mm:refc", "tests/all_tests"
