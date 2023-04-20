@@ -70,6 +70,15 @@ block:
 
   doAssert rOk.get() == rOk.unsafeGet()
 
+  rOk.isOkOr: raiseAssert "should not end up in here"
+  rErr.isErrOr: raiseAssert "should not end up in here"
+
+  rErr.isOkOr:
+    doAssert error == rErr.error()
+
+  rOk.isErrOr:
+    doAssert value == rOk.value()
+
   doAssert rOk.valueOr(failFast()) == rOk.value()
   let rErrV = rErr.valueOr:
     error.len
