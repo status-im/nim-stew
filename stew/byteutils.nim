@@ -246,12 +246,11 @@ func toBytes*(s: string): seq[byte] =
   ## nim essentially are byte sequences without any particular encoding, this
   ## simply copies the bytes without a null terminator
   when nimvm:
-    var r = newSeq[byte](s.len)
+    result = newSeq[byte](s.len)
     for i, c in s:
-      r[i] = cast[byte](c)
-    r
+      result[i] = cast[byte](c)
   else:
-    @(s.toOpenArrayByte(0, s.high))
+    result = @(s.toOpenArrayByte(0, s.high))
 
 func fromBytes*(T: type string, v: openArray[byte]): string =
   if v.len > 0:
