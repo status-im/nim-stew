@@ -25,6 +25,7 @@ import
   test_keyed_queue,
   test_sorted_set,
   test_interval_set,
+  test_intops,
   test_macros,
   test_objects,
   test_ptrops,
