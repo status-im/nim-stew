@@ -20,7 +20,11 @@
 # * signed ops
 # * saturating ops
 # * more primitives commonly available on CPU:s / intrinsics (pow / divmod / etc)
-
+#
+# References:
+# https://llvm.org/docs/LangRef.html#arithmetic-with-overflow-intrinsics
+# https://gcc.gnu.org/onlinedocs/gcc/Integer-Overflow-Builtins.html
+# https://doc.rust-lang.org/std/primitive.u32.html#implementations
 
 func addOverflow*(x, y: SomeUnsignedInt):
     tuple[result: SomeUnsignedInt, overflow: bool] =
