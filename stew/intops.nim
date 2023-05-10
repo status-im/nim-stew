@@ -7,6 +7,12 @@
 ## that returns the least information needed - for example, `mulOverflow` may
 ## be implemented more efficiently than `mulWiden`, meaning that if overflow
 ## detection is all that is needed, use the former.
+##
+## The API strives to map functions to platform-specific CPU instructions
+## via compiler intrinsics or other compiler/target-specific implementations.
+## Where this is not possible, the API instead emulates the instructions - such
+## emulation may result in the loss of properies important to some applications
+## such as constant-time:ness, atomicity or performance.
 
 # Implementation notes:
 #
@@ -20,6 +26,7 @@
 # * signed ops
 # * saturating ops
 # * more primitives commonly available on CPU:s / intrinsics (pow / divmod / etc)
+# * discovery mechanism to determine implementation quality
 #
 # References:
 # https://llvm.org/docs/LangRef.html#arithmetic-with-overflow-intrinsics
