@@ -377,6 +377,7 @@ block: # Result[T, void] aka `Opt`
   doAssert Opt.some(42).get() == 42
   doAssert Opt.none(int).isNone()
 
+  # Construct Opt from Result
   doAssert oOk.orErr("error").value() == oOk.get()
   doAssert oErr.orErr("error").error() == "error"
 
