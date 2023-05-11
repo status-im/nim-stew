@@ -859,29 +859,6 @@ func optError*[T, E](self: Result[T, E]): Opt[E] =
   else:
     Opt.some(self.eResultPrivate)
 
-template okOr*[T, E](self: Opt[T], def: E): Result[T, E] =
-  ## Construct an ok Result[T, E] from the given Opt if set, else evaluate
-  ## `def` to provide an error
-
-  let s = (self) # TODO avoid copy
-  if s.oResultPrivate:
-    Result[T, E].ok(self.vResultPrivate)
-  else:
-    Result[T, E].err(def)
-
-template errOr*[T, E](self: Opt[E], def: T): Result[T, E] =
-  ## Construct an err Result[T, E] from the given Opt if set, else evaluate
-  ## `def` to provide a value
-  ##
-  ## Note - it is recommended to spell this consructor as `errOr` given its
-  ## proximity to the `error` accessor.
-
-  let s = (self) # TODO avoid copy
-  if s.oResultPrivate:
-    Result[T, E].err(self.vResultPrivate)
-  else:
-    Result[T, E].ok(def)
-
 # Alternative spellings for get
 template value*[T, E](self: Result[T, E]): T = self.get()
 template value*[T: not void, E](self: var Result[T, E]): var T = self.get()

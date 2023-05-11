@@ -377,11 +377,8 @@ block: # Result[T, void] aka `Opt`
   doAssert Opt.some(42).get() == 42
   doAssert Opt.none(int).isNone()
 
-  doAssert oOk.okOr("error").value() == oOk.get()
-  doAssert oErr.okOr("error").error() == "error"
-
-  doAssert oOk.errOr("error").error() == oOk.get()
-  doAssert oErr.errOr("error").value() == "error"
+  doAssert oOk.orErr("error").value() == oOk.get()
+  doAssert oErr.orErr("error").error() == "error"
 
 block: # `cstring` dangling reference protection
   type CSRes = Result[void, cstring]
