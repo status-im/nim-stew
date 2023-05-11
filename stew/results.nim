@@ -845,6 +845,20 @@ template unsafeError*[T](self: Result[T, void]) =
   ## See also: `unsafeGet`
   assert not self.oResultPrivate # Emulate field access defect in debug builds
 
+func optValue*[T, E](self: Result[T, E]): Opt[T] =
+  ## Return the value of a Result as an Opt, or none if Result is an error
+  if self.oResultPrivate:
+    Opt.some(self.vResultPrivate)
+  else:
+    Opt.none(T)
+
+func optError*[T, E](self: Result[T, E]): Opt[E] =
+  ## Return the error of a Result as an Opt, or none if Result is a value
+  if self.oResultPrivate:
+    Opt.none(E)
+  else:
+    Opt.some(self.eResultPrivate)
+
 # Alternative spellings for get
 template value*[T, E](self: Result[T, E]): T = self.get()
 template value*[T: not void, E](self: var Result[T, E]): var T = self.get()
