@@ -1065,18 +1065,44 @@ template `?`*[T, E](self: Result[T, E]): auto =
   ## let v = ? funcWithResult()
   ## echo v # prints value, not Result!
   ## ```
+  ##
+  ## ``assignResult?`` extension point
+  ##
+  ## If a template / function named ``assignResult?`` exists in the scope, it will
+  ## be called instead of assigning the result - this can be used to intercept
+  ## the assignment to `result` that implicitly happens on early return in case
+  ## of error.
+  ##
+  ## To prevent conflicts, it is recommended that ``assignResult?`` is declared
+  ## close to the scope of `?` (as opposed to a globally visible symbol)
+  ##
+  ## ```nim
+  ## proc f(): Result[...] =
+  ##   template `assignResult?`(v: Result) = ...
+  ##   let a = ? f2()
+  ## ```
+  ##
   ## Experimental
   # TODO the v copy is here to prevent multiple evaluations of self - could
   #      probably avoid it with some fancy macro magic..
   let v = (self)
   if not v.oResultPrivate:
-    when typeof(result) is typeof(v):
-      return v
-    else:
-      when E is void:
-        return err(typeof(result))
+    when compiles(`assignResult?`(default(typeof(result)))):
+      when typeof(result) is typeof(v):
+        `assignResult?`(v)
+      elif E is void:
+        `assignResult?`(err(typeof(result)))
       else:
-        return err(typeof(result), v.eResultPrivate)
+        `assignResult?`(err(typeof(result), v.eResultPrivate))
+      return
+    else:
+      return
+        when typeof(result) is typeof(v):
+          v
+        elif E is void:
+          err(typeof(result))
+        else:
+          err(typeof(result), v.eResultPrivate)
 
   when not(T is void):
     v.vResultPrivate

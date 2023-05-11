@@ -492,3 +492,66 @@ block: # Constants
     doAssert c == [1] and d == [2]
     let (e, f) = v.unsafeGet()
     doAssert e == [1] and f == [2]
+
+proc testAssignResult() =
+  var assigned: bool
+  template `assignResult?`(v: Result) =
+    assigned = true
+    result = v
+
+  proc failed(): Result[int, string] =
+    err("fail")
+
+  proc calling(): Result[int, string] =
+    let _ = ? failed()
+    doAssert false
+
+  let r = calling()
+  doAssert assigned
+  doAssert r == Result[int, string].err("fail")
+
+  assigned = false
+
+  proc emptyErr: Result[int, void] =
+    return err()
+
+  proc emptyErr2: Result[int, void] =
+    let _ = ? emptyErr()
+    doAssert false
+
+  doAssert emptyErr2().isErr()
+  doAssert assigned
+
+proc testAssignResultGeneric[T]() =
+  var assigned: bool
+  template `assignResult?`(v: Result) =
+    mixin result
+    assigned = true
+    result = v
+
+  proc failed(): Result[T, string] =
+    err("fail")
+
+  proc calling(): Result[T, string] =
+    let _ = ? failed()
+    doAssert false
+
+  let r = calling()
+  doAssert assigned
+  doAssert r == Result[T, string].err("fail")
+
+  assigned = false
+
+  proc emptyErr: Result[T, void] =
+    return err()
+
+  proc emptyErr2: Result[T, void] =
+    let _ = ? emptyErr()
+    doAssert false
+
+  doAssert emptyErr2().isErr()
+  doAssert assigned
+
+testAssignResult()
+
+testAssignResultGeneric[int]()
