@@ -159,6 +159,12 @@ block:
   # Expectations
   doAssert rOk.expect("testOk never fails") == 42
 
+  # Conversions to Opt
+  doAssert rOk.optValue() == Opt.some(rOk.get())
+  doAssert rOk.optError().isNone()
+  doAssert rErr.optValue().isNone()
+  doAssert rErr.optError() == Opt.some(rErr.error())
+
   # Question mark operator
   func testQn(): Result[int, string] =
     let x = ?works() - ?works()
@@ -370,6 +376,10 @@ block: # Result[T, void] aka `Opt`
 
   doAssert Opt.some(42).get() == 42
   doAssert Opt.none(int).isNone()
+
+  # Construct Result from Opt
+  doAssert oOk.orErr("error").value() == oOk.get()
+  doAssert oErr.orErr("error").error() == "error"
 
 block: # `cstring` dangling reference protection
   type CSRes = Result[void, cstring]
