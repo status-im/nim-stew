@@ -109,7 +109,7 @@ func mulWiden*(x, y: uint): tuple[lo, hi: uint] =
   when sizeof(uint) == sizeof(uint64):
     let (a, b) = mulWiden(uint64(x), uint64(y))
   else:
-    let (a, b) = mulWiden(uint32(x), uint64(y))
+    let (a, b) = mulWiden(uint32(x), uint32(y))
   (uint(a), uint(b))
 
 func mulWiden*(x, y, carry: SomeUnsignedInt): tuple[lo, hi: SomeUnsignedInt] =
