@@ -42,6 +42,8 @@ template testMulWiden[T: SomeUnsignedInt]() =
   doAssert mulWiden(T(2), T(2)) == (T(4), T(0))
   doAssert mulWiden(T.high, T(1)) == (T.high, T(0))
   doAssert mulWiden(T(1), T.high) == (T.high, T(0))
+  echo mulWiden(T.high, T.high)
+  echo T.high
   doAssert mulWiden(T.high, T.high) == (T(1), T.high - 1)
 
   doAssert mulWiden(T.high, T.high, T(0)) == (T(1), T.high - 1)
