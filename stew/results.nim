@@ -445,7 +445,7 @@ template isOk*(self: Result): bool = self.oResultPrivate
 template isErr*(self: Result): bool = not self.oResultPrivate
 
 when not defined(nimHasEffectsOfs):
-  template effectsOf(f: untyped) {.pragma.}
+  template effectsOf(f: untyped) {.pragma, used.}
 
 func map*[T0, E, T1](
     self: Result[T0, E], f: proc(x: T0): T1):
@@ -845,14 +845,84 @@ template unsafeError*[T](self: Result[T, void]) =
   ## See also: `unsafeGet`
   assert not self.oResultPrivate # Emulate field access defect in debug builds
 
+func optValue*[T, E](self: Result[T, E]): Opt[T] =
+  ## Return the value of a Result as an Opt, or none if Result is an error
+  if self.oResultPrivate:
+    Opt.some(self.vResultPrivate)
+  else:
+    Opt.none(T)
+
+func optError*[T, E](self: Result[T, E]): Opt[E] =
+  ## Return the error of a Result as an Opt, or none if Result is a value
+  if self.oResultPrivate:
+    Opt.none(E)
+  else:
+    Opt.some(self.eResultPrivate)
+
 # Alternative spellings for get
 template value*[T, E](self: Result[T, E]): T = self.get()
 template value*[T: not void, E](self: var Result[T, E]): var T = self.get()
+
+template isOkOr*[T, E](self: Result[T, E], body: untyped) =
+  ## Evaluate `body` iff result has been assigned an error
+  ## `body` is evaluated lazily.
+  ##
+  ## Example:
+  ## ```
+  ## let
+  ##   v = Result[int, string].err("hello")
+  ##   x = v.isOkOr: echo "not ok"
+  ##   # experimental: direct error access using an unqualified `error` symbol
+  ##   z = v.isOkOr: echo error
+  ## ```
+  ##
+  ## `error` access:
+  ##
+  ## TODO experimental, might change in the future
+  ##
+  ## The template contains a shortcut for accessing the error of the result,
+  ## it can only be used outside of generic code,
+  ## see https://github.com/status-im/nim-stew/issues/161#issuecomment-1397121386
+
+  let s = (self) # TODO avoid copy
+  if not s.oResultPrivate:
+    when E isnot void:
+      template error: E {.used, inject.} = s.eResultPrivate
+    body
+
+template isErrOr*[T, E](self: Result[T, E], body: untyped) =
+  ## Evaluate `body` iff result has been assigned a value
+  ## `body` is evaluated lazily.
+  ##
+  ## Example:
+  ## ```
+  ## let
+  ##   v = Result[int, string].err("hello")
+  ##   x = v.isOkOr: echo "not ok"
+  ##   # experimental: direct error access using an unqualified `error` symbol
+  ##   z = v.isOkOr: echo error
+  ## ```
+  ##
+  ## `value` access:
+  ##
+  ## TODO experimental, might change in the future
+  ##
+  ## The template contains a shortcut for accessing the value of the result,
+  ## it can only be used outside of generic code,
+  ## see https://github.com/status-im/nim-stew/issues/161#issuecomment-1397121386
+
+  let s = (self) # TODO avoid copy
+  if s.oResultPrivate:
+    when T isnot void:
+      template value: T {.used, inject.} = s.vResultPrivate
+    body
 
 template valueOr*[T: not void, E](self: Result[T, E], def: untyped): T =
   ## Fetch value of result if set, or evaluate `def`
   ## `def` is evaluated lazily, and must be an expression of `T` or exit
   ## the scope (for example using `return` / `raise`)
+  ##
+  ## See `isOkOr` for a version that works with `Result[void, E]`.
   ##
   ## Example:
   ## ```
@@ -869,11 +939,12 @@ template valueOr*[T: not void, E](self: Result[T, E], def: untyped): T =
   ## TODO experimental, might change in the future
   ##
   ## The template contains a shortcut for accessing the error of the result,
-  ## without specifying the error - it can only be used outside of generic code,
+  ## it can only be used outside of generic code,
   ## see https://github.com/status-im/nim-stew/issues/161#issuecomment-1397121386
   ##
   let s = (self) # TODO avoid copy
-  if s.oResultPrivate: s.vResultPrivate
+  if s.oResultPrivate:
+    s.vResultPrivate
   else:
     when E isnot void:
       template error: E {.used, inject.} = s.eResultPrivate
@@ -883,8 +954,11 @@ template errorOr*[T, E: not void](self: Result[T, E], def: untyped): E =
   ## Fetch error of result if not set, or evaluate `def`
   ## `def` is evaluated lazily, and must be an expression of `T` or exit
   ## the scope (for example using `return` / `raise`)
+  ##
+  ## See `isErrOr` for a version that works with `Result[T, void]`.
   let s = (self) # TODO avoid copy
-  if not s.oResultPrivate: s.eResultPrivate
+  if not s.oResultPrivate:
+    s.eResultPrivate
   else:
     when T isnot void:
       template value: T {.used, inject.} = s.vResultPrivate

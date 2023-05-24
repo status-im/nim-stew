@@ -17,8 +17,6 @@ import
   ../stew/keyed_queue/kq_debug
 
 const
-  usedStrutils = newSeq[string]().join(" ")
-
   lruCacheLimit = 10
   lruCacheModulo = 13
 
@@ -50,7 +48,7 @@ let
 proc `$`(rc: KeyedQueuePair[uint,uint]): string =
   "(" & $rc.key & "," & $rc.data & ")"
 
-proc `$`(rc: Result[KeyedQueuePair[uint,uint],void]): string =
+proc `$`(rc: Result[KeyedQueuePair[uint,uint],void]): string {.used.} =
   result = "<"
   if rc.isOk:
     result &= $rc.value.key & "," & $rc.value.data
@@ -136,7 +134,7 @@ proc compileGenericFunctions(rq: var KUQueue) =
   rq[0] = 0 # so `rq[0]` works
   discard rq[0]
 
-  let ignoreValues = (
+  let ignoreValues {.used.} = (
     (rq.append(0,0), rq.push(0,0),
      rq.replace(0,0),
      rq.prepend(0,0), rq.unshift(0,0),
@@ -533,10 +531,13 @@ suite "KeyedQueue: Data queue as LRU cache":
       c1 =  keyList.toLruCache
       sq = toSeq(c1.q.nextPairs).mapIt(it.key.fromKey)
       s0 = sq
-      inx = 5
       key = sq[5].toKey
 
-    sq.delete(5,5) # delete index 5 in sequence
+    when (NimMajor, NimMinor) >= (1, 6):
+      sq.delete(5..5) # delete index 5 in sequence
+    else:
+      sq.delete(5, 5) # delete index 5 in sequence
+
     noisy.say &"sq: {s0} <off sq[5]({key})> {sq}"
 
     check c1.q.delete(key).value.key == key

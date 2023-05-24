@@ -21,3 +21,5 @@ when (NimMajor, NimMinor) < (1, 4):
     RangeDefect* = RangeError
     ReraiseDefect* = ReraiseError
     StackOverflowDefect* = StackOverflowError
+else:
+  {.used.}

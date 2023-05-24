@@ -104,7 +104,7 @@ func checkedEnumAssign*[E: enum, I: SomeInteger](res: var E, value: I): bool =
   if value notin E:
     return false
 
-  res = E value
+  res = cast[E](value)
   return true
 
 func isZeroMemory*[T](x: T): bool =

@@ -18,11 +18,20 @@ type
     ## for the equivalent of `a < b`
     proc(a, b: C): bool {.gcsafe.}
 
-  RbPrnFn* = ##\
-    ## Handle error message
-    proc(code: RbInfo; ctxInfo: string)
-      {.gcsafe, raises: [Defect,CatchableError].}
+when (NimMajor, NimMinor) < (1, 4):
+  type
+    RbPrnFn* = ##\
+      ## Handle error message
+      proc(code: RbInfo; ctxInfo: string)
+        {.gcsafe, raises: [Defect,CatchableError].}
+else:
+  type
+    RbPrnFn* = ##\
+      ## Handle error message
+      proc(code: RbInfo; ctxInfo: string)
+        {.gcsafe, raises: [].}
 
+type
   RbDdebug[C,K] = object
     tree: RbTreeRef[C,K]     ## tree, not-Nil
     node: RbNodeRef[C]       ## current node
@@ -34,7 +43,7 @@ type
     msg: string              ## collect data
 
 when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
+  {.push raises: [Defect, CatchableError].}
 else:
   {.push raises: [].}
 
@@ -52,8 +61,7 @@ proc pp[C](n: RbNodeRef[C]): string =
     result &= "~black"
 
 proc doError[C,K](d: var RbDdebug[C,K]; t: RbInfo; s: string):
-                   Result[void,(C,RbInfo)]
-                    {.gcsafe, raises: [Defect,CatchableError].} =
+                   Result[void,(C,RbInfo)] {.gcsafe.} =
   if not d.pr.isNil:
     var msg = s &
       ": <" & d.node.pp &
@@ -63,44 +71,44 @@ proc doError[C,K](d: var RbDdebug[C,K]; t: RbInfo; s: string):
   err((d.node.casket,t))
 
 proc rootIsRed[C,K](d: var RbDdebug[C,K]): Result[void,(C,RbInfo)]
-    {.gcsafe, raises: [Defect,CatchableError].} =
+    {.gcsafe.} =
   d.doError(rbVfyRootIsRed, "Root node is red")
 
 
 proc redNodeRedLinkLeft[C,K](d: var RbDdebug[C,K]): Result[void,(C,RbInfo)]
-    {.gcsafe, raises: [Defect,CatchableError].} =
+    {.gcsafe.} =
   d.doError(rbVfyRedParentRedLeftLink, "Parent node and left link red")
 
 proc redNodeRedLinkRight[C,K](d: var RbDdebug[C,K]): Result[void,(C,RbInfo)]
-    {.gcsafe, raises: [Defect,CatchableError].} =
+    {.gcsafe.} =
   d.doError(rbVfyRedParentRedRightLink, "Parent node and right link red")
 
 proc redNodeRedLinkBoth[C,K](d: var RbDdebug[C,K]): Result[void,(C,RbInfo)]
-    {.gcsafe, raises: [Defect,CatchableError].} =
+    {.gcsafe.} =
   d.doError(rbVfyRedParentRedBothLinks, "Parent node and both links red")
 
 
 proc linkLeftCompError[C,K](d: var RbDdebug[C,K]): Result[void,(C,RbInfo)]
-    {.gcsafe, raises: [Defect,CatchableError].} =
+    {.gcsafe.} =
   d.doError(rbVfyLeftLinkGtParent, "Left node greater than parent")
 
 proc linkRightCompError[C,K](d: var RbDdebug[C,K]): Result[void,(C,RbInfo)]
-    {.gcsafe, raises: [Defect,CatchableError].} =
+    {.gcsafe.} =
   d.doError(rbVfyRightLinkLtParent, "Right node greater than parent")
 
 proc linkBothCompError[C,K](d: var RbDdebug[C,K]): Result[void,(C,RbInfo)]
-    {.gcsafe, raises: [Defect,CatchableError].} =
+    {.gcsafe.} =
   d.doError(rbVfyBothLinkCmpParentReversed,
             "Left node greater than parent greater than right node")
 
 proc blackChainLevelError[C,K](d: var RbDdebug[C,K]): Result[void,(C,RbInfo)]
-    {.gcsafe, raises: [Defect,CatchableError].} =
+    {.gcsafe.} =
   d.doError(rbVfyBlackChainLevelMismatch,
             "Inconsistent length of black node chains")
 
 
 proc subTreeVerify[C,K](d: var RbDdebug[C,K]): Result[void,(C,RbInfo)]
-                         {.gcsafe, raises: [Defect,CatchableError].} =
+                         {.gcsafe.} =
   let node = d.node
   doAssert not node.isNil
 
@@ -168,7 +176,7 @@ proc subTreeVerify[C,K](d: var RbDdebug[C,K]): Result[void,(C,RbInfo)]
 proc rbTreeVerify*[C,K](rbt: RbTreeRef[C,K];
                         lt: RbLtFn[C] = nil; pr: RbPrnFn = nil):
                           Result[void,(C,RbInfo)]
-                            {.gcsafe, raises: [Defect,CatchableError].} =
+                            {.gcsafe.} =
   ## Verifies the argument tree `rbt` for
   ## * No consecutively linked red nodes down the tree
   ## * Link consisteny: value(leftLink) < value(node) < value(rightLink). This

@@ -325,13 +325,17 @@ proc shift*[K,V](rq: var KeyedQueue[K,V]): Result[KeyedQueuePair[K,V],void] =
   ##
   ## Using the notation introduced with `rq.append` and `rq.prepend`, the
   ## item returned and deleted is the *left-most* item.
+  type T = KeyedQueuePair[K,V]
   if 0 < rq.tab.len:
     noKeyError("shift"):
       let kvp = KeyedQueuePair[K,V](
         key: rq.kFirst,
         data: rq.tab[rq.kFirst].data)
       rq.shiftImpl
-      return ok(KeyedQueuePair[K,V](kvp))
+      when kvp is T:
+        return ok(kvp)
+      else:
+        return ok(T(kvp))
   err()
 
 proc shiftKey*[K,V](rq: var KeyedQueue[K,V]): Result[K,void] =
@@ -355,13 +359,17 @@ proc pop*[K,V](rq: var KeyedQueue[K,V]): Result[KeyedQueuePair[K,V],void] =
   ##
   ## Using the notation introduced with `rq.append` and `rq.prepend`, the
   ## item returned and deleted is the *right-most* item.
+  type T = KeyedQueuePair[K,V]
   if 0 < rq.tab.len:
     noKeyError("pop"):
       let kvp = KeyedQueuePair[K,V](
         key: rq.kLast,
         data: rq.tab[rq.kLast].data)
       rq.popImpl
-      return ok(KeyedQueuePair[K,V](kvp))
+      when kvp is T:
+        return ok(kvp)
+      else:
+        return ok(T(kvp))
   err()
 
 proc popKey*[K,V](rq: var KeyedQueue[K,V]): Result[K,void] =
@@ -450,7 +458,7 @@ proc eq*[K,V](rq: var KeyedQueue[K,V]; key: K): Result[V,void] =
     return ok(rq.tab[key].data)
 
 proc `[]`*[K,V](rq: var KeyedQueue[K,V]; key: K): V
-    {.gcsafe,raises: [Defect,KeyError].} =
+    {.gcsafe,raises: [KeyError].} =
   ## This function provides a simplified version of the `eq()` function with
   ## table semantics. Note that this finction throws a `KeyError` exception
   ## unless the argument `key` exists in the queue.
