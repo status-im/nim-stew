@@ -70,6 +70,15 @@ block:
 
   doAssert rOk.get() == rOk.unsafeGet()
 
+  rOk.isOkOr: raiseAssert "should not end up in here"
+  rErr.isErrOr: raiseAssert "should not end up in here"
+
+  rErr.isOkOr:
+    doAssert error == rErr.error()
+
+  rOk.isErrOr:
+    doAssert value == rOk.value()
+
   doAssert rOk.valueOr(failFast()) == rOk.value()
   let rErrV = rErr.valueOr:
     error.len
@@ -88,11 +97,17 @@ block:
   doAssert c.isErr
 
   # De-reference
+  when (NimMajor, NimMinor) >= (1, 6):
+    {.warning[BareExcept]:off.}
+
   try:
     echo rErr[]
     doAssert false
   except:
     discard
+
+  when (NimMajor, NimMinor) >= (1, 6):
+    {.warning[BareExcept]:on.}
 
   # Comparisons
   doAssert (rOk == rOk)
@@ -143,6 +158,12 @@ block:
 
   # Expectations
   doAssert rOk.expect("testOk never fails") == 42
+
+  # Conversions to Opt
+  doAssert rOk.optValue() == Opt.some(rOk.get())
+  doAssert rOk.optError().isNone()
+  doAssert rErr.optValue().isNone()
+  doAssert rErr.optError() == Opt.some(rErr.error())
 
   # Question mark operator
   func testQn(): Result[int, string] =
@@ -355,6 +376,10 @@ block: # Result[T, void] aka `Opt`
 
   doAssert Opt.some(42).get() == 42
   doAssert Opt.none(int).isNone()
+
+  # Construct Result from Opt
+  doAssert oOk.orErr("error").value() == oOk.get()
+  doAssert oErr.orErr("error").error() == "error"
 
 block: # `cstring` dangling reference protection
   type CSRes = Result[void, cstring]

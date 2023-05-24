@@ -82,7 +82,7 @@ func log2truncNim(x: uint8|uint16|uint32): int =
   v = v or v shr 4
   v = v or v shr 8
   v = v or v shr 16
-  cast[int](lookup[uint32(v * 0x07C4ACDD'u32) shr 27])
+  int(lookup[uint32(v * 0x07C4ACDD'u32) shr 27])
 
 func log2truncNim(x: uint64): int =
   ## Quickly find the log base 2 of a 64-bit integer.
@@ -169,9 +169,9 @@ when (defined(gcc) or defined(llvm_gcc) or defined(clang)) and useBuiltins:
       cast[int](builtin_ffs(cast[cint](x.cuint)))
 
   func log2truncBuiltin(v: uint8|uint16|uint32): int =
-    cast[int](31 - cast[cuint](builtin_clz(v.uint32)))
+    int(31 - cast[cuint](builtin_clz(v.uint32)))
   func log2truncBuiltin(v: uint64): int =
-    cast[int](63 - cast[cuint](builtin_clzll(v)))
+    int(63 - cast[cuint](builtin_clzll(v)))
 
 elif defined(vcc) and useBuiltins:
   const arch64 = sizeof(int) == 8

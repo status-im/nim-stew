@@ -31,6 +31,11 @@ type
     kQVfyPrvNxtExpected
     kQVfyFirstExpected
 
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
+
 # ------------------------------------------------------------------------------
 # Public functions, debugging
 # ------------------------------------------------------------------------------
@@ -50,7 +55,7 @@ proc `$`*[K,V](item: KeyedQueueItem[K,V]): string =
     "(" & $item.value & ", link[" & $item.prv & "," & $item.kNxt & "])"
 
 proc verify*[K,V](rq: var KeyedQueue[K,V]): Result[void,(K,V,KeyedQueueInfo)]
-    {.gcsafe,raises: [Defect,KeyError].} =
+    {.gcsafe,raises: [KeyError].} =
   ## Check for consistency. Returns an error unless the argument
   ## queue `rq` is consistent.
   let tabLen = rq.tab.len
