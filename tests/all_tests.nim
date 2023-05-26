@@ -1,5 +1,5 @@
 # stew
-# Copyright 2018-2022 Status Research & Development GmbH
+# Copyright 2018-2023 Status Research & Development GmbH
 # Licensed under either of
 #
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
@@ -21,6 +21,7 @@ import
   test_byteutils,
   test_ctops,
   test_endians2,
+  test_enums,
   test_io2,
   test_keyed_queue,
   test_sorted_set,
