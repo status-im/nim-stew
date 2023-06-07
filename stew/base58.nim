@@ -170,13 +170,13 @@ proc decode*[T: byte|char](btype: typedesc[Base58C], instr: openArray[T],
       result = Base58Status.Incorrect
       return
     let ch = alphabet.decode[int8(instr[i])]
-    if ch == -1:
+    if ch < 0:
       outlen = 0
       result = Base58Status.Incorrect
       return
-    var c = cast[uint32](ch)
+    var c = uint32(ch)
     for j in countdown(size - 1, 0):
-      let t = cast[uint64](buffer[j]) * 58 + c
+      let t = uint64(buffer[j]) * 58 + c
       c = cast[uint32]((t and 0x3F_0000_0000'u64) shr 32)
       buffer[j] = cast[uint32](t and 0xFFFF_FFFF'u32)
     if c != 0:
