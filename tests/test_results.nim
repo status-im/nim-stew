@@ -199,6 +199,37 @@ block:
   doAssert rOk.filter(proc(x: int): auto = Result[void, string].err("filter")).error == "filter"
   doAssert rErr.filter(proc(x: int): auto = Result[void, string].err("filter")) == rErr
 
+  # Collections
+  block:
+    var i = 0
+    for v in rOk.values:
+      doAssert v == rOk.value()
+      i += 1
+    doAssert i == 1
+
+    for v in rOk.errors:
+      raiseAssert "not an error"
+
+    doAssert rOk.containsValue(rOk.value())
+    doAssert not rOk.containsValue(rOk.value() + 1)
+
+    doAssert not rOk.containsError("test")
+
+  block:
+    var i = 0
+    for v in rErr.values:
+      raiseAssert "not a value"
+
+    for v in rErr.errors:
+      doAssert v == rErr.error()
+      i += 1
+    doAssert i == 1
+
+  doAssert rErr.containsError(rErr.error())
+  doAssert not rErr.containsError(rErr.error() & "X")
+
+  doAssert not rErr.containsValue(42)
+
 # Exception conversions - toException must not be inside a block
 type
   AnEnum = enum
@@ -380,6 +411,17 @@ block: # Result[T, void] aka `Opt`
   # Construct Result from Opt
   doAssert oOk.orErr("error").value() == oOk.get()
   doAssert oErr.orErr("error").error() == "error"
+
+  # Collections
+  block:
+    var i = 0
+    for v in oOk:
+      doAssert v == oOk.value()
+      i += 1
+    doAssert i == 1
+
+    doAssert oOk.value() in oOk
+    doAssert oOk.value() + 1 notin oOk
 
 block: # `cstring` dangling reference protection
   type CSRes = Result[void, cstring]

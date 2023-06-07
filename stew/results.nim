@@ -1076,3 +1076,49 @@ template `?`*[T, E](self: Result[T, E]): auto =
 
   when not(T is void):
     v.vResultPrivate
+
+# Collection integration
+
+iterator values*[T, E](self: Result[T, E]): T =
+  ## Iterate over a Result as a 0/1-item collection, returning its value if set
+  if self.oResultPrivate:
+    yield self.vResultPrivate
+
+iterator errors*[T, E](self: Result[T, E]): E =
+  ## Iterate over a Result as a 0/1-item collection, returning its error if set
+  if not self.oResultPrivate:
+    yield self.eResultPrivate
+
+iterator items*[T](self: Opt[T]): T =
+  ## Iterate over an Opt as a 0/1-item collection, returning its value if set
+  if self.oResultPrivate:
+    yield self.vResultPrivate
+
+iterator mvalues*[T, E](self: var Result[T, E]): var T =
+  if self.oResultPrivate:
+    yield self.vResultPrivate
+
+iterator merrors*[T, E](self: var Result[T, E]): var E =
+  if not self.oResultPrivate:
+    yield self.eResultPrivate
+
+iterator mitems*[T](self: var Opt[T]): var T =
+  if self.oResultPrivate:
+    yield self.vResultPrivate
+
+func containsValue*(self: Result, v: auto): bool =
+  ## Return true iff the given result is set to a value that equals `v`
+  self.oResultPrivate and self.vResultPrivate == v
+
+func containsError*(self: Result, e: auto): bool =
+  ## Return true iff the given result is set to an error that equals `e`
+  not self.oResultPrivate and self.eResultPrivate == e
+
+func contains*(self: Opt, v: auto): bool =
+  ## Return true iff the given `Opt` is set to a value that equals `v` - can
+  ## also be used in the "infix" `in` form:
+  ##
+  ## ```nim
+  ## assert "value" in Opt.some("value")
+  ## ```
+  self.oResultPrivate and self.vResultPrivate == v
