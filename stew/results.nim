@@ -447,7 +447,7 @@ template isErr*(self: Result): bool = not self.oResultPrivate
 when not defined(nimHasEffectsOfs):
   template effectsOf(f: untyped) {.pragma, used.}
 
-func map*[T0, E, T1](
+func map*[T0: not void, E; T1: not void](
     self: Result[T0, E], f: proc(x: T0): T1):
     Result[T1, E] {.inline, effectsOf: f.} =
   ## Transform value using f, or return error
@@ -457,14 +457,18 @@ func map*[T0, E, T1](
   ## assert r.map(proc (v: int): int = $v).value() == "42"
   ## ```
   if self.oResultPrivate:
-    result.ok(f(self.vResultPrivate))
+    when T1 is void:
+      f(self.vResultPrivate)
+      result.ok()
+    else:
+      result.ok(f(self.vResultPrivate))
   else:
     when E is void:
       result.err()
     else:
       result.err(self.eResultPrivate)
 
-func map*[T, E](
+func map*[T: not void, E](
     self: Result[T, E], f: proc(x: T)):
     Result[void, E] {.inline, effectsOf: f.} =
   ## Transform value using f, or return error
@@ -482,7 +486,7 @@ func map*[T, E](
     else:
       result.err(self.eResultPrivate)
 
-func map*[E, T1](
+func map*[E; T1: not void](
     self: Result[void, E], f: proc(): T1):
     Result[T1, E] {.inline, effectsOf: f.} =
   ## Transform value using f, or return error
@@ -497,7 +501,7 @@ func map*[E, T1](
 func map*[E](
     self: Result[void, E], f: proc()):
     Result[void, E] {.inline, effectsOf: f.} =
-  ## Call f if value is
+  ## Call f if `self` is ok
   if self.oResultPrivate:
     f()
     result.ok()
@@ -507,7 +511,7 @@ func map*[E](
     else:
       result.err(self.eResultPrivate)
 
-func flatMap*[T0, E, T1](
+func flatMap*[T0: not void, E, T1](
     self: Result[T0, E], f: proc(x: T0): Result[T1, E]):
     Result[T1, E] {.inline, effectsOf: f.} =
   if self.oResultPrivate: f(self.vResultPrivate)
@@ -527,7 +531,7 @@ func flatMap*[E, T1](
     else:
       Result[T1, E].err(self.eResultPrivate)
 
-func mapErr*[T, E0, E1](
+func mapErr*[T; E0: not void; E1: not void](
     self: Result[T, E0], f: proc(x: E0): E1):
     Result[T, E1] {.inline, effectsOf: f.} =
   ## Transform error using f, or leave untouched
@@ -539,7 +543,7 @@ func mapErr*[T, E0, E1](
   else:
     result.err(f(self.eResultPrivate))
 
-func mapErr*[T, E1](
+func mapErr*[T; E1: not void](
     self: Result[T, void], f: proc(): E1):
     Result[T, E1] {.inline, effectsOf: f.} =
   ## Transform error using f, or return value
@@ -551,7 +555,7 @@ func mapErr*[T, E1](
   else:
     result.err(f())
 
-func mapErr*[T, E0](
+func mapErr*[T; E0: not void](
     self: Result[T, E0], f: proc(x: E0)):
     Result[T, void] {.inline, effectsOf: f.} =
   ## Transform error using f, or return value
@@ -577,7 +581,7 @@ func mapErr*[T](
     f()
     result.err()
 
-func mapConvert*[T0, E](
+func mapConvert*[T0: not void, E](
     self: Result[T0, E], T1: type): Result[T1, E] {.inline.} =
   ## Convert result value to A using an conversion
   # Would be nice if it was automatic...
@@ -592,11 +596,15 @@ func mapConvert*[T0, E](
     else:
       result.err(self.eResultPrivate)
 
-func mapCast*[T0, E](
+func mapCast*[T0: not void, E](
     self: Result[T0, E], T1: type): Result[T1, E] {.inline.} =
   ## Convert result value to A using a cast
   ## Would be nice with nicer syntax...
-  if self.oResultPrivate: result.ok(cast[T1](self.vResultPrivate))
+  if self.oResultPrivate:
+    when T1 is void:
+      result.ok()
+    else:
+      result.ok(cast[T1](self.vResultPrivate))
   else:
     when E is void:
       result.err()
