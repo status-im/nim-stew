@@ -868,7 +868,6 @@ template unsafeGet*[E](self: Result[void, E]) = self.unsafeValue()
 # `var` overloads should not be needed but result in invalid codegen (!):
 # TODO https://github.com/nim-lang/Nim/issues/22049
 func get*[T: not void, E](self: var Result[T, E]): var T = self.value()
-func tryGet*[T: not void, E](self: var Result[T, E]): var T = self.tryValue()
 func unsafeGet*[T: not void, E](self: var Result[T, E]): var T = self.unsafeValue()
 
 func get*[T, E](self: Result[T, E], otherwise: T): T {.inline.} =
