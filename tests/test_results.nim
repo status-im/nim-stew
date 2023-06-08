@@ -482,3 +482,13 @@ block: # Constants
   proc checkIt(v: WithOpt) =
     doAssert v.opt.isNone()
   checkIt(noneWithOpt)
+
+  block: # TODO https://github.com/nim-lang/Nim/issues/22049
+    var v: Result[(seq[int], seq[int]), int]
+    v.ok((@[1], @[2]))
+    let (a, b) = v.get()
+    doAssert a == [1] and b == [2]
+    let (c, d) = v.tryGet()
+    doAssert c == [1] and d == [2]
+    let (e, f) = v.unsafeGet()
+    doAssert e == [1] and f == [2]
