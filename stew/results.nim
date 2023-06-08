@@ -865,6 +865,12 @@ template tryGet*[E](self: Result[void, E]) = self.tryValue()
 template unsafeGet*[T: not void, E](self: Result[T, E]): T = self.unsafeValue()
 template unsafeGet*[E](self: Result[void, E]) = self.unsafeValue()
 
+# `var` overloads should not be needed but result in invalid codegen (!):
+# TODO https://github.com/nim-lang/Nim/issues/22049
+template get*[T: not void, E](self: var Result[T, E]): var T = self.value()
+template tryGet*[T: not void, E](self: var Result[T, E]): var T = self.tryValue()
+template unsafeGet*[T: not void, E](self: var Result[T, E]): var T = self.unsafeValue()
+
 func get*[T, E](self: Result[T, E], otherwise: T): T {.inline.} =
   ## Fetch value of result if set, or return the value `otherwise`
   ## See `valueOr` for a template version that avoids evaluating `otherwise`
