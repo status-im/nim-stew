@@ -86,3 +86,8 @@ suite "ptrops":
       check:
         baseAddr(makeOpenArray(nil, int, 0)) == nil
         baseAddr(makeOpenArray(addr v, 1)) == addr v
+
+    block ua:
+      var v = [2, 3]
+      check:
+        makeUncheckedArray(baseAddr v)[1] == 3
