@@ -58,7 +58,7 @@ func firstOneNim(x: uint32): int =
     0
   else:
     let k = not x + 1 # get two's complement
-    cast[int](1 + lookup[((x and k) * 0x077CB531'u32) shr 27])
+    cast[int](uint(1 + lookup[((x and k) * 0x077CB531'u32) shr 27]))
 
 func firstOneNim(x: uint8|uint16): int = firstOneNim(x.uint32)
 func firstOneNim(x: uint64): int =
@@ -99,7 +99,7 @@ func log2truncNim(x: uint64): int =
   v = v or v shr 8
   v = v or v shr 16
   v = v or v shr 32
-  cast[int](lookup[(v * 0x03F6EAF2CD271461'u64) shr 58])
+  int(lookup[(v * 0x03F6EAF2CD271461'u64) shr 58])
 
 func countOnesNim(x: uint8|uint16|uint32): int =
   ## Counts the set bits in integer. (also called Hamming weight.)
@@ -108,7 +108,7 @@ func countOnesNim(x: uint8|uint16|uint32): int =
   var v = x.uint32
   v = v - ((v shr 1) and 0x55555555)
   v = (v and 0x33333333) + ((v shr 2) and 0x33333333)
-  cast[int](((v + (v shr 4) and 0xF0F0F0F) * 0x1010101) shr 24)
+  cast[int](uint(((v + (v shr 4) and 0xF0F0F0F) * 0x1010101) shr 24))
 
 func countOnesNim(x: uint64): int =
   ## Counts the set bits in integer. (also called Hamming weight.)
@@ -117,7 +117,7 @@ func countOnesNim(x: uint64): int =
   v = v - ((v shr 1'u64) and 0x5555555555555555'u64)
   v = (v and 0x3333333333333333'u64) + ((v shr 2'u64) and 0x3333333333333333'u64)
   v = (v + (v shr 4'u64) and 0x0F0F0F0F0F0F0F0F'u64)
-  cast[int]((v * 0x0101010101010101'u64) shr 56'u64)
+  cast[int](uint((v * 0x0101010101010101'u64) shr 56'u64))
 
 func parityNim(x: SomeUnsignedInt): int =
   # formula id from: https://graphics.stanford.edu/%7Eseander/bithacks.html#ParityParallel
@@ -130,7 +130,7 @@ func parityNim(x: SomeUnsignedInt): int =
     v = v xor (v shr 8)
   v = v xor (v shr 4)
   v = v and 0xf
-  cast[int]((0x6996'u shr v) and 1)
+  cast[int](uint((0x6996'u shr v) and 1))
 
 when (defined(gcc) or defined(llvm_gcc) or defined(clang)) and useBuiltins:
 
@@ -152,21 +152,21 @@ when (defined(gcc) or defined(llvm_gcc) or defined(clang)) and useBuiltins:
 
   func countOnesBuiltin(x: SomeUnsignedInt): int =
     when bitsof(x) == bitsof(culonglong):
-      cast[int](builtin_popcountll(x.culonglong))
+      int(builtin_popcountll(x.culonglong))
     else:
-      cast[int](builtin_popcount(x.cuint))
+      int(builtin_popcount(x.cuint))
 
   func parityBuiltin(x: SomeUnsignedInt): int =
     when bitsof(x) == bitsof(culonglong):
-      cast[int](builtin_parityll(x.culonglong))
+      int(builtin_parityll(x.culonglong))
     else:
-      cast[int](builtin_parity(x.cuint))
+      int(builtin_parity(x.cuint))
 
   func firstOneBuiltin(x: SomeUnsignedInt): int =
     when bitsof(x) == bitsof(clonglong):
-      cast[int](builtin_ffsll(cast[clonglong](x)))
+      int(builtin_ffsll(cast[clonglong](x)))
     else:
-      cast[int](builtin_ffs(cast[cint](x.cuint)))
+      int(builtin_ffs(cast[cint](x.cuint)))
 
   func log2truncBuiltin(v: uint8|uint16|uint32): int =
     int(31 - cast[cuint](builtin_clz(v.uint32)))
@@ -192,21 +192,21 @@ elif defined(vcc) and useBuiltins:
     func bitScanForward64(index: ptr culong, mask: uint64): cuchar {.importc: "_BitScanForward64", header: "<intrin.h>".}
 
   func countOnesBuiltin(v: uint8|uint16): int =
-    cast[int](builtin_popcnt16(v.uint16))
+    cast[int](uint(builtin_popcnt16(v.uint16)))
   func countOnesBuiltin(v: uint32): int =
-    cast[int](builtin_popcnt32(v))
+    cast[int](uint(builtin_popcnt32(v)))
   func countOnesBuiltin(v: uint64): int =
     when arch64:
-      cast[int](builtin_popcnt64(v))
+      cast[int](uint(builtin_popcnt64(v)))
     else:
-      cast[int](
+      cast[int](uint(
         builtin_popcnt32((v and uint32.high).uint32) +
-        builtin_popcnt32((v shr 32'u64).uint32))
+        builtin_popcnt32((v shr 32'u64).uint32)))
 
   template checkedScan(fnc: untyped, x: typed, def: typed): int =
     var index{.noinit.}: culong
     if fnc(index.addr, v) == cuchar(0): def
-    else: cast[int](index)
+    else: cast[int](uint(index))
 
   func firstOneBuiltin(v: uint8|uint16|uint32): int =
     1 + checkedScan(bitScanForward, v.culong, -1)
@@ -220,7 +220,7 @@ elif defined(vcc) and useBuiltins:
   template bitScan(fnc: untyped, x: typed): int =
     var index{.noinit.}: culong
     if fnc(index.addr, v) == cuchar(0): 0
-    else: cast[int](index)
+    else: cast[int](uint(index))
 
   func log2truncBuiltin(v: uint8|uint16|uint32): int =
     bitScan(bitScanReverse, v.culong)
@@ -253,18 +253,18 @@ elif defined(icc) and useBuiltins:
   template checkedScan(fnc: untyped, x: typed, def: typed): int =
     var index{.noinit.}: culong
     if fnc(index.addr, v) == cuchar(0): def
-    else: cast[int](index)
+    else: cast[int](uint(index))
 
   template bitScan(fnc: untyped, x: typed): int =
     var index{.noinit.}: culong
     if fnc(index.addr, v) == cuchar(0): 0
-    else: cast[int](index)
+    else: cast[int](uint(index))
 
   func countOnesBuiltin(v: uint8|uint16|uint32): int =
-    cast[int](builtin_popcnt32(cast[cint](v)))
+    cast[int](uint(builtin_popcnt32(cast[cint](cuint(v)))))
   func countOnesBuiltin(v: uint64): int =
     when arch64:
-      cast[int](builtin_popcnt64(v))
+      cast[int](uint(builtin_popcnt64(v)))
     else:
       cast[int](
         builtin_popcnt32(cast[cint](v and 0xFFFFFFFF'u64)) +
