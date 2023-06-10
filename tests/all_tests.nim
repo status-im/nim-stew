@@ -34,5 +34,4 @@ import
   test_templateutils,
   test_results,
   test_results2,
-  test_varints,
   test_winacl
