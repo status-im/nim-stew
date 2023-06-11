@@ -10,13 +10,13 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-proc ipv4*(address: array[4, byte]): ValidIpAddress =
+func ipv4*(address: array[4, byte]): ValidIpAddress =
   ValidIpAddress(value: IpAddress(family: IPv4, address_v4: address))
 
 template ipv4*(a, b, c, d: byte): ValidIpAddress =
   ipv4([a, b, c, d])
 
-proc ipv6*(address: array[16, byte]): ValidIpAddress =
+func ipv6*(address: array[16, byte]): ValidIpAddress =
   ValidIpAddress(value: IpAddress(family: IPv6, address_v6: address))
 
 template family*(a: ValidIpAddress): IpAddressFamily =
@@ -42,4 +42,3 @@ converter toNormalIp*(ip: ValidIpAddress): IpAddress =
   ip.value
 
 func default*(T: type ValidIpAddress): T {.error.}
-

@@ -1,6 +1,6 @@
 # Nimbus - Types, data structures and shared utilities used in network sync
 #
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
 #    http://www.apache.org/licenses/LICENSE-2.0)
@@ -55,57 +55,57 @@ else:
 # ------------------------------------------------------------------------------
 
 # use a sub-range for `FancyPoint` elements
-proc high(T: type FancyPoint): T = uHigh.to(FancyPoint)
-proc low(T: type FancyPoint): T = uLow.to(FancyPoint)
+func high(T: type FancyPoint): T = uHigh.to(FancyPoint)
+func low(T: type FancyPoint): T = uLow.to(FancyPoint)
 
-proc to(num: FancyPoint; T: type FancyScalar): T = num.T
-proc `$`(num: FancyPoint): string = $num.to(FancyScalar)
+func to(num: FancyPoint; T: type FancyScalar): T = num.T
+func `$`(num: FancyPoint): string = $num.to(FancyScalar)
 
-proc `+`*(a: FancyPoint; b: FancyScalar): FancyPoint =
+func `+`*(a: FancyPoint; b: FancyScalar): FancyPoint =
   (a.to(FancyScalar) + b).FancyPoint
 
-proc `-`*(a: FancyPoint; b: FancyScalar): FancyPoint =
+func `-`*(a: FancyPoint; b: FancyScalar): FancyPoint =
   (a.to(FancyScalar) - b).FancyPoint
 
-proc `-`*(a, b: FancyPoint): FancyScalar =
+func `-`*(a, b: FancyPoint): FancyScalar =
   (a.to(FancyScalar) - b.to(FancyScalar))
 
-proc `==`*(a, b: FancyPoint): bool = a.to(FancyScalar) == b.to(FancyScalar)
-proc `<=`*(a, b: FancyPoint): bool = a.to(FancyScalar) <= b.to(FancyScalar)
-proc `<`*(a, b: FancyPoint): bool = a.to(FancyScalar) < b.to(FancyScalar)
+func `==`*(a, b: FancyPoint): bool = a.to(FancyScalar) == b.to(FancyScalar)
+func `<=`*(a, b: FancyPoint): bool = a.to(FancyScalar) <= b.to(FancyScalar)
+func `<`*(a, b: FancyPoint): bool = a.to(FancyScalar) < b.to(FancyScalar)
 
 # ------------------------------------------------------------------------------
 # Private functions
 # ------------------------------------------------------------------------------
 
-proc truncate(num: FancyPoint; T: type uint64): uint64 =
+func truncate(num: FancyPoint; T: type uint64): uint64 =
   num.to(FancyScalar).truncate(uint64)
 
-proc merge(br: FancyRanges; left, right: uint64): uint64 =
+func merge(br: FancyRanges; left, right: uint64): uint64 =
   let (a, b) = (left.to(FancyPoint), right.to(FancyPoint))
   br.merge(a, b).truncate(uint64)
 
-proc reduce(br: FancyRanges; left, right: uint64): uint64 =
+func reduce(br: FancyRanges; left, right: uint64): uint64 =
   let (a, b) = (left.to(FancyPoint), right.to(FancyPoint))
   br.reduce(a, b).truncate(uint64)
 
-proc covered(br: FancyRanges; left, right: uint64): uint64 =
+func covered(br: FancyRanges; left, right: uint64): uint64 =
   let (a, b) = (left.to(FancyPoint), right.to(FancyPoint))
   br.covered(a, b).truncate(uint64)
 
-proc delete(br: FancyRanges; start: uint64): Result[FancyInterval,void] =
+func delete(br: FancyRanges; start: uint64): Result[FancyInterval,void] =
   br.delete(start.to(FancyPoint))
 
-proc le(br: FancyRanges; start: uint64): Result[FancyInterval,void] =
+func le(br: FancyRanges; start: uint64): Result[FancyInterval,void] =
   br.le(start.to(FancyPoint))
 
-proc ge(br: FancyRanges; start: uint64): Result[FancyInterval,void] =
+func ge(br: FancyRanges; start: uint64): Result[FancyInterval,void] =
   br.ge(start.to(FancyPoint))
 
-proc envelope(br: FancyRanges; start: uint64): Result[FancyInterval,void] =
+func envelope(br: FancyRanges; start: uint64): Result[FancyInterval,void] =
   br.envelope(start.to(FancyPoint))
 
-proc iv(left, right: uint64): FancyInterval =
+func iv(left, right: uint64): FancyInterval =
   FancyInterval.new(left.to(FancyPoint), right.to(FancyPoint))
 
 # ------------------------------------------------------------------------------
