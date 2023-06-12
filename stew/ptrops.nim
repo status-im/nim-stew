@@ -49,9 +49,12 @@ template distance*[T](a, b: ptr T): int =
   # exceeds what can be represented in an int
   distance(cast[pointer](a), cast[pointer](b)) div sizeof(T)
 
-proc baseAddr*[T](x: openArray[T]): ptr T =
+func baseAddr*[T](x: openArray[T]): ptr T =
   # Return the address of the zero:th element of x or `nil` if x is empty
   if x.len == 0: nil else: cast[ptr T](x)
+
+func makeUncheckedArray*[T](p: ptr T): ptr UncheckedArray[T] =
+  cast[ptr UncheckedArray[T]](p)
 
 template makeOpenArray*[T](p: ptr T, len: Natural): openArray[T] =
   toOpenArray(cast[ptr UncheckedArray[T]](p), 0, len - 1)
