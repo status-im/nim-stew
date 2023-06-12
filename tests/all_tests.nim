@@ -32,6 +32,4 @@ import
   test_sequtils2,
   test_sets,
   test_templateutils,
-  test_results,
-  test_results2,
   test_winacl
