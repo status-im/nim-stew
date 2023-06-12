@@ -355,19 +355,23 @@ func raiseResultError[T, E](self: Result[T, E]) {.noreturn, noinline.} =
   # site
   mixin toException
 
-  when E is ref Exception:
-    if self.eResultPrivate.isNil: # for example Result.default()!
-      raise (ref ResultError[void])(msg: "Trying to access value with err (nil)")
-    raise self.eResultPrivate
-  elif E is void:
-    raise (ref ResultError[void])(msg: "Trying to access value with err")
-  elif compiles(toException(self.eResultPrivate)):
-    raise toException(self.eResultPrivate)
-  elif compiles($self.eResultPrivate):
-    raise (ref ResultError[E])(
-      error: self.eResultPrivate, msg: $self.eResultPrivate)
-  else:
-    raise (ref ResultError[E])(msg: "Trying to access value with err", error: self.eResultPrivate)
+  case self.oResultPrivate
+  of false:
+    when E is ref Exception:
+      if self.eResultPrivate.isNil: # for example Result.default()!
+        raise (ref ResultError[void])(msg: "Trying to access value with err (nil)")
+      raise self.eResultPrivate
+    elif E is void:
+      raise (ref ResultError[void])(msg: "Trying to access value with err")
+    elif compiles(toException(self.eResultPrivate)):
+      raise toException(self.eResultPrivate)
+    elif compiles($self.eResultPrivate):
+      raise (ref ResultError[E])(
+        error: self.eResultPrivate, msg: $self.eResultPrivate)
+    else:
+      raise (ref ResultError[E])(msg: "Trying to access value with err", error: self.eResultPrivate)
+  of true:
+    raiseAssert "Unreachable"
 
 func raiseResultDefect(m: string, v: auto) {.noreturn, noinline.} =
   mixin `$`
@@ -828,14 +832,14 @@ func expect*[T, E](self: Result[T, E], m: string): T =
       self.vResultPrivate
 
 func expect*[T: not void, E](self: var Result[T, E], m: string): var T =
-  case self.oResultPrivate
+  (case self.oResultPrivate
   of false:
     when E isnot void:
       raiseResultDefect(m, self.eResultPrivate)
     else:
       raiseResultDefect(m)
   of true:
-    self.vResultPrivate
+    addr self.vResultPrivate)[]
 
 func `$`*[T, E](self: Result[T, E]): string =
   ## Returns string representation of `self`
