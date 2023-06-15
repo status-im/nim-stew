@@ -121,10 +121,7 @@ template allocStackArrayNoInit*(T: typedesc, size: int): StackArray[T] =
   allocStackArrayAux(T, size, false)
 
 template getBuffer*(a: StackArray): untyped =
-  when (NimMajor,NimMinor,NimPatch)>=(0,19,9):
-    a.buffer
-  else:
-    a.buffer[]
+  a.buffer
 
 template toOpenArray*(a: StackArray): auto =
   toOpenArray(a.getBuffer, 0, a.high)
