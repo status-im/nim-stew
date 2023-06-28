@@ -89,12 +89,21 @@ block:
   doAssert rOkV == $rOk.get()
 
   # Exceptions -> results
-  func raises(): int =
-    raise (ref CatchableError)(msg: "hello")
+  block:
+    func raises(): int =
+      raise (ref CatchableError)(msg: "hello")
+    func raisesVoid() =
+      raise (ref CatchableError)(msg: "hello")
 
-  let c = catch:
-    raises()
-  doAssert c.isErr
+    let c = catch:
+      raises()
+    doAssert c.isErr
+
+    when (NimMajor, NimMinor) >= (1, 6):
+      # Earlier versions complain about the type of the raisesVoid expression
+      let d = catch:
+        raisesVoid()
+      doAssert d.isErr
 
   # De-reference
   when (NimMajor, NimMinor) >= (1, 6):

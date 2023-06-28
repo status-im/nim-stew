@@ -731,7 +731,11 @@ template catch*(body: typed): Result[type(body), ref CatchableError] =
   type R = Result[type(body), ref CatchableError]
 
   try:
-    R.ok(body)
+    when type(body) is void:
+      body
+      R.ok()
+    else:
+      R.ok(body)
   except CatchableError as eResultPrivate:
     R.err(eResultPrivate)
 
