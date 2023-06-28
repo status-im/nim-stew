@@ -99,9 +99,11 @@ block:
       raises()
     doAssert c.isErr
 
-    let d = catch:
-      raisesVoid()
-    doAssert d.isErr
+    when (NimMajor, NimMinor) >= (1, 6):
+      # Earlier versions complain about the type of the raisesVoid expression
+      let d = catch:
+        raisesVoid()
+      doAssert d.isErr
 
   # De-reference
   when (NimMajor, NimMinor) >= (1, 6):
