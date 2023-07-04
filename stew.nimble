@@ -7,7 +7,7 @@ description   = "Backports, standard library candidates and small utilities that
 license       = "MIT or Apache License 2.0"
 skipDirs      = @["tests"]
 
-requires "nim >= 1.2.0",
+requires "nim >= 1.6.0",
          "unittest2"
 
 let nimc = getEnv("NIMC", "nim") # Which nim compiler to use
@@ -15,9 +15,8 @@ let lang = getEnv("NIMLANG", "c") # Which backend (c/cpp/js)
 let flags = getEnv("NIMFLAGS", "") # Extra flags for the compiler
 let verbose = getEnv("V", "") notin ["", "0"]
 
-let styleCheckStyle = if (NimMajor, NimMinor) < (1, 6): "hint" else: "error"
 let cfg =
-  " --styleCheck:usages --styleCheck:" & styleCheckStyle &
+  " --styleCheck:usages --styleCheck:error" &
   (if verbose: "" else: " --verbosity:0 --hints:off") &
   " --skipParentCfg --skipUserCfg --outdir:build --nimcache:build/nimcache -f"
 
