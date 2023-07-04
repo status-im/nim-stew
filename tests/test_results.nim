@@ -504,3 +504,27 @@ block: # Constants
     doAssert c == [1] and d == [2]
     let (e, f) = v.unsafeGet()
     doAssert e == [1] and f == [2]
+
+block:
+  # withAssertOk evaluated as statement instead of expr
+  # https://github.com/nim-lang/Nim/issues/22216
+  func bug(): Result[uint16, string] =
+    ok(1234)
+
+  const
+    x = bug()
+    y = x.value()
+
+  static:
+    var z = bug()
+    z.value() = 15
+    let w = z.get()
+    doAssert w == 15
+
+  doAssert y == 1234
+
+  let
+    xx = bug()
+    yy = x.value()
+
+  doAssert yy == 1234
