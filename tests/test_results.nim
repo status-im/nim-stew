@@ -515,14 +515,16 @@ block:
     x = bug()
     y = x.value()
 
-  static:
-    var z = bug()
-    z.value() = 15
-    let w = z.get()
-    doAssert w == 15
-
   doAssert y == 1234
 
+  when (NimMajor, NimMinor) >= (1,6):
+    # pre 1.6 nim vm have worse bug
+    static:
+      var z = bug()
+      z.value() = 15
+      let w = z.get()
+      doAssert w == 15
+  
   let
     xx = bug()
     yy = x.value()
