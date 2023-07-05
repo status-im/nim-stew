@@ -801,7 +801,10 @@ func value*[T, E](self: Result[T, E]): T {.inline.} =
   ## See also: Option.get
   withAssertOk(self):
     when T isnot void:
-      self.vResultPrivate
+      # TODO: remove result usage.
+      # A workaround for nim VM bug:
+      # https://github.com/nim-lang/Nim/issues/22216
+      result = self.vResultPrivate
 
 func value*[T: not void, E](self: var Result[T, E]): var T {.inline.} =
   ## Fetch value of result if set, or raise Defect
