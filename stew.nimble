@@ -8,6 +8,7 @@ license       = "MIT or Apache License 2.0"
 skipDirs      = @["tests"]
 
 requires "nim >= 1.2.0",
+         "results",
          "unittest2"
 
 let nimc = getEnv("NIMC", "nim") # Which nim compiler to use
