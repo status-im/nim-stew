@@ -1,4 +1,4 @@
-## Copyright (c) 2020 Status Research & Development GmbH
+## Copyright (c) 2020-2023 Status Research & Development GmbH
 ## Licensed under either of
 ##  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 ##  * MIT license ([LICENSE-MIT](LICENSE-MIT))
@@ -19,10 +19,7 @@ elif sizeof(int) == 4:
   type
     AnyItem* = byte|char|int8|uint16|int16|uint32|int32|uint|int
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 proc isEqual*[A: AnyItem, B: AnyItem](c: typedesc[CT], a: openArray[A],
                                       b: openArray[B]): bool =

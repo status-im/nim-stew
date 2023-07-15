@@ -1,5 +1,5 @@
 # Nimbus
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
 #    http://www.apache.org/licenses/LICENSE-2.0)
@@ -87,10 +87,7 @@ type
     ## returned from functions.
     RbResult[SortedSetItemRef[K,V]]
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect,CatchableError].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 # ------------------------------------------------------------------------------
 # Private helpers

@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2022 Status Research & Development GmbH
+# Copyright (c) 2019-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license: http://opensource.org/licenses/MIT
 #   * Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0
@@ -10,9 +10,6 @@ import
   unittest2, math,
   ../../stew/ptrops,
   ../../stew/ranges/[stackarrays]
-
-when (NimMajor, NimMinor) < (1, 4):
-  import ../../stew/shims/stddefects
 
 suite "Stack arrays":
   test "Basic operations work as expected":

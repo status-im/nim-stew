@@ -37,9 +37,6 @@
 ## be reasonable for short-lived allocations.
 ##
 
-when (NimMajor, NimMinor) < (1, 4):
-  import ../shims/stddefects
-
 type
   StackArray*[T] = object
     bufferLen: int32
