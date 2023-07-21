@@ -1329,7 +1329,7 @@ proc setFilePos*(handle: IoHandle, offset: int64,
     else:
       ok()
 
-proc checkFileSize*(value: int64): IoResult[void] =
+proc checkFileSize*(value: int64): IoResult[int] =
   ## Checks if ``value`` fits into supported by Nim string/sequence indexing
   ## mechanism.
   ##
@@ -1339,9 +1339,9 @@ proc checkFileSize*(value: int64): IoResult[void] =
     if value > 0x7FFF_FFFF'i64:
       err(UnsupportedFileSize)
     else:
-      ok()
+      ok(int(value))
   elif sizeof(int) == 8:
-    ok()
+    ok(int(value))
 
 proc readFile*[T: byte|char](pathName: string,
                              data: var openArray[T]): IoResult[uint] =
@@ -1365,9 +1365,16 @@ proc readFile*[T: byte|char](pathName: string,
 proc readFile*[T: seq[byte]|string](pathName: string,
                                     data: var T): IoResult[void] =
   ## Read all data from file ``pathName`` and store it to ``data``.
-  let fileSize = ? getFileSize(pathName)
-  ? checkFileSize(fileSize)
-  data.setLen(fileSize)
+  let
+    fileSize = ? getFileSize(pathName)
+    memSize = ? checkFileSize(fileSize)
+
+  if data.len() != memSize:
+    # `zeroMem` creates a measurable performance degradation here
+    when data is seq[byte]:
+      data = newSeqUninitialized[byte](memSize)
+    else:
+      data = newString(memSize)
   let res {.used.} = ? readFile(pathName, data.toOpenArray(0, len(data) - 1))
   ok()
 
