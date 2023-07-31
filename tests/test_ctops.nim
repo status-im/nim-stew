@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022 Status Research & Development GmbH
+# Copyright (c) 2020-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license: http://opensource.org/licenses/MIT
 #   * Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0
@@ -9,10 +9,7 @@
 import unittest2
 import ../stew/ctops
 
-when (NimMajor, NimMinor) < (1, 6):
-  type DefectEx = AssertionError
-else:
-  type DefectEx = AssertionDefect
+type DefectEx = AssertionDefect
 
 suite "Constant-time operations test suite":
   test "isEqual() test":

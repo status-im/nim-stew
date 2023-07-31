@@ -533,10 +533,7 @@ suite "KeyedQueue: Data queue as LRU cache":
       s0 = sq
       key = sq[5].toKey
 
-    when (NimMajor, NimMinor) >= (1, 6):
-      sq.delete(5..5) # delete index 5 in sequence
-    else:
-      sq.delete(5, 5) # delete index 5 in sequence
+    sq.delete(5..5) # delete index 5 in sequence
 
     noisy.say &"sq: {s0} <off sq[5]({key})> {sq}"
 

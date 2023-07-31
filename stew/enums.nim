@@ -33,10 +33,7 @@ macro enumStyle*(t: typedesc[enum]): untyped =
     of nnkEmpty:
       continue
     of nnkIdent:
-      when (NimMajor, NimMinor) < (1, 4):  # `nnkSym` in Nim 1.2
-        style.setMode(EnumStyle.Numeric, typ)
-      else:
-        error("Unexpected enum node for deserialization: " & $f.kind)
+      error("Unexpected enum node for deserialization: " & $f.kind)
     of nnkSym:
       style.setMode(EnumStyle.Numeric, typ)
     of nnkEnumFieldDef:
