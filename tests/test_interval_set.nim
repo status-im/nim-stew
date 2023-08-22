@@ -251,26 +251,40 @@ suite "IntervalSet: Intervals of FancyPoint entries over FancyScalar":
     check br.chunks == 1
     check br.verify.isOk
 
-  test "Merge disjunct intervals on 1st set":
+
+  template checkBundle1(): untyped =
     br.clear()
     check br.merge(  0,  99) == 100
     check br.merge(200, 299) == 100
     check br.merge(400, 499) == 100
     check br.merge(600, 699) == 100
     check br.merge(800, 899) == 100
+
+  test "Merge disjunct intervals on 1st set":
+    checkBundle1()
     check br.total == 500
     check br.chunks == 5
     check br.verify.isOk
 
-  test "Reduce non overlapping intervals on 1st set":
+
+  template checkBundle2(): untyped =
+    checkBundle1()
     check br.reduce(100, 199) == 0
     check br.reduce(300, 399) == 0
     check br.reduce(500, 599) == 0
     check br.reduce(700, 799) == 0
+
+  test "Reduce non overlapping intervals on 1st set":
+    checkBundle2()
     check br.verify.isOk
 
-  test "Clone a 2nd set and verify covered data ranges":
+
+  template checkBundle3(): untyped =
+    checkBundle2()
     dup = br.clone
+
+  test "Clone a 2nd set and verify covered data ranges":
+    checkBundle3()
     check dup.covered(  0,  99) == 100
     check dup.covered(100, 199) == 0
     check dup.covered(200, 299) == 100
@@ -288,12 +302,18 @@ suite "IntervalSet: Intervals of FancyPoint entries over FancyScalar":
     check dup.chunks == 5
     check dup.verify.isOk
 
-  test "Merge overlapping intervals on 2nd set":
+
+  template checkBundle4(): untyped =
+    checkBundle3()
     check dup.merge( 50, 250) == 100
     check dup.merge(450, 850) == 200
+
+  test "Merge overlapping intervals on 2nd set":
+    checkBundle4()
     check dup.verify.isOk
 
   test "Verify covered data ranges on 2nd set":
+    checkBundle4()
     check dup.covered(  0, 299) == 300
     check dup.covered(300, 399) == 0
     check dup.covered(400, 899) == 500
@@ -303,20 +323,28 @@ suite "IntervalSet: Intervals of FancyPoint entries over FancyScalar":
     check dup.verify.isOk
 
   test "Verify 1st and 2nd set differ":
+    checkBundle4()
     check br != dup
 
-  test "Reduce overlapping intervals on 2nd set":
+
+  template checkBundle5(): untyped =
+    checkBundle4()
     check dup.reduce(100, 199) == 100
     check dup.reduce(500, 599) == 100
     check dup.reduce(700, 799) == 100
+
+  test "Reduce overlapping intervals on 2nd set":
+    checkBundle5()
     check dup.verify.isOk
 
   test "Verify 1st and 2nd set equal":
+    checkBundle5()
     check br == dup
     check br == br
     check dup == dup
 
   test "Find intervals in the 1st set":
+    checkBundle5()
     check br.le(100) == iv(  0,  99)
     check br.le(199) == iv(  0,  99)
     check br.le(200) == iv(  0,  99)
@@ -330,6 +358,7 @@ suite "IntervalSet: Intervals of FancyPoint entries over FancyScalar":
     check br.ge(801) == ivError
 
   test "Delete intervals from the 2nd set":
+    checkBundle5()
     check dup.delete(200) == iv(200, 299)
     check dup.delete(800) == iv(800, 899)
     check dup.verify.isOk
