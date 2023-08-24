@@ -1,4 +1,4 @@
-{.push raises: [Defect].}
+{.push raises: [].}
 
 import
   bitops2, ptrops

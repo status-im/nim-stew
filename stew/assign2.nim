@@ -2,7 +2,7 @@ import
   std/typetraits,
   ./shims/macros
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 func assign*[T](tgt: var seq[T], src: openArray[T]) {.gcsafe.}
 func assign*[T](tgt: var openArray[T], src: openArray[T]) {.gcsafe.}
@@ -12,7 +12,7 @@ func assignImpl[T](tgt: var openArray[T], src: openArray[T]) =
   mixin assign
   when supportsCopyMem(T):
     if tgt.len > 0:
-      copyMem(addr tgt[0], unsafeAddr src[0], sizeof(tgt[0]) * tgt.len)
+      moveMem(addr tgt[0], unsafeAddr src[0], sizeof(tgt[0]) * tgt.len)
   else:
     for i in 0..<tgt.len:
       assign(tgt[i], src[i])
@@ -49,7 +49,7 @@ func assign*[T](tgt: var T, src: T) =
     when sizeof(src) <= sizeof(int):
       tgt = src
     else:
-      copyMem(addr tgt, unsafeAddr src, sizeof(tgt))
+      moveMem(addr tgt, unsafeAddr src, sizeof(tgt))
   elif T is object|tuple:
     for t, s in fields(tgt, src):
       when supportsCopyMem(type s) and sizeof(s) <= sizeof(int) * 2:

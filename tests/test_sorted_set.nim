@@ -1,5 +1,5 @@
 # Nimbus
-# Copyright (c) 2018-2019 Status Research & Development GmbH
+# Copyright (c) 2018-2022 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
 #    http://www.apache.org/licenses/LICENSE-2.0)
@@ -8,10 +8,12 @@
 # at your option. This file may not be copied, modified, or distributed except
 # according to those terms.
 
+{.used.}
+
 import
-  std/[algorithm, sequtils, strformat, tables],
+  std/[algorithm, sequtils, strformat, sets, tables],
   ../stew/sorted_set,
-  unittest
+  unittest2
 
 const
   keyList = [
@@ -24,8 +26,8 @@ const
     56,  107,  45, 180, 113, 233,  59, 246,  29, 212, 172, 161, 183, 207, 189,
     56,  198, 130,  62,  28,  53, 122]
 
-let
-  noisy = defined(debug)
+  numUniqeKeys = keyList.toHashSet.len
+  numKeyDups = keyList.len - numUniqeKeys
 
 # ------------------------------------------------------------------------------
 # Helpers
@@ -63,77 +65,91 @@ iterator revWalk(sl: var SortedSet[int,int]): int =
   w.destroy
 
 # ------------------------------------------------------------------------------
-# Test Runners
+# Setup functions
 # ------------------------------------------------------------------------------
 
-let
-  numUniqeKeys = keyList.toSeq.mapIt((it,false)).toTable.len
-  numKeyDups = keyList.len - numUniqeKeys
-
-suite "SortedSet: Sorted list based on red-black tree":
+proc insertKeyListItems(kl: openArray[int]): (SortedSet[int,int],seq[int]) =
   var
     sl = SortedSet[int,int].init
     rej: seq[int]
 
-  test &"Insert {keyList.len} items, reject {numKeyDups} duplicates":
-    for n in keyList:
-      let rc = sl.insert(n)
-      if rc.isErr:
-        rej.add n
-      else:
-        rc.value.data = -n
-      let check = sl.verify
-      if check.isErr:
-        check check.error[1] == rbOk # force message
-    check sl.len == numUniqeKeys
-    check rej.len == numKeyDups
-    check sl.len + rej.len == keyList.len
+  for n in keyList:
+    let rc = sl.insert(n)
+    if rc.isErr:
+      rej.add n
+    else:
+      rc.value.data = -n
+    let check = sl.verify
+    if check.isErr:
+      check check.error[1] == rbOk # force message
 
-  test &"Verify increasing/decreasing traversals":
-    check toSeq(sl.fwdItems) == toSeq(sl.fwdWalk)
-    check toSeq(sl.revItems) == toSeq(sl.revWalk)
-    check toSeq(sl.fwdItems) == toSeq(sl.revWalk).reversed
-    check toSeq(sl.revItems) == toSeq(sl.fwdWalk).reversed
+  (sl,rej)
 
-    # check `sLstEq()`
-    block:
-      var rc = sl.ge(0)
-      while rc.isOk:
-        check rc == sl.eq(rc.value.key)
-        rc = sl.gt(rc.value.key)
+# ------------------------------------------------------------------------------
+# Test Runners
+# ------------------------------------------------------------------------------
 
-    # check `sLstThis()`
-    block:
-      var
-        w = SortedSetWalkRef[int,int].init(sl)
-        rc = w.first
-      while rc.isOk:
-        check rc == w.this
-        rc = w.next
-      w.destroy
+proc sortedSetRunner(kl: openArray[int]) =
+  suite "SortedSet: Sorted list based on red-black tree":
+    setup:
+      var (sl, rej) = keyList.insertKeyListItems
 
-  test "Delete items":
-    var seen: seq[int]
-    let sub7 = keyList.len div 7
-    for n in toSeq(countup(0,sub7)).concat(toSeq(countup(3*sub7,4*sub7))):
-      let
-        key = keyList[n]
-        canDeleteOk = (key notin seen)
+    test &"Insert {keyList.len} items, reject {numKeyDups} duplicates":
+      check sl.len == numUniqeKeys
+      check rej.len == numKeyDups
+      check sl.len + rej.len == keyList.len
 
-        data = sl.delete(key)
-        slCheck = sl.verify
+    test "Verify increasing/decreasing traversals":
+      check toSeq(sl.fwdItems) == toSeq(sl.fwdWalk)
+      check toSeq(sl.revItems) == toSeq(sl.revWalk)
+      check toSeq(sl.fwdItems) == toSeq(sl.revWalk).reversed
+      check toSeq(sl.revItems) == toSeq(sl.fwdWalk).reversed
 
-      if key notin seen:
-        seen.add key
+      # check `sLstEq()`
+      block:
+        var rc = sl.ge(0)
+        while rc.isOk:
+          check rc == sl.eq(rc.value.key)
+          rc = sl.gt(rc.value.key)
 
-      if slCheck.isErr:
-        check slCheck.error[1] == rbOk # force message
-      check data.isOk == canDeleteOk
+      # check `sLstThis()`
+      block:
+        var
+          w = SortedSetWalkRef[int,int].init(sl)
+          rc = w.first
+        while rc.isOk:
+          check rc == w.this
+          rc = w.next
+        w.destroy
 
-      if canDeleteOk:
-        check data.value.key == key
+    test "Delete items":
+      var seen: seq[int]
+      let sub7 = keyList.len div 7
+      for n in toSeq(countup(0,sub7)).concat(toSeq(countup(3*sub7,4*sub7))):
+        let
+          key = keyList[n]
+          canDeleteOk = (key notin seen)
 
-    check seen.len + sl.len + rej.len == keyList.len
+          data = sl.delete(key)
+          slCheck = sl.verify
+
+        if key notin seen:
+          seen.add key
+
+        if slCheck.isErr:
+          check slCheck.error[1] == rbOk # force message
+        check data.isOk == canDeleteOk
+
+        if data.isOk: # assuming data.isOk == canDeleteOk if correct
+          check data.value.key == key
+
+      check seen.len + sl.len + rej.len == keyList.len
+
+# ------------------------------------------------------------------------------
+# Main
+# ------------------------------------------------------------------------------
+
+keyList.sortedSetRunner
 
 # ------------------------------------------------------------------------------
 # End

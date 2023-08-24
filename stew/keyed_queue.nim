@@ -1,5 +1,5 @@
 # Nimbus
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
 #    http://www.apache.org/licenses/LICENSE-2.0)
@@ -29,7 +29,7 @@ import
 export
   results
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 type
   KeyedQueueItem*[K,V] = object ##\
@@ -322,13 +322,17 @@ proc shift*[K,V](rq: var KeyedQueue[K,V]): Result[KeyedQueuePair[K,V],void] =
   ##
   ## Using the notation introduced with `rq.append` and `rq.prepend`, the
   ## item returned and deleted is the *left-most* item.
+  type T = KeyedQueuePair[K,V]
   if 0 < rq.tab.len:
     noKeyError("shift"):
       let kvp = KeyedQueuePair[K,V](
         key: rq.kFirst,
         data: rq.tab[rq.kFirst].data)
       rq.shiftImpl
-      return ok(KeyedQueuePair[K,V](kvp))
+      when kvp is T:
+        return ok(kvp)
+      else:
+        return ok(T(kvp))
   err()
 
 proc shiftKey*[K,V](rq: var KeyedQueue[K,V]): Result[K,void] =
@@ -352,13 +356,17 @@ proc pop*[K,V](rq: var KeyedQueue[K,V]): Result[KeyedQueuePair[K,V],void] =
   ##
   ## Using the notation introduced with `rq.append` and `rq.prepend`, the
   ## item returned and deleted is the *right-most* item.
+  type T = KeyedQueuePair[K,V]
   if 0 < rq.tab.len:
     noKeyError("pop"):
       let kvp = KeyedQueuePair[K,V](
         key: rq.kLast,
         data: rq.tab[rq.kLast].data)
       rq.popImpl
-      return ok(KeyedQueuePair[K,V](kvp))
+      when kvp is T:
+        return ok(kvp)
+      else:
+        return ok(T(kvp))
   err()
 
 proc popKey*[K,V](rq: var KeyedQueue[K,V]): Result[K,void] =
@@ -447,7 +455,7 @@ proc eq*[K,V](rq: var KeyedQueue[K,V]; key: K): Result[V,void] =
     return ok(rq.tab[key].data)
 
 proc `[]`*[K,V](rq: var KeyedQueue[K,V]; key: K): V
-    {.gcsafe,raises: [Defect,KeyError].} =
+    {.gcsafe,raises: [KeyError].} =
   ## This function provides a simplified version of the `eq()` function with
   ## table semantics. Note that this finction throws a `KeyError` exception
   ## unless the argument `key` exists in the queue.
@@ -771,7 +779,7 @@ iterator nextKeys*[K,V](rq: var KeyedQueue[K,V]): K =
   ## :Note:
   ##    When running in a loop it is *ok* to delete the current item and all
   ##    the items already visited. Items not visited yet must not be deleted
-  ##    as the loop would be come unpredictable, then.
+  ##    as the loop would become unpredictable.
   if 0 < rq.tab.len:
     var
       key = rq.kFirst

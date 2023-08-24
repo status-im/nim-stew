@@ -1,5 +1,5 @@
 # Nimbus
-# Copyright (c) 2018-2019 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
 #    http://www.apache.org/licenses/LICENSE-2.0)
@@ -8,15 +8,15 @@
 # at your option. This file may not be copied, modified, or distributed except
 # according to those terms.
 
+{.used.}
+
 import
   std/[algorithm, sequtils, strformat, strutils, tables],
+  unittest2,
   ../stew/keyed_queue,
-  ../stew/keyed_queue/kq_debug,
-  unittest
+  ../stew/keyed_queue/kq_debug
 
 const
-  usedStrutils = newSeq[string]().join(" ")
-
   lruCacheLimit = 10
   lruCacheModulo = 13
 
@@ -45,16 +45,16 @@ let
 # Debugging
 # ------------------------------------------------------------------------------
 
-proc `$`(rc: KeyedQueuePair[uint,uint]): string =
+func `$`(rc: KeyedQueuePair[uint,uint]): string =
   "(" & $rc.key & "," & $rc.data & ")"
 
-proc `$`(rc: Result[KeyedQueuePair[uint,uint],void]): string =
+func `$`(rc: Result[KeyedQueuePair[uint,uint],void]): string {.used.} =
   result = "<"
   if rc.isOk:
     result &= $rc.value.key & "," & $rc.value.data
   result &= ">"
 
-proc `$`(rc: Result[uint,void]): string =
+func `$`(rc: Result[uint,void]): string =
   result = "<"
   if rc.isOk:
     result &= $rc.value
@@ -73,23 +73,23 @@ proc say(noisy = false; pfx = "***"; args: varargs[string, `$`]) =
 # Converters
 # ------------------------------------------------------------------------------
 
-proc toValue(n: int): uint =
+func toValue(n: int): uint =
   (n + 1000).uint
 
-proc fromValue(n: uint): int =
+func fromValue(n: uint): int =
   (n - 1000).int
 
-proc toKey(n: int): uint =
+func toKey(n: int): uint =
   n.uint
 
-proc fromKey(n: uint): int =
+func fromKey(n: uint): int =
   n.int
 
 # ------------------------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------------------------
 
-proc lruValue(lru: var LruCache; n: int): uint =
+func lruValue(lru: var LruCache; n: int): uint =
   let
     key = n.toKey
     rc = lru.q.lruFetch(key)
@@ -100,16 +100,16 @@ proc lruValue(lru: var LruCache; n: int): uint =
   result = lru.q.lruAppend(key, key.fromKey.toValue, lru.size)
   doAssert lru.q.verify.isOk
 
-proc toLruCache(a: openArray[int]): LruCache =
+func toLruCache(a: openArray[int]): LruCache =
   result.size = lruCacheLimit
   for n in a.toSeq.mapIt(it mod lruCacheModulo):
     doAssert result.lruValue(n) == n.toValue
 
-proc toQueue(a: openArray[int]): KUQueue =
+func toQueue(a: openArray[int]): KUQueue =
   for n in a:
     result[n.toKey] = n.toValue
 
-proc toUnique(a: openArray[int]): seq[uint] =
+func toUnique(a: openArray[int]): seq[uint] =
   var q = a.toQueue
   toSeq(q.nextKeys)
 
@@ -128,13 +128,13 @@ proc addOrFlushGroupwise(rq: var KUQueue;
   doAssert rqLen == seen.len + rq.len
   seen.setLen(0)
 
-proc compileGenericFunctions(rq: var KUQueue) =
+func compileGenericFunctions(rq: var KUQueue) =
   ## Verifies that functions compile, at all
   rq.del(0)
   rq[0] = 0 # so `rq[0]` works
   discard rq[0]
 
-  let ignoreValues = (
+  let ignoreValues {.used.} = (
     (rq.append(0,0), rq.push(0,0),
      rq.replace(0,0),
      rq.prepend(0,0), rq.unshift(0,0),
@@ -531,10 +531,10 @@ suite "KeyedQueue: Data queue as LRU cache":
       c1 =  keyList.toLruCache
       sq = toSeq(c1.q.nextPairs).mapIt(it.key.fromKey)
       s0 = sq
-      inx = 5
       key = sq[5].toKey
 
-    sq.delete(5,5) # delete index 5 in sequence
+    sq.delete(5..5) # delete index 5 in sequence
+
     noisy.say &"sq: {s0} <off sq[5]({key})> {sq}"
 
     check c1.q.delete(key).value.key == key

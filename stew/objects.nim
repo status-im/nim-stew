@@ -59,14 +59,18 @@ when not compiles(len((1, 2))):
 # Get an object's base type, as a cstring. Ref objects will have an ":ObjectType"
 # suffix.
 # From: https://gist.github.com/stefantalpalaru/82dc71bb547d6f9178b916e3ed5b527d
-proc baseType*(obj: RootObj): cstring =
-  when not defined(nimTypeNames):
-    raiseAssert("you need to compile this with '-d:nimTypeNames'")
-  else:
+when not defined(nimTypeNames):
+  proc baseType*(obj: RootObj): cstring {.error: "baseType requires -d:nimTypeNames".}
+  proc baseType*(obj: ref RootObj): cstring {.error: "baseType requires -d:nimTypeNames".}
+elif defined(gcArc) or defined(gcOrc):
+  proc baseType*(obj: RootObj): cstring {.error: "baseType is not available in ARC/ORC".}
+  proc baseType*(obj: ref RootObj): cstring {.error: "baseType is not available in ARC/ORC".}
+else:
+  proc baseType*(obj: RootObj): cstring {.deprecated.} =
     {.emit: "result = `obj`->m_type->name;".}
 
-proc baseType*(obj: ref RootObj): cstring =
-  obj[].baseType
+  proc baseType*(obj: ref RootObj): cstring {.deprecated.} =
+    obj[].baseType
 
 macro enumRangeInt64*(a: type[enum]): untyped =
   ## This macro returns an array with all the ordinal values of an enum
@@ -100,7 +104,7 @@ func checkedEnumAssign*[E: enum, I: SomeInteger](res: var E, value: I): bool =
   if value notin E:
     return false
 
-  res = E value
+  res = cast[E](value)
   return true
 
 func isZeroMemory*[T](x: T): bool =
@@ -109,3 +113,10 @@ func isZeroMemory*[T](x: T): bool =
     if b != 0:
       return false
   return true
+
+func isDefaultValue*[T](x: T): bool =
+  # TODO: There are ways to optimise this for simple POD types
+  #       (they can be mapped to `isZeroMemory`)
+  #       It may also be beneficial to store the RHS in a const.
+  #       Check the codegen.
+  x == default(T)

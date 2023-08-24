@@ -1,5 +1,5 @@
 # Nimbus
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
 #    http://www.apache.org/licenses/LICENSE-2.0)
@@ -170,7 +170,7 @@ type
     start*: bool                       ## `true` after a rewind operation
     stop*: bool                        ## End of traversal
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 # ------------------------------------------------------------------------------
 # Public functions, constructor
@@ -191,7 +191,7 @@ proc newRbTreeRef*[C,K](cmp: RbCmpFn[C,K]; mkc: RbMkcFn[C,K]): RbTreeRef[C,K] =
 proc newWalkId*[C,K](rbt: RbTreeRef[C,K]): uint {.inline.} =
   ## Generate new free walk ID, returns zero in (theoretical) case all other
   ## IDs are exhausted.
-  for id in rbt.walkIdGen .. rbt.walkIdGen.high:
+  for id in rbt.walkIdGen .. high(type rbt.walkIdGen):
     if not rbt.walks.hasKey(id):
       rbt.walkIdGen = id
       return id

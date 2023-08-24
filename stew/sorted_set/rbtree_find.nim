@@ -1,5 +1,5 @@
 # Nimbus
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
 #    http://www.apache.org/licenses/LICENSE-2.0)
@@ -12,7 +12,7 @@ import
   ./rbtree_desc,
   ../results
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 # ----------------------------------------------------------------------- ------
 # Public
@@ -31,8 +31,9 @@ proc rbTreeFindEq*[C,K](rbt: RbTreeRef[C,K]; key: K): RbResult[C] =
   if rbt.root.isNil:
     return err(rbEmptyTree)
 
-  if not rbt.cache.isNil and rbt.cmp(rbt.cache.casket,key) == 0:
-    return ok(rbt.cache.casket)
+  if not rbt.cache.isNil:
+    if rbt.cmp(rbt.cache.casket,key) == 0:
+      return ok(rbt.cache.casket)
 
   var
     q = rbt.root

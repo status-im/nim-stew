@@ -1,5 +1,5 @@
 # Nimbus
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
 #    http://www.apache.org/licenses/LICENSE-2.0)
@@ -87,7 +87,7 @@ type
     ## returned from functions.
     RbResult[SortedSetItemRef[K,V]]
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 # ------------------------------------------------------------------------------
 # Private helpers
@@ -298,7 +298,7 @@ proc `$`*[K,V](rc: SortedSetResult[K,V]): string =
 
 proc verify*[K,V](sl: var SortedSet[K,V]):
                   Result[void,(SortedSetItemRef[K,V],RbInfo)]
-                    {.gcsafe, raises: [Defect,CatchableError].} =
+                    {.gcsafe.} =
   ## Checks for consistency, may print an error message. Returns `rbOk` if
   ## the argument list `sl` is consistent. This function traverses all the
   ## internal data nodes which might be time consuming. So it would not be
