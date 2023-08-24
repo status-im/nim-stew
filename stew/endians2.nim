@@ -98,9 +98,11 @@ func toBytes*(x: SomeEndianInt, endian: Endianness = system.cpuEndian):
     if endian == system.cpuEndian: x
     else: swapBytes(x)
 
-  # Loop since vm can't copymem - let's hope optimizer is smart here :)
-  for i in 0..<sizeof(result):
-    result[i] = byte((v shr (i * 8)) and 0xff)
+  when nimvm: # No copyMem in vm
+    for i in 0..<sizeof(result):
+      result[i] = byte((v shr (i * 8)) and 0xff)
+  else:
+    copyMem(addr result, unsafeAddr v, sizeof(result))
 
 func toBytesLE*(x: SomeEndianInt):
     array[sizeof(x), byte] {.inline.} =
@@ -114,41 +116,36 @@ func toBytesBE*(x: SomeEndianInt):
 
 func fromBytes*(
     T: typedesc[SomeEndianInt],
-    x: array[sizeof(T), byte],
-    endian: Endianness = system.cpuEndian): T {.inline.} =
-  ## Convert a byte sequence to a native endian integer. By default, native
-  ## endianness is used which is not portable!
-  for i in 0..<sizeof(result): # No copymem in vm
-    result = result or T(x[i]) shl (i * 8)
-
-  if endian != system.cpuEndian:
-    result = swapBytes(result)
-
-func fromBytes*(
-    T: typedesc[SomeEndianInt],
     x: openArray[byte],
     endian: Endianness = system.cpuEndian): T {.inline.} =
-  ## Read bytes and convert to an integer according to the given endianness. At
-  ## runtime, v must contain at least sizeof(T) bytes. By default, native
-  ## endianness is used which is not portable!
+  ## Read bytes and convert to an integer according to the given endianness.
   ##
-  ## REVIEW COMMENT (zah)
-  ## This API is very strange. Why can't I pass an open array of 3 bytes
-  ## to be interpreted as a LE number? Also, why is `endian` left as a
-  ## run-time parameter (with such short functions, it could easily be static).
+  ## Note: The default value of `system.cpuEndian` is not portable across
+  ## machines.
+  ##
+  ## Panics when `x.len < sizeof(T)` - for shorter buffers, copy the data to
+  ## an `array` first using `arrayops.initCopyFrom`, taking care to zero-fill
+  ## at the right end - usually the beginning for big endian and the end for
+  ## little endian, but this depends on the serialization of the bytes.
 
-  const ts = sizeof(T) # Nim bug: can't use sizeof directly
-  var tmp: array[ts, byte]
-  for i in 0..<tmp.len: # Loop since vm can't copymem
-    tmp[i] = x[i]
-  fromBytes(T, tmp, endian)
+  # This check gets optimized away when the compiler can prove that the length
+  # is large enough - passing in an `array` or using a construct like
+  # ` toOpenArray(pos, pos + sizeof(T) - 1)` are two ways that this happens
+  doAssert x.len >= sizeof(T), "Not enough bytes for endian conversion"
 
-func fromBytesBE*(
-    T: typedesc[SomeEndianInt],
-    x: array[sizeof(T), byte]): T {.inline.} =
-  ## Read big endian bytes and convert to an integer. By default, native
-  ## endianness is used which is not portable!
-  fromBytes(T, x, bigEndian)
+  when nimvm: # No copyMem in vm
+    for i in 0..<sizeof(result):
+      result = result or (T(x[i]) shl (i * 8))
+  else:
+    # `copyMem` helps compilers optimize the copy into a single instruction, when
+    # alignment etc permits
+    copyMem(addr result, unsafeAddr x[0], sizeof(result))
+
+  if endian != system.cpuEndian:
+    # The swap is turned into a CPU-specific instruction and/or combined with
+    # the copy above, again when conditions permit it - for example, on X86
+    # fromBytesBE gets compiled into a single `MOVBE` instruction
+    result = swapBytes(result)
 
 func fromBytesBE*(
     T: typedesc[SomeEndianInt],
@@ -168,13 +165,6 @@ func fromBE*[T: SomeEndianInt](x: T): T {.inline.} =
   ## Read a big endian value and return the corresponding native endian
   # there's no difference between this and toBE, except when reading the code
   toBE(x)
-
-func fromBytesLE*(
-    T: typedesc[SomeEndianInt],
-    x: array[sizeof(T), byte]): T {.inline.} =
-  ## Read little endian bytes and convert to an integer. By default, native
-  ## endianness is used which is not portable!
-  fromBytes(T, x, littleEndian)
 
 func fromBytesLE*(
     T: typedesc[SomeEndianInt],

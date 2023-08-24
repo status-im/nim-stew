@@ -36,7 +36,7 @@ proc writeMacroResultsNow* {.compileTime.} =
     file.add newCommentStmtNode("Generated at line " & $location.line)
     file.add macroOutput
 
-  for i in 0..< macroLocations.len:
+  for i in 0 ..< macroLocations.len:
     addToFile files.mgetOrPut(macroLocations[i].filename, nil),
               macroLocations[i], macroOutputs[i]
 
@@ -76,9 +76,13 @@ macro isTuple*(T: type): untyped =
 
 proc skipRef*(T: NimNode): NimNode =
   result = T
-  if T.kind == nnkBracketExpr:
-    if eqIdent(T[0], bindSym"ref"):
-      result = T[1]
+  if T.kind == nnkBracketExpr and eqIdent(T[0], "ref"):
+    result = T[1]
+
+proc skipPtr*(T: NimNode): NimNode =
+  result = T
+  if T.kind == nnkBracketExpr and eqIdent(T[0], "ptr"):
+    result = T[1]
 
 template readPragma*(field: FieldDescription, pragmaName: static string): NimNode =
   let p = findPragma(field.pragmas, bindSym(pragmaName))
@@ -187,8 +191,14 @@ proc recordFields*(typeImpl: NimNode): seq[FieldDescription] =
       result.add FieldDescription(typ: typeImpl[i], name: ident("Field" & $(i - 1)))
     return
 
-  typeImpl.expectKind nnkTypeDef
-  collectFieldsInHierarchy(result, typeImpl[2])
+  let objectType = case typeImpl.kind
+    of nnkObjectTy: typeImpl
+    of nnkTypeDef: typeImpl[2]
+    else:
+      macros.error("object type expected", typeImpl)
+      return
+
+  collectFieldsInHierarchy(result, objectType)
 
 macro field*(obj: typed, fieldName: static string): untyped =
   newDotExpr(obj, ident fieldName)
@@ -403,12 +413,14 @@ iterator baseTypes*(exceptionType: NimNode): NimNode =
     typ = objType[1][0]
     yield typ
 
-macro unpackArgs*(callee: typed, args: untyped): untyped =
+macro unpackArgs*(callee: untyped, args: untyped): untyped =
+  const ArgKind = nnkArgList
+
   result = newCall(callee)
   for arg in args:
     let arg = if arg.kind == nnkHiddenStdConv: arg[1]
               else: arg
-    if arg.kind == nnkArgList:
+    if arg.kind == ArgKind:
       for subarg in arg:
         result.add subarg
     else:

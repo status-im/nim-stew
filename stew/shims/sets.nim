@@ -1,4 +1,4 @@
-import std/sets, ../objects
+import std/sets, ../objects, ../templateutils
 
 when not declared(initHashSet):
   template initHashSet*[T](initialSize = 64): auto =
@@ -18,5 +18,16 @@ template init*[T](_: type set[T]): auto =
   var x: set[T]
   x
 
-export sets, objects
+template keepItIf*[T](setParam: var HashSet[T], itPredicate: untyped) =
+  bind evalTemplateParamOnce
+  evalTemplateParamOnce(setParam, s):
+    var itemsToDelete: seq[T]
 
+    for it {.inject.} in s:
+      if not itPredicate:
+        itemsToDelete.add(it)
+
+    for item in itemsToDelete:
+      s.excl item
+
+export sets, objects

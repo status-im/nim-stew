@@ -1,4 +1,12 @@
-import unittest
+# Copyright (c) 2019-2022 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license: http://opensource.org/licenses/MIT
+#   * Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.used.}
+
+import unittest2
 
 import ../stew/bitops2
 
@@ -102,7 +110,7 @@ template test() =
   # T(1 shl 63) raises!
   doAssert bit64 == 0b10000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000'u64
 
-proc runtimeTest =
+func runtimeTest =
   var bytes = @[byte 0b11001101, 0b10010010, 0b00000000, 0b11111111,
                      0b11000010, 0b00110110, 0b11010110, 0b00101010,
                      0b01101110, 0b11101001, 0b10101011, 0b00110010]

@@ -1,10 +1,10 @@
-# Copyright (c) 2020 Status Research & Development GmbH
+# Copyright (c) 2020-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-{.push raises: [Defect].}
+{.push raises: [].}
 
 ## Operations on array and openArray
 
@@ -46,7 +46,7 @@ func mnot*[N: static int; T](x: var array[N, T], y: array[N, T]) =
   eachElement(x, x, `not`)
 
 func copyFrom*[T](
-    v: var openArray[T], src: openArray[T]): Natural {.raises: [Defect].} =
+    v: var openArray[T], src: openArray[T]): Natural =
   ## Copy `src` contents into `v` - this is a permissive assignment where `src`
   ## may contain both fewer and more elements than `v`. Returns the number of
   ## elements copied which may be less than N when `src` is shorter than v
@@ -54,13 +54,20 @@ func copyFrom*[T](
   assign(v.toOpenArray(0, elems - 1), src.toOpenArray(0, elems - 1))
   elems
 
-func initArrayWith*[N: static[int], T](value: T): array[N, T] {.noInit, inline.}=
+func initCopyFrom*[N: static[int], T](
+    A: type array[N, T], src: openArray[T]): A =
+  ## Copy `src` contents into an array - this is a permissive copy where `src`
+  ## may contain both fewer and more elements than `N`.
+  let elems = min(N, src.len)
+  assign(result.toOpenArray(0, elems - 1), src.toOpenArray(0, elems - 1))
+
+func initArrayWith*[N: static[int], T](value: T): array[N, T] {.noinit, inline.}=
   result.fill(value)
 
 func `&`*[N1, N2: static[int], T](
     a: array[N1, T],
     b: array[N2, T]
-    ): array[N1 + N2, T] {.inline, noInit.}=
+    ): array[N1 + N2, T] {.inline, noinit.}=
   ## Array concatenation
   assign(result.toOpenArray(0, N1 - 1), a)
   assign(result.toOpenArray(N1, result.high), b)

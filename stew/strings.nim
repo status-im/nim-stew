@@ -1,4 +1,4 @@
-proc add*(s: var string, data: openarray[char]) =
+proc add*(s: var string, data: openArray[char]) =
   if data.len > 0:
     let prevEnd = s.len
     s.setLen(prevEnd + data.len)
