@@ -2,7 +2,7 @@ import std/net as stdNet
 export stdNet
 
 type
-  ValidIpAddress* = object
+  ValidIpAddress* {.requiresInit, deprecated.} = object
     value: IpAddress
 
 {.push raises: [].}
