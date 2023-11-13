@@ -237,17 +237,17 @@ func to0xHex*[N: static[int]](ba: array[N, byte]): string {.inline.} =
   ## No "endianness" reordering is done.
   toHexAux(ba, true)
 
+func toBytes*(s: openArray[char]): seq[byte] =
+  ## Convert a char array to the corresponding byte sequence - since strings in
+  ## nim essentially are byte sequences without any particular encoding, this
+  ## simply copies the bytes without a null terminator
+  @(s.toOpenArrayByte(0, s.high))
+
 func toBytes*(s: string): seq[byte] =
   ## Convert a string to the corresponding byte sequence - since strings in
   ## nim essentially are byte sequences without any particular encoding, this
   ## simply copies the bytes without a null terminator
-  when nimvm:
-    var r = newSeq[byte](s.len)
-    for i, c in s:
-      r[i] = cast[byte](c)
-    r
-  else:
-    @(s.toOpenArrayByte(0, s.high))
+  @(s.toOpenArrayByte(0, s.high))
 
 func fromBytes*(T: type string, v: openArray[byte]): string =
   if v.len > 0:
