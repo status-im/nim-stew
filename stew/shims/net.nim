@@ -1,3 +1,5 @@
+{.deprecated: "use std/net".}
+
 import std/net as stdNet
 export stdNet
 
