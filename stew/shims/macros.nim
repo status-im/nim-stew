@@ -17,6 +17,8 @@ type
 const
   nnkPragmaCallKinds = {nnkExprColonExpr, nnkCall, nnkCallStrLit}
 
+{.push raises: [].}
+
 proc hash*(x: LineInfo): Hash =
   !$(hash(x.filename) !& hash(x.line) !& hash(x.column))
 
@@ -26,7 +28,7 @@ var
   macroLocations {.compileTime.} = newSeq[LineInfo]()
   macroOutputs {.compileTime.} = newSeq[NimNode]()
 
-proc writeMacroResultsNow* {.compileTime.} =
+proc writeMacroResultsNow* {.compileTime, raises: [IOError].} =
   var files = initTable[string, NimNode]()
 
   proc addToFile(file: var NimNode, location: LineInfo, macroOutput: NimNode) =
@@ -47,19 +49,22 @@ proc writeMacroResultsNow* {.compileTime.} =
 
 proc storeMacroResult*(callSite: LineInfo,
                        macroResult: NimNode,
-                       writeOutputImmediately = false) =
+                       writeOutputImmediately = false) {.raises: [IOError].} =
   macroLocations.add callSite
   macroOutputs.add macroResult
   if writeOutputImmediately:
     # echo macroResult.repr
     writeMacroResultsNow()
 
-proc storeMacroResult*(macroResult: NimNode, writeOutputImmediately = false) =
+proc storeMacroResult*(macroResult: NimNode, writeOutputImmediately = false) {.raises: [IOError].} =
   let usageSite = callsite().lineInfoObj
   storeMacroResult(usageSite, macroResult, writeOutputImmediately)
 
 macro dumpMacroResults*: untyped =
-  writeMacroResultsNow()
+  try:
+    writeMacroResultsNow()
+  except IOError as exc:
+    doAssert(false, exc.msg)
 
 proc findPragma*(pragmas: NimNode, pragmaSym: NimNode): NimNode =
   for p in pragmas:
@@ -449,3 +454,5 @@ template genStmtList*(body: untyped) =
 template genSimpleExpr*(body: untyped): untyped =
   macro payload: untyped = body
   payload()
+
+{.pop.}
