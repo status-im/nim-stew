@@ -32,7 +32,7 @@ suite "Stack arrays":
       arr[^1] == 6
       cast[ptr int](offset(addr arr[0], 5))[] == 10
 
-  test "Allocating with a negative size throws a RangeError":
+  test "Allocating with a negative size throws a RangeDefect":
     expect RangeDefect:
       discard allocStackArray(string, -1)
 
