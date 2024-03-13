@@ -7,7 +7,7 @@ static:
 
 suite "strformat":
   test "no raises  effects":
-    proc x*() {.raises: [].} =
+    proc x() {.raises: [].} =
       let str = "str"
       doAssert fmt"{str}" == "str"
 
