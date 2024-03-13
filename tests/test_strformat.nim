@@ -1,5 +1,7 @@
 import ../stew/shims/strformat, unittest2
 
+{.used.}
+
 static:
   assert not compiles(fmt"{dummy}")
 
