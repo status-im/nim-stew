@@ -4,13 +4,11 @@ import std/strformat
 
 export strformat
 
-template testCompileTime =
-  proc xxx() {.raises: [].} =
-    const a = ""
-    let x = fmt"{a}" # If this raises, it means compile-time formatting is missing
-  xxx()
+proc testCompileTime[T]() {.raises: [].} = # Generic to delay codegen
+  const str = ""
+  discard fmt"{str}" # If this raises, it means compile-time formatting is missing
 
-when not compiles(testCompileTime()):
+when not compiles(testCompileTime[int]()):
   import strutils
 
   proc mkDigit(v: int, typ: char): string {.inline.} =
