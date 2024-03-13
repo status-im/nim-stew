@@ -5,7 +5,6 @@ import std/strformat
 export strformat
 
 template testCompileTime =
-  static: debugEcho "extending"
   proc xxx() {.raises: [].} =
     const a = ""
     let x = fmt"{a}" # If this raises, it means compile-time formatting is missing
