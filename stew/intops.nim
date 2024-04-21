@@ -57,6 +57,22 @@ func addOverflow*(x, y: SomeUnsignedInt, carry: bool):
     (c, d) = addOverflow(a, typeof(a)(carry))
   (c, b or d)
 
+func addSaturated*(x, y: SomeUnsignedInt): SomeUnsignedInt =
+  ## Add the two integers using saturating arithmetic.
+  let r = x + y
+  if r > max(SomeUnsignedInt):
+    max(SomeUnsignedInt)
+  else:
+    r
+
+func subSaturated*(x, y: SomeUnsignedInt): SomeUnsignedInt =
+  ## Subtract y from x using saturating arithmetic.
+  let r = x - y
+  if r < min(SomeUnsignedInt):
+    min(SomeUnsignedInt)
+  else:
+    r
+
 func subOverflow*(x, y: SomeUnsignedInt):
     tuple[result: SomeUnsignedInt, overflow: bool] =
   ## Subtract y and borrow from x using wrapping arithmetic, returning the
@@ -131,3 +147,12 @@ func mulOverflow*(x, y: SomeUnsignedInt):
   let
     (a, b) = mulWiden(x, y)
   (a, b > 0)
+
+func mulSaturated*(x, y: SomeUnsignedInt): SomeUnsignedInt =
+  ## Perform `(x * y)` using saturating arithmetic.
+  let
+    (a, b) = mulOverflow(x, y)
+  if b:
+    max(SomeUnsignedInt)
+  else:
+    a
