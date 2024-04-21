@@ -59,19 +59,13 @@ func addOverflow*(x, y: SomeUnsignedInt, carry: bool):
 
 func addSaturated*(x, y: SomeUnsignedInt): SomeUnsignedInt =
   ## Add the two integers using saturating arithmetic.
-  let r = x + y
-  if r > max(SomeUnsignedInt):
-    max(SomeUnsignedInt)
+  let
+    (p, r) = addOverflow(x, y)
+  if r:
+    SomeUnsignedInt.high
   else:
-    r
+    p
 
-func subSaturated*(x, y: SomeUnsignedInt): SomeUnsignedInt =
-  ## Subtract y from x using saturating arithmetic.
-  let r = x - y
-  if r < min(SomeUnsignedInt):
-    min(SomeUnsignedInt)
-  else:
-    r
 
 func subOverflow*(x, y: SomeUnsignedInt):
     tuple[result: SomeUnsignedInt, overflow: bool] =
@@ -93,6 +87,15 @@ func subOverflow*(x, y: SomeUnsignedInt, borrow: bool):
     (a, b) = subOverflow(x, y)
     (c, d) = subOverflow(a, typeof(a)(borrow))
   (c, b or d)
+
+func subSaturated*(x, y: SomeUnsignedInt): SomeUnsignedInt =
+  ## Subtract y from x using saturating arithmetic.
+  let
+    (p, r) = subOverflow(x, y)
+  if r:
+    SomeUnsignedInt.low
+  else:
+    p
 
 func mulWiden*(x, y: uint64): tuple[lo, hi: uint64] =
   let
@@ -153,6 +156,6 @@ func mulSaturated*(x, y: SomeUnsignedInt): SomeUnsignedInt =
   let
     (a, b) = mulOverflow(x, y)
   if b:
-    max(SomeUnsignedInt)
+    SomeUnsignedInt.high
   else:
     a

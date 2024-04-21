@@ -23,6 +23,14 @@ template testSubOverflow[T: SomeUnsignedInt]() =
   doAssert subOverflow(T.high, T.high, false) == (T(0), false)
   doAssert subOverflow(T.high, T.high, true) == (T.high, true)
 
+template testAddSaturated[T: SomeUnsignedInt]() =
+  doAssert addSaturated(T(100), T(1)) == T(101)
+  doAssert addSaturated(T.high, T(127)) == T.high
+
+template testSubSaturated[T: SomeUnsignedInt] =
+  doAssert subSaturated(T(100), T(27)) == T(73)
+  doAssert subSaturated(T(13), T(127)) == T.low
+  
 template testAddOverflow() =
   testAddOverflow[uint8]()
   testAddOverflow[uint16]()
@@ -37,6 +45,20 @@ template testSubOverflow() =
   testSubOverflow[uint64]()
   testSubOverflow[uint]()
 
+template testAddSaturated() =
+  testAddSaturated[uint8]()
+  testAddSaturated[uint16]()
+  testAddSaturated[uint32]()
+  testAddSaturated[uint64]()
+  testAddSaturated[uint]()
+
+template testSubSaturated() =
+  testSubSaturated[uint8]()
+  testSubSaturated[uint16]()
+  testSubSaturated[uint32]()
+  testSubSaturated[uint64]()
+  testSubSaturated[uint]()
+
 template testMulWiden[T: SomeUnsignedInt]() =
   doAssert mulWiden(T.low, T.low) == (T.low, T.low)
   doAssert mulWiden(T(2), T(2)) == (T(4), T(0))
@@ -47,7 +69,17 @@ template testMulWiden[T: SomeUnsignedInt]() =
   doAssert mulWiden(T.high, T.high, T(0)) == (T(1), T.high - 1)
   doAssert mulWiden(T.high, T.high, T.high) == (T(0), T.high)
 
-# TODO testMulOverflow
+template testMulSaturated[T: SomeUnsignedInt]() =
+  doAssert mulSaturated(T(100), T(2)) == T(200)
+  doAssert mulSaturated(T.high, T(10)) == T.high
+
+template testMulSaturated() =
+  testMulSaturated[uint8]()
+  testMulSaturated[uint16]()
+  testMulSaturated[uint32]()
+  testMulSaturated[uint64]()
+  testMulSaturated[uint]()
+
 
 template testMulWiden() =
   testMulWiden[uint8]()
@@ -59,7 +91,10 @@ template testMulWiden() =
 template test() =
   testAddOverflow()
   testSubOverflow()
+  testAddSaturated()
+  testSubSaturated()
   testMulWiden()
+  testMulSaturated
 
 static: test()
 
