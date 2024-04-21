@@ -94,7 +94,7 @@ template test() =
   testAddSaturated()
   testSubSaturated()
   testMulWiden()
-  testMulSaturated
+  testMulSaturated()
 
 static: test()
 
