@@ -79,20 +79,21 @@ template noKeyError(info: static[string]; code: untyped) =
 
 proc shiftImpl[K,V](rq: var KeyedQueue[K,V]) =
   ## Expects: rq.tab.len != 0
+  assert rq.tab.len != 0 # debugging only
 
   noKeyError("shiftImpl"):
-   # Unqueue first item
-   let item = rq.tab[rq.kFirst] # yes, crashes if `rq.tab.len == 0`
-   rq.tab.del(rq.kFirst)
+    # Unqueue first item
+    let item = rq.tab[rq.kFirst] # yes, crashes if `rq.tab.len == 0`
+    rq.tab.del(rq.kFirst)
 
-   if rq.tab.len == 0:
-     rq.kFirst.reset
-     rq.kLast.reset
-   else:
-     rq.kFirst = item.kNxt
-     if rq.tab.len == 1:
-       rq.tab[rq.kFirst].kNxt = rq.kFirst            # node points to itself
-     rq.tab[rq.kFirst].kPrv = rq.tab[rq.kFirst].kNxt # term node has: nxt == prv
+    if rq.tab.len == 0:
+      rq.kFirst.reset
+      rq.kLast.reset
+    else:
+      rq.kFirst = item.kNxt
+      if rq.tab.len == 1:
+        rq.tab[rq.kFirst].kNxt = rq.kFirst            # node points to itself
+      rq.tab[rq.kFirst].kPrv = rq.tab[rq.kFirst].kNxt # term nd has: nxt == prv
 
 
 proc popImpl[K,V](rq: var KeyedQueue[K,V]) =
@@ -494,14 +495,28 @@ proc lruFetch*[K,V](rq: var KeyedQueue[K,V]; key: K): Result[V,void] =
       rq.tab[key].kPrv = rq.kLast
       rq.kLast = key
       rq.tab[key].kNxt = rq.tab[key].kPrv               # term node: nxt == prv
-
     return ok(item.data)
+
+proc lruUpdate*[K,V](rq: var KeyedQueue[K,V]; key: K; val: V): bool =
+  ## Similar to `lruFetch()` with the difference that the item value is
+  ## updated (i.e. set to `val`) if it is found on the queue. In that case,
+  ## `true` is returned.
+  ##
+  ## Otherwise `false` is returned.
+  ##
+  rq.tab.withValue(key, w):
+    w.data = val
+    discard rq.lruFetch key
+    return true
 
 proc lruAppend*[K,V](rq: var KeyedQueue[K,V]; key: K; val: V; maxItems: int): V =
   ## Append in *last-recently-used* mode: If the queue has at least `maxItems`
   ## item entries, do `shift()` out the *left-most* one. Then `append()` the
   ## key-value argument pair `(key,val)` to the *right end*. Together with
-  ## `lruFetch()` this function can be used to build a *LRU cache*:
+  ## `lruFetch()` (or `lruUpdate()`) this function can be used to implement
+  ## an *LRU cache*.
+  ##
+  ## Example:
   ## ::
   ##   const queueMax = 10
   ##
@@ -519,6 +534,15 @@ proc lruAppend*[K,V](rq: var KeyedQueue[K,V]; key: K; val: V; maxItems: int): V 
   ##          return ok(q.lruAppend(key, rc.value, queueMax))
   ##     err()
   ##
+  ## Caveat:
+  ##   This fuction must always be used in combination with `lruFetch()` or
+  ##   `lruUpdate()` while making sure that there exists no key `key` on the
+  ##   queue. This function might throw an exception if this is violated.
+  ##
+  # Make sure that there is no such key. Otherwise the optimised `appendImpl()`
+  # function might garble the list of links.
+  doAssert not rq.tab.hasKey key
+
   # Limit number of cached items
   try:
     if maxItems <= rq.tab.len:
