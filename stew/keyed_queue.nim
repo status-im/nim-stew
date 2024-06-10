@@ -135,11 +135,11 @@ proc deleteImpl[K, V](rq: var KeyedQueue[K, V], key: K) =
 
     rq.tab.del(key)
 
-proc appendImpl[K, V](rq: var KeyedQueue[K, V], key: K, val: sink V) =
+proc appendImpl[K, V](rq: var KeyedQueue[K, V], key: K, val: V) =
   ## Expects: not rq.tab.hasKey(key)
 
   # Append queue item
-  var item = KeyedQueueItem[K, V](data: move(val))
+  var item = KeyedQueueItem[K, V](data: val)
   if rq.tab.len == 0:
     rq.kFirst = key
     item.kPrv = key
@@ -159,11 +159,11 @@ proc appendImpl[K, V](rq: var KeyedQueue[K, V], key: K, val: sink V) =
 
   rq.tab[key] = move(item)
 
-proc prependImpl[K, V](rq: var KeyedQueue[K, V], key: K, val: sink V) =
+proc prependImpl[K, V](rq: var KeyedQueue[K, V], key: K, val: V) =
   ## Expects: not rq.tab.hasKey(key)
 
   # Prepend queue item
-  var item = KeyedQueueItem[K, V](data: move(val))
+  var item = KeyedQueueItem[K, V](data: val)
 
   if rq.tab.len == 0:
     rq.kLast = key
@@ -484,7 +484,7 @@ proc lruUpdate*[K, V](rq: var KeyedQueue[K, V], key: K, val: V): bool =
   ## Otherwise `false` is returned.
   ##
   rq.tab.withValue(key, w):
-    w.data = val
+    w[].data = val
     discard rq.lruFetch key
     return true
 
@@ -521,7 +521,6 @@ proc lruAppend*[K, V](rq: var KeyedQueue[K, V], key: K, val: V, maxItems: int): 
   # Make sure that there is no such key. Otherwise the optimised `appendImpl()`
   # function might garble the list of links.
   doAssert not rq.tab.hasKey key
-
   # Limit number of cached items
   try:
     if maxItems <= rq.tab.len:
