@@ -30,7 +30,7 @@ jobs:
         include:
           - target:
               os: linux
-            builder: ubuntu-20.04
+            builder: ubuntu-latest
             shell: bash
           - target:
               os: macos
@@ -38,7 +38,7 @@ jobs:
             shell: bash
           - target:
               os: windows
-            builder: windows-2019
+            builder: windows-latest
             shell: msys2 {0}
 
     defaults:
