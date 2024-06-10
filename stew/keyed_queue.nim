@@ -463,9 +463,9 @@ proc lruFetch*[K, V](rq: var KeyedQueue[K, V], key: K): Opt[V] =
           if first[].kNxt == key:
             first[].kPrv = item[].kNxt # item was the 2nd one
         rq.tab.withValue(item[].kPrv, prev):
-          prev[].kNxt = item.kNxt
+          prev[].kNxt = item[].kNxt
         rq.tab.withValue(item[].kNxt, next):
-          next[].kPrv = item.kPrv
+          next[].kPrv = item[].kPrv
 
       # Re-append item, i.e. appendImpl() without adding item.
       rq.tab.withValue(rq.kLast, last):
@@ -473,8 +473,8 @@ proc lruFetch*[K, V](rq: var KeyedQueue[K, V], key: K): Opt[V] =
 
       item[].kPrv = rq.kLast
       rq.kLast = key
-      item[].kNxt = item.kPrv # term node: nxt == prv
-    return Opt.some(item.data)
+      item[].kNxt = item[].kPrv # term node: nxt == prv
+    return Opt.some(item[].data)
 
 proc lruUpdate*[K, V](rq: var KeyedQueue[K, V], key: K, val: V): bool =
   ## Similar to `lruFetch()` with the difference that the item value is
