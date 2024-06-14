@@ -29,7 +29,14 @@ func assign*[T](tgt: var openArray[T], src: openArray[T]) =
 func assign*[T](tgt: var seq[T], src: openArray[T]) =
   mixin assign
 
-  tgt.setLen(src.len)
+  when T is SomeNumber:
+    # `setLen` does costly zero:ing both when growing _and_ shrinking
+    if tgt.len > src.len or tgt.len < src.len div 4:
+      tgt = newSeqUninitialized[T](src.len)
+    else:
+      tgt.setLen(src.len)
+  else:
+    tgt.setLen(src.len)
   assignImpl(tgt.toOpenArray(0, tgt.high), src)
 
 func assign*(tgt: var string, src: string) =
