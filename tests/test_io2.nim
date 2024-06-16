@@ -768,3 +768,22 @@ suite "OS Input/Output procedures test suite":
       isDir(destDir) == false
       isDir(firstDir) == false
       isFile(destFile) == false
+
+  test "getHomePath() test":
+    let res = getHomePath()
+    check:
+      res.isOk()
+      len(res.get()) > 0
+
+  test "getConfigPath() test":
+    let res = getConfigPath()
+    check:
+      res.isOk()
+      len(res.get()) > 0
+
+  test "getCachePath() test":
+    let res = getCachePath()
+    check:
+      res.isOk()
+      len(res.get()) > 0
+

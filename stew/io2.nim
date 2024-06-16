@@ -55,6 +55,13 @@ when defined(windows):
 
     FileBasicInfoClass = 0'u32
 
+    CSIDL_APPDATA = 0x001a'u32
+      # <user name>\Application Data
+    CSIDL_PROFILE = 0x0028'u32
+      # <user name>
+    CSIDL_LOCAL_APPDATA = 0x001c'u32
+      # <user name>\Local Settings\Applicaiton Data (non roaming)
+
   type
     IoErrorCode* = distinct uint32
     IoHandle* = distinct uint
@@ -184,6 +191,10 @@ when defined(windows):
                     nNumberOfBytesToLockLow, nNumberOfBytesToLockHigh: uint32,
                     lpOverlapped: pointer): uint32 {.
        importc: "UnlockFileEx", dynlib: "kernel32", stdcall, sideEffect.}
+  proc shGetSpecialFolderPathW(hwnd: uint, pszPath: WideCString, csidl: uint32,
+                               fCreate: uint32):uint32 {.
+       importc: "SHGetSpecialFolderPathW", dynlib: "shell32", stdcall,
+       sideEffect.}
 
   const
     NO_ERROR = IoErrorCode(0)
@@ -245,6 +256,8 @@ elif defined(posix):
 
   var errno {.importc, header: "<errno.h>".}: cint
 
+  proc c_getenv(env: cstring): cstring {.
+       importc: "getenv", header: "<stdlib.h>", sideEffect.}
   proc write(a1: cint, a2: pointer, a3: csize_t): int {.
        importc, header: "<unistd.h>", sideEffect.}
   proc read(a1: cint, a2: pointer, a3: csize_t): int {.
@@ -1547,3 +1560,60 @@ proc unlockFile*(lock: IoLockHandle): IoResult[void] =
     err(res.error())
   else:
     ok()
+
+when defined(windows):
+  proc getSpecialFolderPath(code: uint32): IoResult[string] =
+    var path: array[MAX_PATH, Utf16Char]
+    let
+      wpath = cast[WideCString](addr path[0])
+      res = shGetSpecialFolderPathW(0'u, cast[WideCString](addr path[0]),
+                                    code, 0'u32)
+    if res == 0'u32:
+      err(ioLastError())
+    else:
+      ok(`$`(wpath, len(path)))
+
+proc getHomePath*(): IoResult[string] =
+  ## Returns absolute path of user's home directory.
+  when defined(windows):
+    getSpecialFolderPath(CSIDL_PROFILE)
+  else:
+    let res = c_getenv("HOME")
+    if isNil(res):
+      ok("")
+    else:
+      ok($res)
+
+proc getConfigPath*(): IoResult[string] =
+  ## Returns application's configuration directory.
+  when defined(windows):
+    getSpecialFolderPath(CSIDL_APPDATA)
+  else:
+    let xres = c_getenv("XDG_CONFIG_HOME")
+    if isNil(xres):
+      let hres = c_getenv("HOME")
+      if isNil(hres):
+        ok(".config")
+      else:
+        ok($hres & "/.config")
+    else:
+      ok($xres)
+
+proc getCachePath*(): IoResult[string] =
+  when defined(windows):
+    getSpecialFolderPath(CSIDL_LOCAL_APPDATA)
+  else:
+    let subpath =
+      when defined(macos) or defined(macosx) or defined(osx):
+        "Library/Caches"
+      else:
+        ".cache"
+    let xres = c_getenv("XDG_CACHE_HOME")
+    if isNil(xres):
+      let hres = c_getenv("HOME")
+      if isNil(hres):
+        ok(subpath)
+      else:
+        ok($hres & "/" & subpath)
+    else:
+      ok($xres)
