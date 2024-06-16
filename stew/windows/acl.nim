@@ -143,13 +143,13 @@ proc free*(sd: var SD) =
   ## Free memory occupied by security descriptor.
   discard sd.sddata.free()
   discard sd.acldata.free()
-  sd.sddata = nil
-  sd.acldata = nil
+  sd.sddata = LocalMemPtr(nil)
+  sd.acldata = LocalMemPtr(nil)
 
 proc free*(sid: var SID) =
   ## Free memory occupied by security identifier.
   discard sid.data.free()
-  sid.data = nil
+  sid.data = LocalMemPtr(nil)
 
 proc getTokenInformation(token: uint,
                          information: uint32): IoResult[LocalMemPtr] =

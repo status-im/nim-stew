@@ -1642,7 +1642,7 @@ proc getTempPath*(): IoResult[string] =
       ok(strpath)
   else:
     for name in ["TMP", "TEMP", "TMPDIR", "TEMPDIR"]:
-      let res = c_getenv(name)
+      let res = c_getenv(cstring(name))
       if not(isNil(res)) and isDir($res):
         var path = $res
         normPathEnd(path, true)
