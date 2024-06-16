@@ -195,6 +195,8 @@ when defined(windows):
                                fCreate: uint32):uint32 {.
        importc: "SHGetSpecialFolderPathW", dynlib: "shell32", stdcall,
        sideEffect.}
+  proc getTempPathW(nBufferLength: uint32, lpBuffer: WideCString): uint32 {.
+       importc: "GetTempPathW", dynlib: "kernel32", stdcall, sideEffect.}
 
   const
     NO_ERROR = IoErrorCode(0)
@@ -1571,35 +1573,40 @@ when defined(windows):
     if res == 0'u32:
       err(ioLastError())
     else:
-      ok(`$`(wpath, len(path)))
+      var strpath = `$`(wpath, len(path))
+      normPathEnd(strpath, true)
+      ok(strpath)
 
 proc getHomePath*(): IoResult[string] =
-  ## Returns absolute path of user's home directory.
+  ## Returns path to user's home directory.
   when defined(windows):
     getSpecialFolderPath(CSIDL_PROFILE)
   else:
     let res = c_getenv("HOME")
-    if isNil(res):
-      ok("")
-    else:
-      ok($res)
+    var path = if isNil(res): "" else: $res
+    normPathEnd(path, true)
+    ok(path)
 
 proc getConfigPath*(): IoResult[string] =
-  ## Returns application's configuration directory.
+  ## Returns path to application's configuration directory.
   when defined(windows):
     getSpecialFolderPath(CSIDL_APPDATA)
   else:
-    let xres = c_getenv("XDG_CONFIG_HOME")
-    if isNil(xres):
-      let hres = c_getenv("HOME")
-      if isNil(hres):
-        ok(".config")
-      else:
-        ok($hres & "/.config")
-    else:
-      ok($xres)
+    let
+      subpath = ".config"
+      xres = c_getenv("XDG_CONFIG_HOME")
+    var
+      path =
+        if isNil(xres):
+          let hres = c_getenv("HOME")
+          if isNil(hres): subpath else: $hres & DirSep & subpath
+        else:
+          $xres
+    normPathEnd(path, true)
+    ok(path)
 
 proc getCachePath*(): IoResult[string] =
+  ## Returns path to application's cache directory.
   when defined(windows):
     getSpecialFolderPath(CSIDL_LOCAL_APPDATA)
   else:
@@ -1608,12 +1615,44 @@ proc getCachePath*(): IoResult[string] =
         "Library/Caches"
       else:
         ".cache"
-    let xres = c_getenv("XDG_CACHE_HOME")
-    if isNil(xres):
-      let hres = c_getenv("HOME")
-      if isNil(hres):
-        ok(subpath)
-      else:
-        ok($hres & "/" & subpath)
+    let
+      xres = c_getenv("XDG_CACHE_HOME")
+    var
+      path =
+        if isNil(xres):
+          let hres = c_getenv("HOME")
+          if isNil(hres): subpath else: $hres & DirSep & subpath
+        else:
+          $xres
+    normPathEnd(path, true)
+    ok(path)
+
+proc getTempPath*(): IoResult[string] =
+  ## Returns path to OS temporary directory.
+  when defined(windows):
+    var path: array[MAX_PATH + 1, Utf16Char]
+    let
+      wpath = cast[WideCString](addr path[0])
+      res = getTempPathW(uint32(MAX_PATH), wpath)
+    if res == 0'u32:
+      err(ioLastError())
     else:
-      ok($xres)
+      var strpath = `$`(wpath, len(path))
+      normPathEnd(strpath, true)
+      ok(strpath)
+  else:
+    for name in ["TMP", "TEMP", "TMPDIR", "TEMPDIR"]:
+      let res = c_getenv(name)
+      if not(isNil(res)) and isDir($res):
+        var path = $res
+        normPathEnd(path, true)
+        return ok(path)
+    var defaultDir =
+      when defined(android):
+        "/data/local/tmp"
+      else:
+        "/tmp"
+    if isDir(defaultDir):
+      normPathEnd(defaultDir, true)
+      return ok(defaultDir)
+    err(IoErrorCode(2)) # ENOENT

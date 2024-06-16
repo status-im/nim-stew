@@ -787,3 +787,8 @@ suite "OS Input/Output procedures test suite":
       res.isOk()
       len(res.get()) > 0
 
+  test "getTempPath() test":
+    let res = getTempPath()
+    check:
+      res.isOk()
+      len(res.get()) > 0
