@@ -55,6 +55,13 @@ when defined(windows):
 
     FileBasicInfoClass = 0'u32
 
+    CSIDL_APPDATA = 0x001a'u32
+      # <user name>\Application Data
+    CSIDL_PROFILE = 0x0028'u32
+      # <user name>
+    CSIDL_LOCAL_APPDATA = 0x001c'u32
+      # <user name>\Local Settings\Applicaiton Data (non roaming)
+
   type
     IoErrorCode* = distinct uint32
     IoHandle* = distinct uint
@@ -184,6 +191,12 @@ when defined(windows):
                     nNumberOfBytesToLockLow, nNumberOfBytesToLockHigh: uint32,
                     lpOverlapped: pointer): uint32 {.
        importc: "UnlockFileEx", dynlib: "kernel32", stdcall, sideEffect.}
+  proc shGetSpecialFolderPathW(hwnd: uint, pszPath: WideCString, csidl: uint32,
+                               fCreate: uint32):uint32 {.
+       importc: "SHGetSpecialFolderPathW", dynlib: "shell32", stdcall,
+       sideEffect.}
+  proc getTempPathW(nBufferLength: uint32, lpBuffer: WideCString): uint32 {.
+       importc: "GetTempPathW", dynlib: "kernel32", stdcall, sideEffect.}
 
   const
     NO_ERROR = IoErrorCode(0)
@@ -245,6 +258,8 @@ elif defined(posix):
 
   var errno {.importc, header: "<errno.h>".}: cint
 
+  proc c_getenv(env: cstring): cstring {.
+       importc: "getenv", header: "<stdlib.h>", sideEffect.}
   proc write(a1: cint, a2: pointer, a3: csize_t): int {.
        importc, header: "<unistd.h>", sideEffect.}
   proc read(a1: cint, a2: pointer, a3: csize_t): int {.
@@ -1547,3 +1562,97 @@ proc unlockFile*(lock: IoLockHandle): IoResult[void] =
     err(res.error())
   else:
     ok()
+
+when defined(windows):
+  proc getSpecialFolderPath(code: uint32): IoResult[string] =
+    var path: array[MAX_PATH, Utf16Char]
+    let
+      wpath = cast[WideCString](addr path[0])
+      res = shGetSpecialFolderPathW(0'u, cast[WideCString](addr path[0]),
+                                    code, 0'u32)
+    if res == 0'u32:
+      err(ioLastError())
+    else:
+      var strpath = `$`(wpath, len(path))
+      normPathEnd(strpath, true)
+      ok(strpath)
+
+proc getHomePath*(): IoResult[string] =
+  ## Returns path to user's home directory.
+  when defined(windows):
+    getSpecialFolderPath(CSIDL_PROFILE)
+  else:
+    let res = c_getenv("HOME")
+    var path = if isNil(res): "" else: $res
+    normPathEnd(path, true)
+    ok(path)
+
+proc getConfigPath*(): IoResult[string] =
+  ## Returns path to application's configuration directory.
+  when defined(windows):
+    getSpecialFolderPath(CSIDL_APPDATA)
+  else:
+    let
+      subpath = ".config"
+      xres = c_getenv("XDG_CONFIG_HOME")
+    var
+      path =
+        if isNil(xres):
+          let hres = c_getenv("HOME")
+          if isNil(hres): subpath else: $hres & DirSep & subpath
+        else:
+          $xres
+    normPathEnd(path, true)
+    ok(path)
+
+proc getCachePath*(): IoResult[string] =
+  ## Returns path to application's cache directory.
+  when defined(windows):
+    getSpecialFolderPath(CSIDL_LOCAL_APPDATA)
+  else:
+    let subpath =
+      when defined(macos) or defined(macosx) or defined(osx):
+        "Library/Caches"
+      else:
+        ".cache"
+    let
+      xres = c_getenv("XDG_CACHE_HOME")
+    var
+      path =
+        if isNil(xres):
+          let hres = c_getenv("HOME")
+          if isNil(hres): subpath else: $hres & DirSep & subpath
+        else:
+          $xres
+    normPathEnd(path, true)
+    ok(path)
+
+proc getTempPath*(): IoResult[string] =
+  ## Returns path to OS temporary directory.
+  when defined(windows):
+    var path: array[MAX_PATH + 1, Utf16Char]
+    let
+      wpath = cast[WideCString](addr path[0])
+      res = getTempPathW(uint32(MAX_PATH), wpath)
+    if res == 0'u32:
+      err(ioLastError())
+    else:
+      var strpath = `$`(wpath, len(path))
+      normPathEnd(strpath, true)
+      ok(strpath)
+  else:
+    for name in ["TMP", "TEMP", "TMPDIR", "TEMPDIR"]:
+      let res = c_getenv(cstring(name))
+      if not(isNil(res)) and isDir($res):
+        var path = $res
+        normPathEnd(path, true)
+        return ok(path)
+    var defaultDir =
+      when defined(android):
+        "/data/local/tmp"
+      else:
+        "/tmp"
+    if isDir(defaultDir):
+      normPathEnd(defaultDir, true)
+      return ok(defaultDir)
+    err(IoErrorCode(2)) # ENOENT
