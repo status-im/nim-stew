@@ -2,7 +2,7 @@ name: Test with latest Nimble
 on:
   push:
     branches:
-      - test-with-latest-nimble
+      - test-with-nightly-nimble
   pull_request:
   workflow_dispatch:
 
