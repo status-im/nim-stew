@@ -140,6 +140,7 @@ jobs:
           tar xvfz nimble-linux_x64.tar.gz
           ./nimble install nim
           echo $(./nimble path nim)/bin >> $GITHUB_PATH
+          echo $GITHUB_PATH
 
       - name: Run tests
         run: |
@@ -147,6 +148,7 @@ jobs:
             # https://github.com/status-im/nimbus-eth2/issues/3121
             export NIMFLAGS="-d:nimRawSetjmp"
           fi
+          echo $GITHUB_PATH
           nim --version
           nimble --version
           nimble install -y --depsOnly
