@@ -139,17 +139,14 @@ jobs:
           curl -O -L -s -S https://github.com/nim-lang/nimble/releases/download/latest/nimble-linux_x64.tar.gz
           tar xvfz nimble-linux_x64.tar.gz
           ./nimble install nim
-          echo $(./nimble path nim)/bin
-          echo $(./nimble path nim)/bin >> $GITHUB_PATH
+          echo $(./nimble path nim | tail -n 1)/bin >> $GITHUB_PATH
 
       - name: Run tests
         run: |
           echo $PATH
-          ls -la /home/runner/.nimble/pkgs2/nim-2.0.6-c43fce95a734c8ad12475e1ff10f522b408fbcfa/bin/nim
-          /home/runner/.nimble/pkgs2/nim-2.0.6-c43fce95a734c8ad12475e1ff10f522b408fbcfa/bin/nim --version
+          nim --version
           nimble --version
-#          nim --version
-#          nimble install -y --depsOnly
-#          rm -f nimble.lock
-#          env NIMLANG=c nimble test
-#          env NIMLANG=cpp nimble test
+          nimble install -y --depsOnly
+          rm -f nimble.lock
+          env NIMLANG=c nimble test
+          env NIMLANG=cpp nimble test
