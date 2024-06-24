@@ -144,14 +144,14 @@ jobs:
 
       - name: Run tests
         run: |
-          if [[ "${{ matrix.target.os }}" == "windows" ]]; then
-            # https://github.com/status-im/nimbus-eth2/issues/3121
-            export NIMFLAGS="-d:nimRawSetjmp"
-          fi
+#          if [[ "${{ matrix.target.os }}" == "windows" ]]; then
+#            # https://github.com/status-im/nimbus-eth2/issues/3121
+#            export NIMFLAGS="-d:nimRawSetjmp"
+#          fi
           echo $PATH
           ls -la /home/runner/.nimble/pkgs2/nim-2.0.6-c43fce95a734c8ad12475e1ff10f522b408fbcfa/bin/nim
-          nim --version
-          nimble --version
+#          nim --version
+#          nimble --version
 #          nimble install -y --depsOnly
 #          rm -f nimble.lock
 #          env NIMLANG=c nimble test
