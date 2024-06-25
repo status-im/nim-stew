@@ -138,13 +138,14 @@ jobs:
         run: |
           curl -O -L -s -S https://github.com/nim-lang/nimble/releases/download/latest/nimble-linux_x64.tar.gz
           tar xvfz nimble-linux_x64.tar.gz
-          ./nimble setup
+          ./nimble install nim@1.6.20
           echo $(./nimble path nim | tail -n 1)/bin >> $GITHUB_PATH
 
       - name: Run tests
         run: |
           nim --version
           nimble --version
+          nimble install -y --depsOnly
           rm -f nimble.lock
           env NIMLANG=c nimble test
           env NIMLANG=cpp nimble test
