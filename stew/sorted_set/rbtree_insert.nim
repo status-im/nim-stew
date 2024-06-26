@@ -1,5 +1,5 @@
 # Nimbus
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
 #    http://www.apache.org/licenses/LICENSE-2.0)
@@ -8,25 +8,25 @@
 # at your option. This file may not be copied, modified, or distributed except
 # according to those terms.
 
-import
-  ./rbtree_desc,
-  ./rbtree_rotate,
-  ../results
-
 {.push raises: [].}
+
+import
+  results,
+  ./rbtree_desc,
+  ./rbtree_rotate
 
 # ----------------------------------------------------------------------- ------
 # Private functions
 # ------------------------------------------------------------------------------
 
-proc insertRoot[C,K](rbt: RbTreeRef[C,K]; key: K): C {.inline.} =
+func insertRoot[C,K](rbt: RbTreeRef[C,K]; key: K): C {.inline.} =
   ## Insert item `x` into an empty tree.
   rbt.root = RbNodeRef[C](
     casket: rbt.mkc(key))
   rbt.size = 1
   rbt.root.casket
 
-proc insertNode[C,K](rbt: RbTreeRef[C,K]; key: K): RbResult[C] {.inline.} =
+func insertNode[C,K](rbt: RbTreeRef[C,K]; key: K): RbResult[C] {.inline.} =
   ## Insert item `key` into a non-empty tree.
 
   doAssert not rbt.root.isNil
@@ -108,7 +108,7 @@ proc insertNode[C,K](rbt: RbTreeRef[C,K]; key: K): RbResult[C] {.inline.} =
 # Public
 # ------------------------------------------------------------------------------
 
-proc rbTreeInsert*[C,K](rbt: RbTreeRef[C,K]; key: K): RbResult[C] =
+func rbTreeInsert*[C,K](rbt: RbTreeRef[C,K]; key: K): RbResult[C] =
   ## Generic red-black tree function, inserts a data container `casket` derived
   ## from argument `key` into the red-black tree.
   ##

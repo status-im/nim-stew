@@ -1,3 +1,5 @@
+{.deprecated: "use https://nim-lang.org/docs/syncio.html#writeFile%2Cstring%2CopenArray%5Bbyte%5D directly".}
+
 when not compiles(writeFile("filename", @[byte(1)])):
   proc writeFile*(filename: string, content: openArray[byte]) =
     ## Opens a file named `filename` for writing. Then writes the
@@ -11,4 +13,3 @@ when not compiles(writeFile("filename", @[byte(1)])):
         close(f)
     else:
       raise newException(IOError, "cannot open: " & filename)
-

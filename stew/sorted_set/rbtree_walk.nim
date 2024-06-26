@@ -1,5 +1,5 @@
 # Nimbus
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
 #    http://www.apache.org/licenses/LICENSE-2.0)
@@ -8,18 +8,18 @@
 # at your option. This file may not be copied, modified, or distributed except
 # according to those terms.
 
-import
-  std/[tables],
-  ./rbtree_desc,
-  ../results
-
 {.push raises: [].}
+
+import
+  results,
+  std/[tables],
+  ./rbtree_desc
 
 # ----------------------------------------------------------------------- ------
 # Priv
 # ------------------------------------------------------------------------------
 
-proc walkMove[C,K](w: RbWalkRef[C,K]; dir: RbDir): RbResult[C] =
+func walkMove[C,K](w: RbWalkRef[C,K]; dir: RbDir): RbResult[C] =
   ## Traverse a red black tree in the user-specified direction.
   ##
   ## :Returns:
@@ -62,7 +62,7 @@ proc walkMove[C,K](w: RbWalkRef[C,K]; dir: RbDir): RbResult[C] =
   return err(rbEndOfWalk)
 
 
-proc walkStart[C,K](w: RbWalkRef[C,K]; dir: RbDir): RbResult[C] =
+func walkStart[C,K](w: RbWalkRef[C,K]; dir: RbDir): RbResult[C] =
   ## Rewind the traversal position to the left-most or-right-most position
   ## as defined by the function argument `dir`. After successfully rewinding,
   ## the desriptor is in `start` position (see `walkClearDirty()`).
@@ -94,7 +94,7 @@ proc walkStart[C,K](w: RbWalkRef[C,K]; dir: RbDir): RbResult[C] =
   return ok(w.node.casket)
 
 
-proc walkClearDirtyFlags[C,K](w: RbWalkRef[C,K]): bool =
+func walkClearDirtyFlags[C,K](w: RbWalkRef[C,K]): bool =
   ## Clear dirty flag if all traversal descriptors are in `start` postion.
   if w.tree.dirty != 0:
     for u in w.tree.walks.values:
@@ -110,7 +110,7 @@ proc walkClearDirtyFlags[C,K](w: RbWalkRef[C,K]): bool =
 # Public constructor/desctructor
 # ------------------------------------------------------------------------------
 
-proc newRbWalk*[C,K](rbt: RbTreeRef[C,K]): RbWalkRef[C,K] =
+func newRbWalk*[C,K](rbt: RbTreeRef[C,K]): RbWalkRef[C,K] =
   ## Generic red-black tree function, creates a new traversal descriptor on the
   ## argument red-black tree `rbt`.
   ##
@@ -127,7 +127,7 @@ proc newRbWalk*[C,K](rbt: RbTreeRef[C,K]): RbWalkRef[C,K] =
   rbt.walks[result.id] = result     # register in parent descriptor
 
 
-proc rbWalkDestroy*[C,K](w: RbWalkRef[C,K]) =
+func rbWalkDestroy*[C,K](w: RbWalkRef[C,K]) =
   ## Explicit destructor for current walk descriptor `w`. Clears the descriptor
   ## argument `w`.
   ##
@@ -142,7 +142,7 @@ proc rbWalkDestroy*[C,K](w: RbWalkRef[C,K]) =
     w.path = @[]
     w[].reset
 
-proc rbWalkDestroyAll*[C,K](rbt: RbTreeRef[C,K]) =
+func rbWalkDestroyAll*[C,K](rbt: RbTreeRef[C,K]) =
   ## Apply `rbWalkDestroy()` to all registered walk descriptors.
   for w in rbt.walks.values:
     w.tree = nil # notify GC (if any, todo?)
@@ -151,7 +151,7 @@ proc rbWalkDestroyAll*[C,K](rbt: RbTreeRef[C,K]) =
     w[].reset    # clear
   rbt.walks = initTable[uint,RbWalkRef[C,K]](1)
 
-proc rbWalkDestroyAll*[C,K](w: RbWalkRef[C,K]) =
+func rbWalkDestroyAll*[C,K](w: RbWalkRef[C,K]) =
   ## Variant of `rbWalkDestroyAll()`
   if not w.tree.isNil:
     w.tree.rbWalkDestroyAll
@@ -160,7 +160,7 @@ proc rbWalkDestroyAll*[C,K](w: RbWalkRef[C,K]) =
 # Public functions: rewind
 # ------------------------------------------------------------------------------
 
-proc rbWalkFirst*[C,K](w: RbWalkRef[C,K]): RbResult[C] =
+func rbWalkFirst*[C,K](w: RbWalkRef[C,K]): RbResult[C] =
   ## Move to the beginning of the tree (*smallest* item) and return the
   ## corresponding data container of type `C`.
   ##
@@ -181,7 +181,7 @@ proc rbWalkFirst*[C,K](w: RbWalkRef[C,K]): RbResult[C] =
   return w.walkStart(rbLeft)
 
 
-proc rbWalkLast*[C,K](w: RbWalkRef[C,K]): RbResult[C] =
+func rbWalkLast*[C,K](w: RbWalkRef[C,K]): RbResult[C] =
   ## Move to the end of the tree (*greatest* item) and return the corresponding
   ## data container of type `C`.
   ##
@@ -205,7 +205,7 @@ proc rbWalkLast*[C,K](w: RbWalkRef[C,K]): RbResult[C] =
 # Public functions: traversal, get data entry
 # ------------------------------------------------------------------------------
 
-proc rbWalkCurrent*[C,K](w: RbWalkRef[C,K]): RbResult[C] =
+func rbWalkCurrent*[C,K](w: RbWalkRef[C,K]): RbResult[C] =
   ## Retrieves the data container of type `C` for the current node. Note that
   ## the current node becomes unavailable if it was recently deleted.
   ##
@@ -222,7 +222,7 @@ proc rbWalkCurrent*[C,K](w: RbWalkRef[C,K]): RbResult[C] =
 
 
 
-proc rbWalkNext*[C,K](w: RbWalkRef[C,K]): RbResult[C] =
+func rbWalkNext*[C,K](w: RbWalkRef[C,K]): RbResult[C] =
   ## Traverse to the next value in ascending order and return the corresponding
   ## data container of type `C`. If this is the first call after `newRbWalk()`,
   ## then `rbWalkFirst()` is called implicitly.
@@ -253,7 +253,7 @@ proc rbWalkNext*[C,K](w: RbWalkRef[C,K]): RbResult[C] =
   return w.walkStart(rbLeft) # minimum index item
 
 
-proc rbWalkPrev*[C,K](w: RbWalkRef[C,K]): RbResult[C] =
+func rbWalkPrev*[C,K](w: RbWalkRef[C,K]): RbResult[C] =
   ## Traverse to the next value in descending order and return the
   ## corresponding data container of type `C`. If this is the first call
   ## after `newRbWalk()`, then `rbWalkLast()` is called implicitly.

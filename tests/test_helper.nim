@@ -1,11 +1,12 @@
-# Copyright (c) 2020-2022 Status Research & Development GmbH
+# Copyright (c) 2020-2024 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license: http://opensource.org/licenses/MIT
 #   * Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
 import std/[os, strutils]
-import ../stew/io2, ../stew/results
+import pkg/results
+import ../stew/io2
 
 proc lockFileFlags(path: string, flags: set[OpenFlags],
                    lockType: LockType): IoResult[void] =
