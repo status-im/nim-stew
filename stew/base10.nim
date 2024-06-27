@@ -1,4 +1,4 @@
-## Copyright (c) 2021-2023 Status Research & Development GmbH
+## Copyright (c) 2021-2024 Status Research & Development GmbH
 ## Licensed under either of
 ##  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 ##  * MIT license ([LICENSE-MIT](LICENSE-MIT))
@@ -10,7 +10,7 @@
 ##
 ## Encoding procedures are adopted versions of C functions described here:
 ## # https://www.facebook.com/notes/facebook-engineering/three-optimization-tips-for-c/10151361643253920
-import results
+import pkg/results
 export results
 
 {.push raises: [].}
@@ -39,7 +39,7 @@ type
     data*: array[maxLen(Base10, T), byte]
     len*: int8 # >= 1 when holding valid unsigned integer
 
-proc decode*[A: byte|char, T: SomeUnsignedInt](
+func decode*[A: byte|char, T: SomeUnsignedInt](
     B: typedesc[Base10], t: typedesc[T],
     src: openArray[A]): Result[T, cstring] =
   ## Convert base10 encoded string or array of bytes to unsigned integer.
@@ -62,7 +62,7 @@ proc decode*[A: byte|char, T: SomeUnsignedInt](
     v = (v shl 3) + (v shl 1) + T(d)
   ok(v)
 
-proc encodedLength*(B: typedesc[Base10], value: SomeUnsignedInt): int8 =
+func encodedLength*(B: typedesc[Base10], value: SomeUnsignedInt): int8 =
   ## Procedure returns number of characters needed to encode integer ``value``.
   when type(value) is uint8:
     if value < 10'u8:
@@ -132,7 +132,7 @@ proc encodedLength*(B: typedesc[Base10], value: SomeUnsignedInt): int8 =
       return 11'i8 + (if value >= P11: 1'i8 else: 0)
     return 12'i8 + B.encodedLength(value div P12)
 
-proc encode[A: byte|char](B: typedesc[Base10], value: SomeUnsignedInt,
+func encode[A: byte|char](B: typedesc[Base10], value: SomeUnsignedInt,
                           output: var openArray[A],
                           length: int8): Result[int8, cstring] =
   const Digits = cstring(
@@ -175,25 +175,25 @@ proc encode[A: byte|char](B: typedesc[Base10], value: SomeUnsignedInt,
       output[next - 1] = byte(Digits[index])
   ok(length)
 
-proc encode*[A: byte|char](B: typedesc[Base10], value: SomeUnsignedInt,
+func encode*[A: byte|char](B: typedesc[Base10], value: SomeUnsignedInt,
                            output: var openArray[A]): Result[int8, cstring] =
   ## Encode integer value to array of characters or bytes.
   B.encode(value, output, B.encodedLength(value))
 
-proc toString*(B: typedesc[Base10], value: SomeUnsignedInt): string =
+func toString*(B: typedesc[Base10], value: SomeUnsignedInt): string =
   ## Encode integer value ``value`` to string.
   var buf = newString(B.encodedLength(value))
   # Buffer of proper size is allocated, so error is not possible
   discard B.encode(value, buf, int8(len(buf)))
   buf
 
-proc toBytes*[I: SomeUnsignedInt](B: typedesc[Base10], v: I): Base10Buf[I] {.
+func toBytes*[I: SomeUnsignedInt](B: typedesc[Base10], v: I): Base10Buf[I] {.
      noinit.} =
   ## Encode integer value ``value`` to array of bytes.
   let res = B.encode(v, result.data, B.encodedLength(v))
   result.len = int8(res.get())
 
-proc toBytes*[I: SomeUnsignedInt](v: I, B: typedesc[Base10]): Base10Buf[I] {.
+func toBytes*[I: SomeUnsignedInt](v: I, B: typedesc[Base10]): Base10Buf[I] {.
      noinit.} =
   ## Encode integer value ``value`` to array of bytes.
   let res = B.encode(v, result.data, B.encodedLength(v))

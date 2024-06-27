@@ -1,5 +1,5 @@
 # Nimbus
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
 #    http://www.apache.org/licenses/LICENSE-2.0)
@@ -67,9 +67,11 @@
 #   anyone who has modified the code through
 #   a header comment, such as this one.typedef
 
+{.push raises: [].}
+
 import
-  std/[tables],
-  ../results
+  results,
+  std/[tables]
 
 const
   rbTreeReBalancedFlag* = 1
@@ -176,7 +178,7 @@ type
 # Public functions, constructor
 # ------------------------------------------------------------------------------
 
-proc newRbTreeRef*[C,K](cmp: RbCmpFn[C,K]; mkc: RbMkcFn[C,K]): RbTreeRef[C,K] =
+func newRbTreeRef*[C,K](cmp: RbCmpFn[C,K]; mkc: RbMkcFn[C,K]): RbTreeRef[C,K] =
   ## Constructor. Create generic red-black tree descriptor for data container
   ## type `C` and key type `K`. Details about the function arguments `cmpFn`
   ## and `mkcFn` are documented with the type definitions of `RbCmpFn` and
@@ -188,7 +190,7 @@ proc newRbTreeRef*[C,K](cmp: RbCmpFn[C,K]; mkc: RbMkcFn[C,K]): RbTreeRef[C,K] =
     walks: initTable[uint,RbWalkRef[C,K]](1))
 
 
-proc newWalkId*[C,K](rbt: RbTreeRef[C,K]): uint {.inline.} =
+func newWalkId*[C,K](rbt: RbTreeRef[C,K]): uint {.inline.} =
   ## Generate new free walk ID, returns zero in (theoretical) case all other
   ## IDs are exhausted.
   for id in rbt.walkIdGen .. high(type rbt.walkIdGen):
@@ -205,12 +207,12 @@ proc newWalkId*[C,K](rbt: RbTreeRef[C,K]): uint {.inline.} =
 # Public handlers
 # ------------------------------------------------------------------------------
 
-proc cmp*[C,K](rbt: RbTreeRef[C,K]; casket: C; key: K): int {.inline.} =
+func cmp*[C,K](rbt: RbTreeRef[C,K]; casket: C; key: K): int {.inline.} =
   ## See introduction for an explanation of opaque argument types `C` and `D`,
   ## and the type definition for `RbCmpFn` for properties of this function.
   rbt.cmpFn(casket, key)
 
-proc mkc*[C,K](rbt: RbTreeRef[C,K]; key: K): C {.inline.} =
+func mkc*[C,K](rbt: RbTreeRef[C,K]; key: K): C {.inline.} =
   ## See introduction for an explanation of opaque argument/return types `C`
   ## and `D`, and the type definition for `RbMkdFn` for properties of this
   ## function.
@@ -220,15 +222,15 @@ proc mkc*[C,K](rbt: RbTreeRef[C,K]; key: K): C {.inline.} =
 # Public getters
 # ------------------------------------------------------------------------------
 
-proc linkLeft*[C](node: RbNodeRef[C]): RbNodeRef[C] {.inline.} =
+func linkLeft*[C](node: RbNodeRef[C]): RbNodeRef[C] {.inline.} =
   ## Getter, shortcut for `node.link[rbLeft]`
   node.link[rbLeft]
 
-proc linkRight*[C](node: RbNodeRef[C]): RbNodeRef[C] {.inline.} =
+func linkRight*[C](node: RbNodeRef[C]): RbNodeRef[C] {.inline.} =
   ## Getter, shortcut for `node.link[rbRight]`
   node.link[rbRight]
 
-proc isRed*[C](node: RbNodeRef[C]): bool {.inline.} =
+func isRed*[C](node: RbNodeRef[C]): bool {.inline.} =
   ## Getter, `true` if node colour is read.
   not node.isNil and node.redColour
 
@@ -236,15 +238,15 @@ proc isRed*[C](node: RbNodeRef[C]): bool {.inline.} =
 # Public setters
 # ------------------------------------------------------------------------------
 
-proc `linkLeft=`*[C](node, child: RbNodeRef[C]) {.inline.} =
+func `linkLeft=`*[C](node, child: RbNodeRef[C]) {.inline.} =
   ## Getter, shortcut for `node.link[rbLeft] = child`
   node.link[rbLeft] = child
 
-proc `linkRight=`*[C](node, child: RbNodeRef[C]) {.inline.} =
+func `linkRight=`*[C](node, child: RbNodeRef[C]) {.inline.} =
   ## Getter, shortcut for `node.link[rbRight] = child`
   node.link[rbRight] = child
 
-proc `isRed=`*[C](node: RbNodeRef[C]; value: bool) {.inline.} =
+func `isRed=`*[C](node: RbNodeRef[C]; value: bool) {.inline.} =
   ## Setter, `true` sets red node colour.
   node.redColour = value
 
@@ -252,11 +254,11 @@ proc `isRed=`*[C](node: RbNodeRef[C]; value: bool) {.inline.} =
 # Public helpers: `rbDir` as array index
 # ------------------------------------------------------------------------------
 
-proc `not`*(d: RbDir): RbDir {.inline.} =
+func `not`*(d: RbDir): RbDir {.inline.} =
   ## Opposite direction of argument `d`.
   if d == rbLeft: rbRight else: rbLeft
 
-proc toDir*(b: bool): RbDir {.inline.} =
+func toDir*(b: bool): RbDir {.inline.} =
   ## Convert to link diection `rbLeft` (false) or `rbRight` (true).
   if b: rbRight else: rbLeft
 
@@ -264,7 +266,7 @@ proc toDir*(b: bool): RbDir {.inline.} =
 # Public pretty printer
 # ------------------------------------------------------------------------------
 
-proc `$`*[C](node: RbNodeRef[C]): string =
+func `$`*[C](node: RbNodeRef[C]): string =
   ## Pretty printer, requres `$()` for type `C` to be known.
   if node.isNil:
     return "nil"
@@ -276,7 +278,7 @@ proc `$`*[C](node: RbNodeRef[C]): string =
     "left=" & $node.linkLeft & "," &
     "right=" & $node.linkRight  & ")"
 
-proc `$`*[C,K](rbt: RbTreeRef[C,K]): string =
+func `$`*[C,K](rbt: RbTreeRef[C,K]): string =
   ## Pretty printer
   if rbt.isNil:
     return "nil"
@@ -285,7 +287,7 @@ proc `$`*[C,K](rbt: RbTreeRef[C,K]): string =
     "gen=" & $rbt.walkIdGen & "," &
     "root=" & $rbt.root & "]"
 
-proc `$`*[C,K](w: RbWalkRef[C,K]): string =
+func `$`*[C,K](w: RbWalkRef[C,K]): string =
   ## Pretty printer
   if w.isNil:
     return "nil"
