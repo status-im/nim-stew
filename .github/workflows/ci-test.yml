@@ -142,16 +142,15 @@ jobs:
           echo "Nimble download took: $(($end-$start)) seconds"
           tar xvfz nimble-linux_x64.tar.gz
           start=$(date +%s)
-          ./nimble install nim
+          ./nimble setup
           end=$(date +%s)
-          echo "Nim installation took: $(($end-$start)) seconds"
+          echo "Nimble setup took: $(($end-$start)) seconds"
           echo $(./nimble path nim | tail -n 1)/bin >> $GITHUB_PATH
 
       - name: Run tests
         run: |
           nim --version
           nimble --version
-          nimble install -y --depsOnly
           rm -f nimble.lock
           env NIMLANG=c nimble test
           env NIMLANG=cpp nimble test
