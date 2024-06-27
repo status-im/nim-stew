@@ -136,9 +136,15 @@ jobs:
 
       - name: Download Nimble and install Nim
         run: |
+          start=$(date +%s)
           curl -O -L -s -S https://github.com/nim-lang/nimble/releases/download/latest/nimble-linux_x64.tar.gz
+          end=$(date +%s)
+          echo "Nimble download took: $(($end-$start)) seconds"
           tar xvfz nimble-linux_x64.tar.gz
-          ./nimble install nim@1.6
+          start=$(date +%s)
+          ./nimble install nim
+          end=$(date +%s)
+          echo "Nim installation took: $(($end-$start)) seconds"
           echo $(./nimble path nim | tail -n 1)/bin >> $GITHUB_PATH
 
       - name: Run tests
