@@ -1,5 +1,5 @@
 # Nimbus
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
 #    http://www.apache.org/licenses/LICENSE-2.0)
@@ -8,18 +8,18 @@
 # at your option. This file may not be copied, modified, or distributed except
 # according to those terms.
 
-import
-  ./rbtree_desc,
-  ./rbtree_rotate,
-  ../results
-
 {.push raises: [].}
+
+import
+  results,
+  ./rbtree_desc,
+  ./rbtree_rotate
 
 # ------------------------------------------------------------------------------
 # Public
 # ------------------------------------------------------------------------------
 
-proc rbTreeDelete*[C,K](rbt: RbTreeRef[C,K]; key: K): RbResult[C] =
+func rbTreeDelete*[C,K](rbt: RbTreeRef[C,K]; key: K): RbResult[C] =
   ## Generic red-black tree function, removes a node from the red-black tree.
   ## The node to be removed wraps a data container `casket` matching the
   ## argument `key`, i.e. `rbt.cmp(casket,key) == 0`.

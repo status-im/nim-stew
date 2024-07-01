@@ -1,4 +1,4 @@
-## Copyright (c) 2020-2023 Status Research & Development GmbH
+## Copyright (c) 2020-2024 Status Research & Development GmbH
 ## Licensed under either of
 ##  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 ##  * MIT license ([LICENSE-MIT](LICENSE-MIT))
@@ -12,8 +12,8 @@
 
 {.push raises: [].}
 
-import algorithm
-import results
+import std/algorithm
+import pkg/results
 export results
 
 when defined(windows):

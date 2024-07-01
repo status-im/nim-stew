@@ -1,6 +1,6 @@
 # Nimbus - Types, data structures and shared utilities used in network sync
 #
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
 #    http://www.apache.org/licenses/LICENSE-2.0)
@@ -108,10 +108,11 @@
 ## isomorpic to a subclass of `S`.
 ##
 
-import
-  "."/[results, sorted_set]
-
 {.push raises: [].}
+
+import
+  pkg/results,
+  "."/sorted_set
 
 export
   `isRed=`,
@@ -282,25 +283,25 @@ template scalarOne(): untyped =
   ## the value `1` from the scalar data type
   (S.default + 1)
 
-proc blk[P,S](kvp: DataRef[P,S]): BlockRef[S] =
+func blk[P,S](kvp: DataRef[P,S]): BlockRef[S] =
   kvp.data
 
-proc left[P,S](kvp: DataRef[P,S]): P =
+func left[P,S](kvp: DataRef[P,S]): P =
   kvp.key
 
-proc right[P,S](kvp: DataRef[P,S]): P =
+func right[P,S](kvp: DataRef[P,S]): P =
   kvp.key + kvp.blk.size
 
-proc len[P,S](kvp: DataRef[P,S]): S =
+func len[P,S](kvp: DataRef[P,S]): S =
   kvp.data.size
 
 # -----
 
-proc new[P,S](T: type Segm[P,S]; left, right: P): T =
+func new[P,S](T: type Segm[P,S]; left, right: P): T =
   ## Constructor using `[left,right)` points representation
   T(start: left, size: right - left)
 
-proc brew[P,S](T: type Segm[P,S]; left, right: P): Result[T,void] =
+func brew[P,S](T: type Segm[P,S]; left, right: P): Result[T,void] =
   ## Constructor providing `[left, max(left,right)-left)` (if any.)
   if high(P) <= left:
     return err()
@@ -313,39 +314,39 @@ proc brew[P,S](T: type Segm[P,S]; left, right: P): Result[T,void] =
       (high(P) - left)
   ok(T(start: left, size: length))
 
-proc left[P,S](iv: Segm[P,S]): P =
+func left[P,S](iv: Segm[P,S]): P =
   iv.start
 
-proc right[P,S](iv: Segm[P,S]): P =
+func right[P,S](iv: Segm[P,S]): P =
   iv.start + iv.size
 
-proc len[P,S](iv: Segm[P,S]): S =
+func len[P,S](iv: Segm[P,S]): S =
   iv.size
 
 # ------
 
-proc incPt[P,S](a: var P; n: S) =
+func incPt[P,S](a: var P; n: S) =
   ## Might not be generally available for point `P` and scalar `S`
   a = a + n
 
-proc maxPt[P](a, b: P): P =
+func maxPt[P](a, b: P): P =
   ## Instead of max() which might not be generally available
   if a < b: b else: a
 
-proc minPt[P](a, b: P): P =
+func minPt[P](a, b: P): P =
   ## Instead of min() which might not be generally available
   if a < b: a else: b
 
 # ------
 
-proc new[P,S](T: type Interval[P,S]; kvp: DataRef[P,S]): T =
+func new[P,S](T: type Interval[P,S]; kvp: DataRef[P,S]): T =
   T(least: kvp.left, last: kvp.right - scalarOne)
 
 # ------------------------------------------------------------------------------
 # Private helpers
 # ------------------------------------------------------------------------------
 
-proc overlapOrLeftJoin[P,S](ds: Desc[P,S]; l, r: P): Rc[P,S] =
+func overlapOrLeftJoin[P,S](ds: Desc[P,S]; l, r: P): Rc[P,S] =
   ## Find and return
   ## * either the rightmost interval `[a,b)` which overlaps `r`
   ## * or `[a,b)` with `b==l`
@@ -358,11 +359,11 @@ proc overlapOrLeftJoin[P,S](ds: Desc[P,S]; l, r: P): Rc[P,S] =
       return ok(rc.value)
   err()
 
-proc overlapOrLeftJoin[P,S](ds: Desc[P,S]; iv: Segm[P,S]): Rc[P,S] =
+func overlapOrLeftJoin[P,S](ds: Desc[P,S]; iv: Segm[P,S]): Rc[P,S] =
   ds.overlapOrLeftJoin(iv.left, iv.right)
 
 
-proc overlap[P,S](ds: Desc[P,S]; l, r: P): Rc[P,S] =
+func overlap[P,S](ds: Desc[P,S]; l, r: P): Rc[P,S] =
   ## Find and return the rightmost `[l,r)` overlapping interval `[a,b)`.
   doAssert l < r
   let rc = ds.leftPos.lt(r) # search for `max(a) < r`
@@ -373,14 +374,14 @@ proc overlap[P,S](ds: Desc[P,S]; l, r: P): Rc[P,S] =
       return ok(rc.value)
   err()
 
-proc overlap[P,S](ds: Desc[P,S]; iv: Segm[P,S]): Rc[P,S] =
+func overlap[P,S](ds: Desc[P,S]; iv: Segm[P,S]): Rc[P,S] =
   ds.overlap(iv.left, iv.right)
 
 # ------------------------------------------------------------------------------
 # Private transfer function helpers
 # ------------------------------------------------------------------------------
 
-proc findInlet[P,S](ds: Desc[P,S]; iv: Segm[P,S]): Segm[P,S] =
+func findInlet[P,S](ds: Desc[P,S]; iv: Segm[P,S]): Segm[P,S] =
   ## Find largest sub-segment of `iv` fully contained in another segment
   ## of the argument database.
   ##
@@ -400,7 +401,7 @@ proc findInlet[P,S](ds: Desc[P,S]; iv: Segm[P,S]): Segm[P,S] =
   Segm[P,S].new(maxPt(p.left,iv.left), minPt(p.right,iv.right))
 
 
-proc merge[P,S](ds: Desc[P,S]; iv: Segm[P,S]): Segm[P,S] =
+func merge[P,S](ds: Desc[P,S]; iv: Segm[P,S]): Segm[P,S] =
   ## Merges argument interval into into database and returns
   ## the segment really added (if any)
 
@@ -513,7 +514,7 @@ proc merge[P,S](ds: Desc[P,S]; iv: Segm[P,S]): Segm[P,S] =
     #   s:          [--------------)
 
 
-proc deleteInlet[P,S](ds: Desc[P,S]; iv: Segm[P,S]) =
+func deleteInlet[P,S](ds: Desc[P,S]; iv: Segm[P,S]) =
   ## Delete fully contained interval
   if not ds.isNil and 0 < iv.len:
 
@@ -560,7 +561,7 @@ proc deleteInlet[P,S](ds: Desc[P,S]; iv: Segm[P,S]) =
 # Private transfer() function implementation for merge/reduce
 # ------------------------------------------------------------------------------
 
-proc transferImpl[P,S](src, trg: Desc[P,S]; iv: Segm[P,S]): S =
+func transferImpl[P,S](src, trg: Desc[P,S]; iv: Segm[P,S]): S =
   ## From the `src` argument database, delete the data segment/interval
   ## `[start,start+length)` and merge it into the `trg` argument database.
   ## Not both  arguments `src` and `trg` must be `nil`.
@@ -592,7 +593,7 @@ proc transferImpl[P,S](src, trg: Desc[P,S]; iv: Segm[P,S]): S =
 # Private covered() function implementation
 # ------------------------------------------------------------------------------
 
-proc coveredImpl[P,S](ds: IntervalSetRef[P,S]; start: P; length: S): S =
+func coveredImpl[P,S](ds: IntervalSetRef[P,S]; start: P; length: S): S =
   ## Calulate the accumulated size of the interval `[start,start+length)`
   ## covered by intervals in the set `ds`. The result cannot exceed the
   ## argument `length` (of course.)
@@ -644,12 +645,12 @@ proc coveredImpl[P,S](ds: IntervalSetRef[P,S]; start: P; length: S): S =
 # Public constructor, clone, etc.
 # ------------------------------------------------------------------------------
 
-proc init*[P,S](T: type IntervalSetRef[P,S]): T =
+func init*[P,S](T: type IntervalSetRef[P,S]): T =
   ## Interval set constructor.
   new result
   result.leftPos.init()
 
-proc clone*[P,S](ds: IntervalSetRef[P,S]): IntervalSetRef[P,S] =
+func clone*[P,S](ds: IntervalSetRef[P,S]): IntervalSetRef[P,S] =
   ## Return a copy of the interval list. Beware, this might be slow as it
   ## needs to copy every interval record.
   result = Desc[P,S].init()
@@ -666,7 +667,7 @@ proc clone*[P,S](ds: IntervalSetRef[P,S]): IntervalSetRef[P,S] =
   # optional clean up, see comments on the destroy() directive
   walk.destroy
 
-proc `==`*[P,S](a, b: IntervalSetRef[P,S]): bool =
+func `==`*[P,S](a, b: IntervalSetRef[P,S]): bool =
   ## Compare interval sets for equality. Beware, this can be slow. Every
   ## interval record has to be checked.
   if a.ptsCount == b.ptsCount and
@@ -686,13 +687,13 @@ proc `==`*[P,S](a, b: IntervalSetRef[P,S]): bool =
       # optional clean up, see comments on the destroy() directive
       aWalk.destroy()
 
-proc clear*[P,S](ds: IntervalSetRef[P,S]) =
+func clear*[P,S](ds: IntervalSetRef[P,S]) =
   ## Clear the interval set.
   ds.ptsCount = scalarZero
   ds.lastHigh = false
   ds.leftPos.clear()
 
-proc new*[P,S](T: type Interval[P,S]; minPt, maxPt: P): T =
+func new*[P,S](T: type Interval[P,S]; minPt, maxPt: P): T =
   ## Create interval `[minPt,max(minPt,maxPt)]`
   Interval[P,S](least: minPt, last: max(minPt, maxPt))
 
@@ -700,7 +701,7 @@ proc new*[P,S](T: type Interval[P,S]; minPt, maxPt: P): T =
 # Public interval operations add, remove, erc.
 # ------------------------------------------------------------------------------
 
-proc merge*[P,S](ds: IntervalSetRef[P,S]; minPt, maxPt: P): S =
+func merge*[P,S](ds: IntervalSetRef[P,S]; minPt, maxPt: P): S =
   ## For the argument interval `I` implied as `[minPt,max(minPt,maxPt)]`,
   ## merge `I` with the intervals of the argument set `ds`. The function
   ## returns the accumulated number of points that were added to some
@@ -720,12 +721,12 @@ proc merge*[P,S](ds: IntervalSetRef[P,S]; minPt, maxPt: P): S =
     else:
       result = scalarZero
 
-proc merge*[P,S](ds: IntervalSetRef[P,S]; iv: Interval[P,S]): S =
+func merge*[P,S](ds: IntervalSetRef[P,S]; iv: Interval[P,S]): S =
   ## Variant of `merge()`
   ds.merge(iv.least, iv.last)
 
 
-proc reduce*[P,S](ds: IntervalSetRef[P,S]; minPt, maxPt: P): S =
+func reduce*[P,S](ds: IntervalSetRef[P,S]; minPt, maxPt: P): S =
   ## For the argument interval `I` implied as `[minPt,max(minPt,maxPt)]`,
   ## remove the points from `I` from intervals of the argument set `ds`.
   ## The function returns the accumulated number of elements removed (i.e.
@@ -745,12 +746,12 @@ proc reduce*[P,S](ds: IntervalSetRef[P,S]; minPt, maxPt: P): S =
     else:
       result = scalarZero
 
-proc reduce*[P,S](ds: IntervalSetRef[P,S]; iv: Interval[P,S]): S =
+func reduce*[P,S](ds: IntervalSetRef[P,S]; iv: Interval[P,S]): S =
   ## Variant of `reduce()`
   ds.reduce(iv.least, iv.last)
 
 
-proc covered*[P,S](ds: IntervalSetRef[P,S]; minPt, maxPt: P): S =
+func covered*[P,S](ds: IntervalSetRef[P,S]; minPt, maxPt: P): S =
   ## For the argument interval `I` implied as `[minPt,max(minPt,maxPt)]`,
   ## calulate the accumulated points `I` contained in some interval in the
   ## set `ds`. The return value is the same as that for `reduce()` (only
@@ -765,12 +766,12 @@ proc covered*[P,S](ds: IntervalSetRef[P,S]; minPt, maxPt: P): S =
     else:
       result = scalarZero
 
-proc covered*[P,S](ds: IntervalSetRef[P,S]; iv: Interval[P,S]): S =
+func covered*[P,S](ds: IntervalSetRef[P,S]; iv: Interval[P,S]): S =
   ## Variant of `covered()`
   ds.covered(iv.least, iv.last)
 
 
-proc ge*[P,S](ds: IntervalSetRef[P,S]; minPt: P): IntervalRc[P,S] =
+func ge*[P,S](ds: IntervalSetRef[P,S]; minPt: P): IntervalRc[P,S] =
   ## Find smallest interval in the set `ds` with start point (i.e. minimal
   ## value in the interval as a set) greater or equal the argument `minPt`.
   let rc = ds.leftPos.ge(minPt)
@@ -785,11 +786,11 @@ proc ge*[P,S](ds: IntervalSetRef[P,S]; minPt: P): IntervalRc[P,S] =
       return ok(Interval[P,S].new(high(P),high(P)))
   err()
 
-proc ge*[P,S](ds: IntervalSetRef[P,S]): IntervalRc[P,S] =
+func ge*[P,S](ds: IntervalSetRef[P,S]): IntervalRc[P,S] =
   ## Find the interval with the least elements of type `P` (if any.)
   ds.ge(low(P))
 
-proc le*[P,S](ds: IntervalSetRef[P,S]; maxPt: P): IntervalRc[P,S] =
+func le*[P,S](ds: IntervalSetRef[P,S]; maxPt: P): IntervalRc[P,S] =
   ## Find largest interval in the set `ds` with end point (i.e. maximal
   ## value in the interval as a set) smaller or equal to the argument `maxPt`.
   let rc = ds.leftPos.le(maxPt)
@@ -818,12 +819,12 @@ proc le*[P,S](ds: IntervalSetRef[P,S]; maxPt: P): IntervalRc[P,S] =
     return ok(Interval[P,S].new(high(P),high(P)))
   err()
 
-proc le*[P,S](ds: IntervalSetRef[P,S]): IntervalRc[P,S] =
+func le*[P,S](ds: IntervalSetRef[P,S]): IntervalRc[P,S] =
   ## Find the interval with the largest elements of type `P` (if any.)
   ds.le(high(P))
 
 
-proc envelope*[P,S](ds: IntervalSetRef[P,S]; pt: P): IntervalRc[P,S] =
+func envelope*[P,S](ds: IntervalSetRef[P,S]; pt: P): IntervalRc[P,S] =
   ## Find the interval that contains the argument point `pt` (if any)
   let rc = ds.leftPos.le(pt)
   if rc.isOk:
@@ -838,7 +839,7 @@ proc envelope*[P,S](ds: IntervalSetRef[P,S]; pt: P): IntervalRc[P,S] =
   err()
 
 
-proc delete*[P,S](ds: IntervalSetRef[P,S]; minPt: P): IntervalRc[P,S] =
+func delete*[P,S](ds: IntervalSetRef[P,S]; minPt: P): IntervalRc[P,S] =
   ## Find the interval `[minPt,maxPt]` for some point `maxPt` in the interval
   ## set `ds` and remove it from `ds`. The function returns the deleted
   ## interval (if any.)
@@ -915,21 +916,21 @@ iterator decreasing*[P,S](
 # Public interval operators
 # ------------------------------------------------------------------------------
 
-proc `==`*[P,S](iv, jv: Interval[P,S]): bool =
+func `==`*[P,S](iv, jv: Interval[P,S]): bool =
   ## Compare intervals for equality
   iv.least == jv.least and iv.last == jv.last
 
-proc `==`*[P,S](iv: IntervalRc[P,S]; jv: Interval[P,S]): bool =
+func `==`*[P,S](iv: IntervalRc[P,S]; jv: Interval[P,S]): bool =
   ## Variant of `==`
   if iv.isOk:
     return iv.value == jv
 
-proc `==`*[P,S](iv: Interval[P,S]; jv: IntervalRc[P,S]): bool =
+func `==`*[P,S](iv: Interval[P,S]; jv: IntervalRc[P,S]): bool =
   ## Variant of `==`
   if jv.isOk:
     return iv == jv.value
 
-proc `==`*[P,S](iv, jv: IntervalRc[P,S]): bool =
+func `==`*[P,S](iv, jv: IntervalRc[P,S]): bool =
   ## Variant of `==`
   if iv.isOk:
     if jv.isOk:
@@ -941,7 +942,7 @@ proc `==`*[P,S](iv, jv: IntervalRc[P,S]): bool =
 
 # ------
 
-proc `*`*[P,S](iv, jv: Interval[P,S]): IntervalRc[P,S] =
+func `*`*[P,S](iv, jv: Interval[P,S]): IntervalRc[P,S] =
   ## Intersect itervals `iv` and `jv` if this operation results in a
   ## non-emty interval. Note that the `*` operation is associative, i.e.
   ## ::
@@ -953,19 +954,19 @@ proc `*`*[P,S](iv, jv: Interval[P,S]): IntervalRc[P,S] =
       maxPt(jv.least,iv.least), minPt(jv.last,iv.last)))
   err()
 
-proc `*`*[P,S](iv: IntervalRc[P,S]; jv: Interval[P,S]): IntervalRc[P,S] =
+func `*`*[P,S](iv: IntervalRc[P,S]; jv: Interval[P,S]): IntervalRc[P,S] =
   ## Variant of `*`
   if iv.isOk:
     return iv.value * jv
   err()
 
-proc `*`*[P,S](iv: Interval[P,S]; jv: IntervalRc[P,S]): IntervalRc[P,S] =
+func `*`*[P,S](iv: Interval[P,S]; jv: IntervalRc[P,S]): IntervalRc[P,S] =
   ## Variant of `*`
   if jv.isOk:
     return iv * jv.value
   err()
 
-proc `*`*[P,S](iv, jv: IntervalRc[P,S]): IntervalRc[P,S] =
+func `*`*[P,S](iv, jv: IntervalRc[P,S]): IntervalRc[P,S] =
   ## Variant of `*`
   if iv.isOk and jv.isOk:
     return iv.value * jv.value
@@ -973,7 +974,7 @@ proc `*`*[P,S](iv, jv: IntervalRc[P,S]): IntervalRc[P,S] =
 
 # ------
 
-proc `+`*[P,S](iv, jv: Interval[P,S]): IntervalRc[P,S] =
+func `+`*[P,S](iv, jv: Interval[P,S]): IntervalRc[P,S] =
   ## Merge intervals `iv` and `jv` if this operation results in an interval.
   ## Note that the `+` operation is *not* associative, i.e.
   ## ::
@@ -997,19 +998,19 @@ proc `+`*[P,S](iv, jv: Interval[P,S]): IntervalRc[P,S] =
 
   err()
 
-proc `+`*[P,S](iv: IntervalRc[P,S]; jv: Interval[P,S]): IntervalRc[P,S] =
+func `+`*[P,S](iv: IntervalRc[P,S]; jv: Interval[P,S]): IntervalRc[P,S] =
   ## Variant of `+`
   if iv.isOk:
     return iv.value + jv
   err()
 
-proc `+`*[P,S](iv: Interval[P,S]; jv: IntervalRc[P,S]): IntervalRc[P,S] =
+func `+`*[P,S](iv: Interval[P,S]; jv: IntervalRc[P,S]): IntervalRc[P,S] =
   ## Variant of `+`
   if jv.isOk:
     return iv + jv.value
   err()
 
-proc `+`*[P,S](iv, jv: IntervalRc[P,S]): IntervalRc[P,S] =
+func `+`*[P,S](iv, jv: IntervalRc[P,S]): IntervalRc[P,S] =
   ## Variant of `+`
   if iv.isOk and jv.isOk:
     return iv.value + jv.value
@@ -1017,7 +1018,7 @@ proc `+`*[P,S](iv, jv: IntervalRc[P,S]): IntervalRc[P,S] =
 
 # ------
 
-proc `-`*[P,S](iv, jv: Interval[P,S]): IntervalRc[P,S] =
+func `-`*[P,S](iv, jv: Interval[P,S]): IntervalRc[P,S] =
   ## Return the interval `iv` reduced by elements of `jv` if this operation
   ## results in a non-empty interval.
   ## Note that the `-` operation is *not* associative, i.e.
@@ -1074,19 +1075,19 @@ proc `-`*[P,S](iv, jv: Interval[P,S]): IntervalRc[P,S] =
 
   err()
 
-proc `-`*[P,S](iv: IntervalRc[P,S]; jv: Interval[P,S]): IntervalRc[P,S] =
+func `-`*[P,S](iv: IntervalRc[P,S]; jv: Interval[P,S]): IntervalRc[P,S] =
   ## Variant of `-`
   if iv.isOk:
     return iv.value - jv
   err()
 
-proc `-`*[P,S](iv: Interval[P,S]; jv: IntervalRc[P,S]): IntervalRc[P,S] =
+func `-`*[P,S](iv: Interval[P,S]; jv: IntervalRc[P,S]): IntervalRc[P,S] =
   ## Variant of `-`
   if jv.isOk:
     return iv - jv.value
   err()
 
-proc `-`*[P,S](iv, jv: IntervalRc[P,S]): IntervalRc[P,S] =
+func `-`*[P,S](iv, jv: IntervalRc[P,S]): IntervalRc[P,S] =
   ## Variant of `-`
   if iv.isOk and jv.isOk:
     return iv.value - jv.valu
@@ -1096,7 +1097,7 @@ proc `-`*[P,S](iv, jv: IntervalRc[P,S]): IntervalRc[P,S] =
 # Public getters
 # ------------------------------------------------------------------------------
 
-proc len*[P,S](iv: Interval[P,S]): S =
+func len*[P,S](iv: Interval[P,S]): S =
   ## Cardinality (ie. length) of argument interval `iv`. If the argument
   ## interval `iv` is `[low(P),high(P)]`, the return value will be the scalar
   ## *zero* (there are no empty intervals in this implementation.)
@@ -1105,15 +1106,15 @@ proc len*[P,S](iv: Interval[P,S]): S =
   else:
     (iv.last - iv.least) + scalarOne
 
-proc minPt*[P,S](iv: Interval[P,S]): P =
+func minPt*[P,S](iv: Interval[P,S]): P =
   ## Left end, smallest point of `P` contained in the interval
   iv.least
 
-proc maxPt*[P,S](iv: Interval[P,S]): P =
+func maxPt*[P,S](iv: Interval[P,S]): P =
   ## Right end, largest point of `P` contained in the interval
   iv.last
 
-proc total*[P,S](ds: IntervalSetRef[P,S]): S =
+func total*[P,S](ds: IntervalSetRef[P,S]): S =
   ## Accumulated size covered by intervals in the interval set `ds`.
   ##
   ## In the special case when there is only the single interval
@@ -1126,7 +1127,7 @@ proc total*[P,S](ds: IntervalSetRef[P,S]): S =
   else:
     ds.ptsCount + scalarOne
 
-proc chunks*[P,S](ds: IntervalSetRef[P,S]): int =
+func chunks*[P,S](ds: IntervalSetRef[P,S]): int =
   ## Number of disjunkt intervals (aka chunks) in the interval set `ds`.
   result = ds.leftPos.len
   if ds.lastHigh:
@@ -1138,7 +1139,7 @@ proc chunks*[P,S](ds: IntervalSetRef[P,S]): int =
 # Public debugging functions
 # ------------------------------------------------------------------------------
 
-proc `$`*[P,S](p: DataRef[P,S]): string =
+func `$`*[P,S](p: DataRef[P,S]): string =
   ## Needed by `ds.verify()` for printing error messages
   "[" & $p.left & "," & $p.right & ")"
 

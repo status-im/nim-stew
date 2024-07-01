@@ -1,5 +1,5 @@
 # Nimbus
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
 #    http://www.apache.org/licenses/LICENSE-2.0)
@@ -22,11 +22,11 @@
 ## semantics, this means that `=` performs a deep copy of the allocated queue
 ## which is refered to the deep copy semantics of the underlying table driver.
 
-import std/tables, results
+{.push raises: [].}
+
+import std/tables, pkg/results
 
 export results
-
-{.push raises: [].}
 
 type
   KeyedQueueItem*[K, V] = object
