@@ -29,7 +29,7 @@ template anonConst*(val: untyped): untyped =
   const c = val
   c
 
-func declval*(T: type): T {.compileTime.} =
+func declval*(T: type): T =
   ## `declval` denotes an anonymous expression of a particular
   ## type. It can be used in situations where you want to determine
   ## the type of an overloaded call in `typeof` expressions.
