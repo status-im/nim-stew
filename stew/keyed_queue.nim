@@ -272,7 +272,7 @@ proc append*[K, V](rq: var KeyedQueue[K, V], key: K, val: V): bool =
   ## All the items on the queue different from the one just added are
   ## called *previous* or *left hand* items while the item just added
   ## is the *right-most* item.
-  rq.tab.withValue(key, item):
+  rq.tab.withValue(key, _):
     return false
   do:
     rq.appendImpl(key, val)
@@ -310,7 +310,7 @@ proc prepend*[K, V](rq: var KeyedQueue[K, V], key: K, val: V): bool =
   ## All the items on the queue different from the item just added are
   ## called *following* or *right hand* items while the item just added
   ## is the *left-most* item.
-  rq.tab.withValue(key, item):
+  rq.tab.withValue(key, _):
     return false
   do:
     rq.prependImpl(key, val)
@@ -330,10 +330,10 @@ proc shift*[K, V](rq: var KeyedQueue[K, V]): Opt[KeyedQueuePair[K, V]] =
   type T = KeyedQueuePair[K, V]
   if 0 < rq.tab.len:
     rq.tab.withValue(rq.kFirst, item):
-      let res = Opt.some KeyedQueuePair[K, V](key: rq.kFirst, data: move(item[].data))
+      let res = Opt.some T(key: rq.kFirst, data: move(item[].data))
       rq.shiftImpl
       return res
-  Opt.none(KeyedQueuePair[K, V])
+  Opt.none(T)
 
 proc shiftKey*[K, V](rq: var KeyedQueue[K, V]): Opt[K] =
   ## Similar to `shift()` but with different return value.
