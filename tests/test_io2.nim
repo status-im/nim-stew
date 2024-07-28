@@ -792,3 +792,54 @@ suite "OS Input/Output procedures test suite":
     check:
       res.isOk()
       len(res.get()) > 0
+
+  test "truncate(IoHandle) test":
+    let flags = {OpenFlags.Create, OpenFlags.Write}
+    block:
+      let fdres = openFile("testtruncate1", flags)
+      check:
+        fdres.isOk()
+        truncate(fdres.get(), 100).isOk()
+        closeFile(fdres.get()).isOk()
+
+    block:
+      let res = getFileSize("testtruncate1")
+      check:
+        res.isOk()
+        res.get() == 100
+
+    block:
+      let fdres = openFile("testtruncate1", flags)
+      check:
+        fdres.isOk()
+        truncate(fdres.get(), 0).isOk()
+        closeFile(fdres.get()).isOk()
+
+    block:
+      let res = getFileSize("testtruncate1")
+      check:
+        res.isOk()
+        res.get() == 0
+
+    check removeFile("testtruncate1").isOk()
+
+  test "truncate(path) test":
+    check:
+      writeFile("testtruncate2", "TEST", 0o644).isOk()
+      truncate("testtruncate2", 200).isOk()
+
+    block:
+      let res = getFileSize("testtruncate2")
+      check:
+        res.isOk()
+        res.get() == 200
+
+    check truncate("testtruncate2", 0).isOk()
+
+    block:
+      let res = getFileSize("testtruncate2")
+      check:
+        res.isOk()
+        res.get() == 0
+
+    check removeFile("testtruncate2").isOk()
