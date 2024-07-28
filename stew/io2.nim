@@ -183,6 +183,8 @@ when defined(windows):
                         lpNewFilePointer: ptr int64,
                         dwMoveMethod: uint32): int32 {.
        importc: "SetFilePointerEx", dynlib: "kernel32", stdcall, sideEffect.}
+  proc setEndOfFile(hFile: uint): int32 {.
+       importc: "SetEndOfFile", dynlib: "kernel32", stdcall, sideEffect.}
   proc lockFileEx(hFile: uint, dwFlags, dwReserved: uint32,
                   nNumberOfBytesToLockLow, nNumberOfBytesToLockHigh: uint32,
                   lpOverlapped: pointer): uint32 {.
@@ -1337,6 +1339,45 @@ proc setFilePos*(handle: IoHandle, offset: int64,
         posix.SEEK_END
     let res = int64(posix.lseek(cint(handle), Off(offset), pos))
     if res == -1'i64:
+      err(ioLastError())
+    else:
+      ok()
+
+proc truncate*(handle: IoHandle, length: int64): IoResult[void] =
+  ## Procedure cause the regular file referenced by handle ``handle`` to be
+  ## truncated to a size of precisely ``length`` bytes.
+  when defined(windows):
+    let res1 = setFilePointerEx(uint(handle), length, nil, FILE_BEGIN)
+    if res1 == 0:
+      return err(ioLastError())
+    let res2 = setEndOfFile(uint(handle))
+    if res2 == 0:
+      return err(ioLastError())
+    ok()
+  else:
+    let res = posix.ftruncate(cint(handle), Off(length))
+    if res == -1:
+      err(ioLastError())
+    else:
+      ok()
+
+proc truncate*(pathName: string, length: int64): IoResult[void] =
+  ## Procedure cause the regular file referenced by path ``pathName`` to be
+  ## truncated to a size of precisely ``length`` bytes.
+  when defined(windows):
+    let
+      flags = {OpenFlags.Write}
+      handle = openFile(pathName, flags).valueOr:
+        return err(error)
+      res = truncate(handle, length)
+    if res.isErr():
+      discard closeFile(handle)
+      return err(res.error)
+    ? closeFile(handle)
+    ok()
+  else:
+    let res = posix.truncate(pathName, Off(length))
+    if res == -1:
       err(ioLastError())
     else:
       ok()
