@@ -32,6 +32,7 @@ when defined(windows):
     FILE_FLAG_OVERLAPPED = 0x40000000'u32
     FILE_SHARE_READ = 0x00000001'u32
     FILE_SHARE_WRITE = 0x00000002'u32
+    FILE_APPEND_DATA = 0x00000004'u32
 
     FILE_FLAG_NO_BUFFERING = 0x20000000'u32
     FILE_ATTRIBUTE_READONLY = 0x00000001'u32
@@ -1078,8 +1079,10 @@ proc openFile*(pathName: string, flags: set[OpenFlags],
       elif OpenFlags.Read notin flags:
         dwCreation = dwCreation or TRUNCATE_EXISTING
     elif OpenFlags.Append in flags:
+      dwAccess = dwAccess or FILE_APPEND_DATA
       dwCreation = dwCreation or OPEN_EXISTING
     elif OpenFlags.Create in flags:
+      dwCreation = dwCreation and not(OPEN_EXISTING)
       dwCreation = dwCreation or OPEN_ALWAYS
     else:
       dwCreation = dwCreation or OPEN_EXISTING
