@@ -1013,7 +1013,14 @@ proc openFile*(pathName: string, flags: set[OpenFlags],
     if OpenFlags.Truncate in flags:
       cflags = cflags or posix.O_TRUNC
     if OpenFlags.Append in flags:
-      cflags = cflags or posix.O_APPEND
+      if ((cflags and posix.O_WRONLY) != 0) or ((cflags and posix.O_RDWR) != 0):
+        cflags = cflags or posix.O_APPEND
+      else:
+        if ((cflags and posix.O_RDONLY) != 0):
+          cflags = cflags and not(posix.O_RDONLY)
+          cflags = cflags or posix.O_APPEND or O_RDWR
+        else:
+          cflags = cflags or posix.O_APPEND or O_WRONLY
     when defined(linux) or defined(freebsd) or defined(netbsd) or
          defined(dragonflybsd):
       if OpenFlags.Direct in flags:
