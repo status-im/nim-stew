@@ -499,7 +499,6 @@ suite "OS Input/Output procedures test suite":
 
     block:
       let fdres = openFile("testfile.txt", {OpenFlags.Append, OpenFlags.Create})
-      echo fdres.error
       check:
         fdres.isOk()
         writeFile(fdres.get(), "TEST1").isOk()
