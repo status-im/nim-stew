@@ -497,6 +497,8 @@ suite "OS Input/Output procedures test suite":
     check:
       removeFile("testfile.txt").isOk()
 
+    # Create file if not exists and append data to file.
+
     block:
       let fdres = openFile("testfile.txt", {OpenFlags.Append, OpenFlags.Create})
       check:
@@ -523,6 +525,16 @@ suite "OS Input/Output procedures test suite":
 
     check:
       removeFile("testfile.txt").isOk()
+
+    # Open nonexisting file with different flags.
+
+    check:
+      openFile("testfile.txt", {OpenFlags.Append}).isErr()
+      openFile("testfile.txt", {OpenFlags.Read}).isErr()
+      openFile("testfile.txt", {OpenFlags.Write}).isErr()
+      openFile("testfile.txt", {OpenFlags.Read, OpenFlags.Write}).isErr()
+      openFile("testfile.txt", {OpenFlags.Read, OpenFlags.Write,
+                                OpenFlags.Append}).isErr()
 
   test "toString(set[Permission]) test":
     let emptyMask: set[Permission] = {}
