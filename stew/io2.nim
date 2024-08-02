@@ -32,6 +32,7 @@ when defined(windows):
     FILE_FLAG_OVERLAPPED = 0x40000000'u32
     FILE_SHARE_READ = 0x00000001'u32
     FILE_SHARE_WRITE = 0x00000002'u32
+    FILE_APPEND_DATA = 0x00000004'u32
 
     FILE_FLAG_NO_BUFFERING = 0x20000000'u32
     FILE_ATTRIBUTE_READONLY = 0x00000001'u32
@@ -1012,7 +1013,14 @@ proc openFile*(pathName: string, flags: set[OpenFlags],
     if OpenFlags.Truncate in flags:
       cflags = cflags or posix.O_TRUNC
     if OpenFlags.Append in flags:
-      cflags = cflags or posix.O_APPEND
+      if ((cflags and posix.O_WRONLY) != 0) or ((cflags and posix.O_RDWR) != 0):
+        cflags = cflags or posix.O_APPEND
+      else:
+        if ((cflags and posix.O_RDONLY) != 0):
+          cflags = cflags and not(posix.O_RDONLY)
+          cflags = cflags or posix.O_APPEND or O_RDWR
+        else:
+          cflags = cflags or posix.O_APPEND or O_WRONLY
     when defined(linux) or defined(freebsd) or defined(netbsd) or
          defined(dragonflybsd):
       if OpenFlags.Direct in flags:
@@ -1053,7 +1061,7 @@ proc openFile*(pathName: string, flags: set[OpenFlags],
     var
       dwAccess: uint32
       dwShareMode: uint32
-      dwCreation: uint32
+      dwCreation: uint32 = OPEN_EXISTING
       dwFlags: uint32
 
     var sa = SECURITY_ATTRIBUTES(
@@ -1062,36 +1070,37 @@ proc openFile*(pathName: string, flags: set[OpenFlags],
       bInheritHandle: 0
     )
 
-    if (OpenFlags.Write in flags) and (OpenFlags.Read in flags):
-      dwAccess = dwAccess or (GENERIC_READ or GENERIC_WRITE)
-    else:
-      if OpenFlags.Write in flags:
-        dwAccess = dwAccess or GENERIC_WRITE
-      else:
-        dwAccess = dwAccess or GENERIC_READ
+    if OpenFlags.Write in flags:
+      dwAccess = dwAccess or GENERIC_WRITE
+    if OpenFlags.Read in flags:
+      dwAccess = dwAccess or GENERIC_READ
+    if OpenFlags.Append in flags:
+      dwAccess = dwAccess or FILE_APPEND_DATA
 
-    if {OpenFlags.Create, OpenFlags.Exclusive} <= flags:
-      dwCreation = dwCreation or CREATE_NEW
-    elif OpenFlags.Truncate in flags:
+    if OpenFlags.Truncate in flags:
       if OpenFlags.Create in flags:
         dwCreation = dwCreation or CREATE_ALWAYS
-      elif OpenFlags.Read notin flags:
+      else:
         dwCreation = dwCreation or TRUNCATE_EXISTING
-    elif OpenFlags.Append in flags:
-      dwCreation = dwCreation or OPEN_EXISTING
-    elif OpenFlags.Create in flags:
-      dwCreation = dwCreation or OPEN_ALWAYS
+
+    if {OpenFlags.Create} == flags or
+       {OpenFlags.Create, OpenFlags.Exclusive} == flags:
+      dwCreation = dwCreation or CREATE_NEW
     else:
-      dwCreation = dwCreation or OPEN_EXISTING
+      if OpenFlags.Create in flags:
+        dwCreation = dwCreation and not(OPEN_EXISTING)
+        dwCreation = dwCreation or OPEN_ALWAYS
 
     if dwCreation == OPEN_EXISTING and
-       ((dwAccess and (GENERIC_READ or GENERIC_WRITE)) == GENERIC_READ):
-      dwShareMode = dwShareMode or FILE_SHARE_READ
+       ((dwAccess and GENERIC_READ) == GENERIC_READ):
+      if OpenFlags.Exclusive notin flags:
+        dwShareMode = dwShareMode or FILE_SHARE_READ
 
-    if OpenFlags.ShareRead in flags:
-      dwShareMode = dwShareMode or FILE_SHARE_READ
-    if OpenFlags.ShareWrite in flags:
-      dwShareMode = dwShareMode or FILE_SHARE_WRITE
+    if OpenFlags.Exclusive notin flags:
+      if OpenFlags.ShareRead in flags:
+        dwShareMode = dwShareMode or FILE_SHARE_READ
+      if OpenFlags.ShareWrite in flags:
+        dwShareMode = dwShareMode or FILE_SHARE_WRITE
 
     if OpenFlags.NonBlock in flags:
       dwFlags = dwFlags or FILE_FLAG_OVERLAPPED

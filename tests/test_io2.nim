@@ -406,34 +406,135 @@ suite "OS Input/Output procedures test suite":
       removeFile("testblob6").isOk()
 
   test "openFile()/readFile()/writeFile() test":
-    var buffer = newString(10)
-    let flags = {OpenFlags.Write, OpenFlags.Truncate, OpenFlags.Create}
+    var buffer = newString(100)
 
-    var fdres = openFile("testfile.txt", flags)
-    check:
-      fdres.isOk()
-      readFile(fdres.get(), buffer).isErr()
-      writeFile(fdres.get(), "TEST").isOk()
-      readFile(fdres.get(), buffer).isErr()
-      closeFile(fdres.get()).isOk()
+    block:
+      let
+        flags = {OpenFlags.Write, OpenFlags.Truncate, OpenFlags.Create}
+        fdres = openFile("testfile.txt", flags)
+      check:
+        fdres.isOk()
+        readFile(fdres.get(), buffer).isErr()
+        writeFile(fdres.get(), "TEST1").isOk()
+        readFile(fdres.get(), buffer).isErr()
+        closeFile(fdres.get()).isOk()
 
-    fdres = openFile("testfile.txt", {OpenFlags.Read})
-    check:
-      fdres.isOk()
-      readFile(fdres.get(), buffer).isOk()
-      writeFile(fdres.get(), "TEST2").isErr()
-      readFile(fdres.get(), buffer).isOk()
-      closeFile(fdres.get()).isOk()
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Read})
+      check fdres.isOk()
+      let res1 = readFile(fdres.get(), buffer)
+      check:
+        res1.isOk()
+        res1.get() == uint(5)
+        writeFile(fdres.get(), "TEST2").isErr()
+      let res2 = readFile(fdres.get(), buffer)
+      check:
+        res2.isOk()
+        res2.get() == uint(0)
+        closeFile(fdres.get()).isOk()
 
-    fdres = openFile("testfile.txt", {OpenFlags.Read, OpenFlags.Write})
-    check:
-      fdres.isOk()
-      readFile(fdres.get(), buffer).isOk()
-      writeFile(fdres.get(), "TEST2").isOk()
-      closeFile(fdres.get()).isOk()
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Read, OpenFlags.Write})
+      check fdres.isOk()
+      let res1 = readFile(fdres.get(), buffer)
+      check:
+        res1.isOk()
+        res1.get() == uint(5)
+        writeFile(fdres.get(), "TEST3").isOk()
+        closeFile(fdres.get()).isOk()
+
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Read})
+      check fdres.isOk()
+      let res1 = readFile(fdres.get(), buffer)
+      check:
+        res1.isOk()
+        res1.get() == uint(10)
+        buffer[0 .. 9] == "TEST1TEST3"
+        closeFile(fdres.get()).isOk()
+
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Write})
+      check:
+        fdres.isOk()
+        writeFile(fdres.get(), "TEST2").isOk()
+        closeFile(fdres.get()).isOk()
+
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Read})
+      check fdres.isOk()
+      let res1 = readFile(fdres.get(), buffer)
+      check:
+        res1.isOk()
+        res1.get() == uint(10)
+        buffer[0 .. 9] == "TEST2TEST3"
+        closeFile(fdres.get()).isOk()
+
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Append})
+      check:
+        fdres.isOk()
+        writeFile(fdres.get(), "TEST4").isOk()
+        closeFile(fdres.get()).isOk()
+
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Append})
+      check:
+        fdres.isOk()
+        writeFile(fdres.get(), "TEST5").isOk()
+        closeFile(fdres.get()).isOk()
+
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Read})
+      check fdres.isOk()
+      let res = readFile(fdres.get(), buffer)
+      check:
+        res.isOk()
+        res.get() == 20
+        buffer[0 .. 19] == "TEST2TEST3TEST4TEST5"
+        closeFile(fdres.get()).isOk()
 
     check:
       removeFile("testfile.txt").isOk()
+
+    # Create file if not exists and append data to file.
+
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Append, OpenFlags.Create})
+      check:
+        fdres.isOk()
+        writeFile(fdres.get(), "TEST1").isOk()
+        closeFile(fdres.get()).isOk()
+
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Append, OpenFlags.Create})
+      check:
+        fdres.isOk()
+        writeFile(fdres.get(), "TEST2").isOk()
+        closeFile(fdres.get()).isOk()
+
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Read})
+      check fdres.isOk()
+      let res = readFile(fdres.get(), buffer)
+      check:
+        res.isOk()
+        res.get() == 10
+        buffer[0 .. 9] == "TEST1TEST2"
+        closeFile(fdres.get()).isOk()
+
+    check:
+      removeFile("testfile.txt").isOk()
+
+    # Open nonexisting file with different flags.
+
+    check:
+      openFile("testfile.txt", {OpenFlags.Append}).isErr()
+      openFile("testfile.txt", {OpenFlags.Read}).isErr()
+      openFile("testfile.txt", {OpenFlags.Write}).isErr()
+      openFile("testfile.txt", {OpenFlags.Read, OpenFlags.Write}).isErr()
+      openFile("testfile.txt", {OpenFlags.Read, OpenFlags.Write,
+                                OpenFlags.Append}).isErr()
 
   test "toString(set[Permission]) test":
     let emptyMask: set[Permission] = {}
