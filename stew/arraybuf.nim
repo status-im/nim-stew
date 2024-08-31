@@ -23,8 +23,7 @@ template len*(b: ArrayBuf): int =
 
 template setLen*(b: var ArrayBuf, newLenParam: int) =
   newLenParam.evalOnceAs(newLen)
-  let
-    nl = typeof(b.n)(newLen)
+  let nl = typeof(b.n)(newLen)
   for i in newLen ..< b.len():
     reset(b.buf[i])
   b.n = nl
@@ -52,6 +51,7 @@ iterator pairs*[N, T](b: ArrayBuf[N, T]): (int, lent T) =
 
 template `[]`*[N, T](b: ArrayBuf[N, T], i: int): lent T =
   b.buf[i]
+
 template `[]`*[N, T](b: var ArrayBuf[N, T], i: int): var T =
   b.buf[i]
 
