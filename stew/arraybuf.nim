@@ -6,11 +6,11 @@ type ArrayBuf*[N: static int, T = byte] = object
   ## instantiation (using an `array`).
   buf*: array[N, T]
 
-  when N <= int(uint8.high):
+  when sizeof(int) > sizeof(uint8) and N <= int(uint8.high):
     n*: uint8
-  elif N <= int(uint16.high):
+  elif sizeof(int) > sizeof(uint16) and N <= int(uint16.high):
     n*: uint16
-  elif sizeof(int) > 4 and N <= int(uint32.high):
+  elif sizeof(int) > sizeof(uint32) and N <= int(uint32.high):
     n*: uint32
   else:
     n*: int
