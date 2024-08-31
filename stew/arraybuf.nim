@@ -1,24 +1,22 @@
 import ./evalonce
 
-template smallestInt(N: static int): typedesc =
-  when N <= uint8.high:
-    uint8
-  elif N <= uint16.high:
-    uint16
-  elif N <= uint32.high:
-    uint32
-  else:
-    int
-
 type ArrayBuf*[N: static int, T = byte] = object
   ## An fixed-capacity, allocation-free buffer with a seq-like API - suitable
   ## for keeping small amounts of data since the full capacity is reserved on
   ## instantiation (using an `array`).
   buf*: array[N, T]
-  n*: smallestInt(N)
-    # Number of entries actually in use - uses the smallest unsigned integer
-    # that can hold values up to the capacity to avoid wasting memory on
-    # alignment and counting, specially when `T = byte` and odd sizes are used
+
+  when N <= uint8.high:
+    n*: uint8
+  elif N <= uint16.high:
+    n*: uint16
+  elif N <= uint32.high:
+    n*: uint32
+  else:
+    n*: int
+      # Number of entries actually in use - uses the smallest unsigned integer
+      # that can hold values up to the capacity to avoid wasting memory on
+      # alignment and counting, specially when `T = byte` and odd sizes are used
 
 template len*(b: ArrayBuf): int =
   int(b.n)
