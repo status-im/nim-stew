@@ -15,7 +15,8 @@ type ArrayBuf*[N: static int, T = byte] = object
           n*: uint16
         else:
           when sizeof(int) > sizeof(uint32):
-            when N <= int(uint32.high):
+            # TODO https://github.com/nim-lang/Nim/issues/24041
+            when N <= cast[int](uint32.high):
               n*: uint32
             else:
               n*: int
