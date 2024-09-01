@@ -6,12 +6,23 @@ type ArrayBuf*[N: static int, T = byte] = object
   ## instantiation (using an `array`).
   buf*: array[N, T]
 
-  when sizeof(int) > sizeof(uint8) and N <= int(uint8.high):
-    n*: uint8
-  elif sizeof(int) > sizeof(uint16) and N <= int(uint16.high):
-    n*: uint16
-  elif sizeof(int) > sizeof(uint32) and N <= int(uint32.high):
-    n*: uint32
+  when sizeof(int) > sizeof(uint8):
+    when N <= int(uint8.high):
+      n*: uint8
+    else:
+      when sizeof(int) > sizeof(uint16):
+        when N <= int(uint16.high):
+          n*: uint16
+        else:
+          when sizeof(int) > sizeof(uint32):
+            when N <= int(uint32.high):
+              n*: uint32
+            else:
+              n*: int
+          else:
+            n*: int
+      else:
+        n*: int
   else:
     n*: int
       # Number of entries actually in use - uses the smallest unsigned integer
