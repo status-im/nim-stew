@@ -1,0 +1,104 @@
+# stew
+# Copyright 2024 Status Research & Development GmbH
+# Licensed under either of
+#
+#  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+#  * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+#
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+import ./[evalonce, arrayops]
+
+type ArrayBuf*[N: static int, T] = object
+  ## An fixed-capacity, allocation-free buffer with a seq-like API - suitable
+  ## for keeping small amounts of data since the full capacity is reserved on
+  ## instantiation (using an `array`).
+  #
+  # `N` must be "simple enough" or one of these will trigger
+  # TODO https://github.com/nim-lang/Nim/issues/24043
+  # TODO https://github.com/nim-lang/Nim/issues/24044
+  # TODO https://github.com/nim-lang/Nim/issues/24045
+  buf*: array[N, T]
+
+  when sizeof(int) > sizeof(uint8):
+    when N <= int(uint8.high):
+      n*: uint8
+    else:
+      when sizeof(int) > sizeof(uint16):
+        when N <= int(uint16.high):
+          n*: uint16
+        else:
+          when sizeof(int) > sizeof(uint32):
+            # TODO https://github.com/nim-lang/Nim/issues/24041
+            when N <= cast[int](uint32.high):
+              n*: uint32
+            else:
+              n*: int
+          else:
+            n*: int
+      else:
+        n*: int
+  else:
+    n*: int
+      # Number of entries actually in use - uses the smallest unsigned integer
+      # that can hold values up to the capacity to avoid wasting memory on
+      # alignment and counting, specially when `T = byte` and odd sizes are used
+
+template len*(b: ArrayBuf): int =
+  int(b.n)
+
+template setLen*(b: var ArrayBuf, newLenParam: int) =
+  newLenParam.evalOnceAs(newLen)
+  let nl = typeof(b.n)(newLen)
+  for i in newLen ..< b.len():
+    reset(b.buf[b.len() - i - 1]) # reset cleared items when shrinking
+  b.n = nl
+
+template data*(bParam: ArrayBuf): openArray =
+  bParam.evalOnceAs(b)
+  b.buf.toOpenArray(0, b.len() - 1)
+
+template data*(bParam: var ArrayBuf): var openArray =
+  bParam.evalOnceAs(b)
+  b.buf.toOpenArray(0, b.len() - 1)
+
+iterator items*[N, T](b: ArrayBuf[N, T]): lent T =
+  for i in 0 ..< b.len:
+    yield b.d[i]
+
+iterator mitems*[N, T](b: var ArrayBuf[N, T]): var T =
+  for i in 0 ..< b.len:
+    yield b.d[i]
+
+iterator pairs*[N, T](b: ArrayBuf[N, T]): (int, lent T) =
+  for i in 0 ..< b.len:
+    yield (i, b.buf[i])
+
+template `[]`*[N, T](b: ArrayBuf[N, T], i: int): lent T =
+  b.buf[i]
+
+template `[]`*[N, T](b: var ArrayBuf[N, T], i: int): var T =
+  b.buf[i]
+
+template `[]=`*[N, T](b: var ArrayBuf[N, T], i: int, v: T) =
+  b.buf[i] = v
+
+template `==`*(a, b: ArrayBuf): bool =
+  a.data() == b.data()
+
+template `<`*(a, b: ArrayBuf): bool =
+  a.data() < b.data()
+
+template add*[N, T](b: var ArrayBuf[N, T], v: T) =
+  ## Adds items up to capacity then drops the rest
+  # TODO `b` is evaluated multiple times but since it's a `var` this should
+  #      _hopefully_ be fine..
+  if b.len < N:
+    b.buf[b.len] = v
+    b.n += 1
+
+template add*[N, T](b: var ArrayBuf[N, T], v: openArray[T]) =
+  ## Adds items up to capacity then drops the rest
+  # TODO `b` is evaluated multiple times but since it's a `var` this should
+  #      _hopefully_ be fine..
+  b.n += typeof(b.n)(b.buf.toOpenArray(b.len, N - 1).copyFrom(v))

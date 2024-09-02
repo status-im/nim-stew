@@ -11,6 +11,7 @@ import ranges/all
 
 import
   test_assign2,
+  test_arraybuf,
   test_arrayops,
   test_base10,
   test_base32,
