@@ -7,7 +7,7 @@
 #
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import stew/[evalonce, arrayops]
+import ./[evalonce, arrayops]
 
 type ArrayBuf*[N: static int, T] = object
   ## An fixed-capacity, allocation-free buffer with a seq-like API - suitable
