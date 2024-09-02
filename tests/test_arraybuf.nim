@@ -22,3 +22,15 @@ suite "ArrayBuf":
 
     # check doesn't support `openArray` (!)
     doAssert f().data() == [byte 1]
+
+  test "overflow add":
+    var v: ArrayBuf[2, byte]
+    v.add(byte 0)
+    doAssert v.data() == [byte 0]
+
+    v.add([byte 1, 2, 3])
+
+    doAssert v.data() == [byte 0, 1]
+
+    v.add(byte 4)
+    doAssert v.data() == [byte 0, 1]

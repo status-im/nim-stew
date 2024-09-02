@@ -7,7 +7,7 @@
 #
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import ./evalonce
+import stew/[evalonce, arrayops]
 
 type ArrayBuf*[N: static int, T] = object
   ## An fixed-capacity, allocation-free buffer with a seq-like API - suitable
@@ -90,8 +90,15 @@ template `<`*(a, b: ArrayBuf): bool =
   a.data() < b.data()
 
 template add*[N, T](b: var ArrayBuf[N, T], v: T) =
-  # Panics if too many items are added
+  ## Adds items up to capacity then drops the rest
   # TODO `b` is evaluated multiple times but since it's a `var` this should
   #      _hopefully_ be fine..
-  b.buf[b.len] = v
-  b.n += 1
+  if b.len < N:
+    b.buf[b.len] = v
+    b.n += 1
+
+template add*[N, T](b: var ArrayBuf[N, T], v: openArray[T]) =
+  ## Adds items up to capacity then drops the rest
+  # TODO `b` is evaluated multiple times but since it's a `var` this should
+  #      _hopefully_ be fine..
+  b.n += typeof(b.n)(b.buf.toOpenArray(b.len, N - 1).copyFrom(v))
