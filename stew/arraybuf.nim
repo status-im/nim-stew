@@ -1,3 +1,12 @@
+# stew
+# Copyright 2024 Status Research & Development GmbH
+# Licensed under either of
+#
+#  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+#  * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+#
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 import ./evalonce
 
 type ArrayBuf*[N: static int, T] = object
@@ -42,7 +51,7 @@ template setLen*(b: var ArrayBuf, newLenParam: int) =
   newLenParam.evalOnceAs(newLen)
   let nl = typeof(b.n)(newLen)
   for i in newLen ..< b.len():
-    reset(b.buf[i])
+    reset(b.buf[b.len() - i - 1]) # reset cleared items when shrinking
   b.n = nl
 
 template data*(bParam: ArrayBuf): openArray =
@@ -50,7 +59,6 @@ template data*(bParam: ArrayBuf): openArray =
   b.buf.toOpenArray(0, b.len() - 1)
 
 template data*(bParam: var ArrayBuf): var openArray =
-  # Careful, double evaluation of b
   bParam.evalOnceAs(b)
   b.buf.toOpenArray(0, b.len() - 1)
 
