@@ -1,9 +1,14 @@
 import ./evalonce
 
-type ArrayBuf*[N: static int, T = byte] = object
+type ArrayBuf*[N: static int, T] = object
   ## An fixed-capacity, allocation-free buffer with a seq-like API - suitable
   ## for keeping small amounts of data since the full capacity is reserved on
   ## instantiation (using an `array`).
+  #
+  # `N` must be "simple enough" or one of these will trigger
+  # TODO https://github.com/nim-lang/Nim/issues/24043
+  # TODO https://github.com/nim-lang/Nim/issues/24044
+  # TODO https://github.com/nim-lang/Nim/issues/24045
   buf*: array[N, T]
 
   when sizeof(int) > sizeof(uint8):
