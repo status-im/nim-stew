@@ -1356,6 +1356,49 @@ proc setFilePos*(handle: IoHandle, offset: int64,
     else:
       ok()
 
+proc updateFilePos*(handle: IoHandle, offset: int64,
+                    whence: SeekPosition): IoResult[int64] =
+  ## Procedure shall set the file offset for the open file associated with the
+  ## file descriptor ``handle``, as follows:
+  ##   * If whence is ``SeekPosition.SeekBegin``, the file offset shall be set
+  ##     to ``offset`` bytes.
+  ##   * If whence is ``SeekPosition.SeekCur``, the file offset shall be set to
+  ##     its current location plus ``offset``.
+  ##   * If whence is ``SeekPosition.SeekEnd``, the file offset shall be set to
+  ##     the size of the file plus ``offset``.
+  ##
+  ## Returns the resulting offset location as measured in bytes from the
+  ## beginning of the file.
+  when defined(windows):
+    var noffset = 0'i64
+    let pos =
+      case whence
+      of SeekBegin:
+        FILE_BEGIN
+      of SeekCurrent:
+        FILE_CURRENT
+      of SeekEnd:
+        FILE_END
+    let res = setFilePointerEx(uint(handle), offset, addr noffset, pos)
+    if res == 0:
+      err(ioLastError())
+    else:
+      ok(noffset)
+  else:
+    let pos =
+      case whence
+      of SeekBegin:
+        posix.SEEK_SET
+      of SeekCurrent:
+        posix.SEEK_CUR
+      of SeekEnd:
+        posix.SEEK_END
+    let res = int64(posix.lseek(cint(handle), Off(offset), pos))
+    if res == -1'i64:
+      err(ioLastError())
+    else:
+      ok(res)
+
 proc truncate*(handle: IoHandle, length: int64): IoResult[void] =
   ## Procedure cause the regular file referenced by handle ``handle`` to be
   ## truncated to a size of precisely ``length`` bytes.

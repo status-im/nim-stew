@@ -629,6 +629,31 @@ suite "OS Input/Output procedures test suite":
       positions[3] == 10'i64
       positions[4] == 20'i64
 
+  test "updateFilePos(handle) test":
+    proc performTest(path: string): IoResult[tuple[s0, s1, s2, s3, s4: int64]] =
+      let flags = {OpenFlags.Write, OpenFlags.Truncate, OpenFlags.Create}
+      let handle = ? openFile(path, flags)
+      let msg = "AAAAABBBBBCCCCCDDDDD"
+      discard ? io2.writeFile(handle, msg)
+      let
+        pos0 = ? updateFilePos(handle, 0'i64, SeekBegin)
+        pos1 = ? updateFilePos(handle, 5'i64, SeekCurrent)
+        pos2 = ? updateFilePos(handle, 5'i64, SeekCurrent)
+        pos3 = ? updateFilePos(handle, 0'i64, SeekEnd)
+        pos4 = ? updateFilePos(handle, -5'i64, SeekEnd)
+      ? closeFile(handle)
+      ? removeFile(path)
+      ok((pos0, pos1, pos2, pos3, pos4))
+    let res = performTest("testblob4")
+    check res.isOk()
+    let positions = res.get()
+    check:
+      positions[0] == 0'i64
+      positions[1] == 5'i64
+      positions[2] == 10'i64
+      positions[3] == 20'i64
+      positions[4] == 15'i64
+
   test "lockFile(handle)/unlockFile(handle) test":
     type
       TestResult = object
