@@ -33,6 +33,6 @@ task test, "Run all tests":
       "--threads:off",
       "--threads:on -d:nimTypeNames",
       "--threads:on -d:noIntrinsicsBitOpts -d:noIntrinsicsEndians"]:
-    run args, "tests/all_tests"
+    run args & " --mm:refc", "tests/all_tests"
     if (NimMajor, NimMinor) > (1, 6):
-      run args & " --mm:refc", "tests/all_tests"
+      run args & " --mm:orc", "tests/all_tests"
