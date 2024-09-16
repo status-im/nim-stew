@@ -55,4 +55,4 @@ suite "ArrayBuf":
       v[0] == 1
       v.len == 1
     v.setLen(2)
-    doAssert v.data() == [byte 0, 1]
+    doAssert v.data() == [byte 1, 0]
