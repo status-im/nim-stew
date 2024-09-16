@@ -35,6 +35,7 @@ when defined(windows):
     FILE_APPEND_DATA = 0x00000004'u32
 
     FILE_FLAG_NO_BUFFERING = 0x20000000'u32
+    FILE_FLAG_WRITE_THROUGH = 0x80000000'u32
     FILE_ATTRIBUTE_READONLY = 0x00000001'u32
     FILE_ATTRIBUTE_DIRECTORY = 0x00000010'u32
 
@@ -200,6 +201,8 @@ when defined(windows):
        sideEffect.}
   proc getTempPathW(nBufferLength: uint32, lpBuffer: WideCString): uint32 {.
        importc: "GetTempPathW", dynlib: "kernel32", stdcall, sideEffect.}
+  proc flushFileBuffers(hFile: uint): int32 {.
+       importc: "FlushFileBuffers", dynlib: "kernel32", stdcall, sideEffect.}
 
   const
     NO_ERROR = IoErrorCode(0)
@@ -1024,15 +1027,16 @@ proc openFile*(pathName: string, flags: set[OpenFlags],
     when defined(linux) or defined(freebsd) or defined(netbsd) or
          defined(dragonflybsd):
       if OpenFlags.Direct in flags:
-        cflags = cflags or O_DIRECT
+        cflags = cflags or O_DIRECT or O_SYNC
     if OpenFlags.Inherit notin flags:
       cflags = cflags or O_CLOEXEC
     if OpenFlags.NonBlock in flags:
       cflags = cflags or posix.O_NONBLOCK
 
     while true:
-      let omask = setUmask(0)
-      let ores = posix.open(cstring(pathName), cflags, Mode(createMode))
+      let
+        omask = setUmask(0)
+        ores = posix.open(cstring(pathName), cflags, Mode(createMode))
       discard setUmask(omask)
       if ores == -1:
         let errCode = ioLastError()
@@ -1041,7 +1045,7 @@ proc openFile*(pathName: string, flags: set[OpenFlags],
         else:
           return err(errCode)
       else:
-        when defined(macosx):
+        when defined(macosx) or defined(macos):
           if OpenFlags.Direct in flags:
             while true:
               let fres = posix.fcntl(cint(ores), F_NOCACHE, 1)
@@ -1105,7 +1109,7 @@ proc openFile*(pathName: string, flags: set[OpenFlags],
     if OpenFlags.NonBlock in flags:
       dwFlags = dwFlags or FILE_FLAG_OVERLAPPED
     if OpenFlags.Direct in flags:
-      dwFlags = dwFlags or FILE_FLAG_NO_BUFFERING
+      dwFlags = dwFlags or FILE_FLAG_NO_BUFFERING or FILE_FLAG_WRITE_THROUGH
     if OpenFlags.Inherit in flags:
       sa.bInheritHandle = 1
 
@@ -1352,6 +1356,49 @@ proc setFilePos*(handle: IoHandle, offset: int64,
     else:
       ok()
 
+proc updateFilePos*(handle: IoHandle, offset: int64,
+                    whence: SeekPosition): IoResult[int64] =
+  ## Procedure shall set the file offset for the open file associated with the
+  ## file descriptor ``handle``, as follows:
+  ##   * If whence is ``SeekPosition.SeekBegin``, the file offset shall be set
+  ##     to ``offset`` bytes.
+  ##   * If whence is ``SeekPosition.SeekCur``, the file offset shall be set to
+  ##     its current location plus ``offset``.
+  ##   * If whence is ``SeekPosition.SeekEnd``, the file offset shall be set to
+  ##     the size of the file plus ``offset``.
+  ##
+  ## Returns the resulting offset location as measured in bytes from the
+  ## beginning of the file.
+  when defined(windows):
+    var noffset = 0'i64
+    let pos =
+      case whence
+      of SeekBegin:
+        FILE_BEGIN
+      of SeekCurrent:
+        FILE_CURRENT
+      of SeekEnd:
+        FILE_END
+    let res = setFilePointerEx(uint(handle), offset, addr noffset, pos)
+    if res == 0:
+      err(ioLastError())
+    else:
+      ok(noffset)
+  else:
+    let pos =
+      case whence
+      of SeekBegin:
+        posix.SEEK_SET
+      of SeekCurrent:
+        posix.SEEK_CUR
+      of SeekEnd:
+        posix.SEEK_END
+    let res = int64(posix.lseek(cint(handle), Off(offset), pos))
+    if res == -1'i64:
+      err(ioLastError())
+    else:
+      ok(res)
+
 proc truncate*(handle: IoHandle, length: int64): IoResult[void] =
   ## Procedure cause the regular file referenced by handle ``handle`` to be
   ## truncated to a size of precisely ``length`` bytes.
@@ -1390,6 +1437,26 @@ proc truncate*(pathName: string, length: int64): IoResult[void] =
       err(ioLastError())
     else:
       ok()
+
+proc fsync*(handle: IoHandle): IoResult[void] =
+  ## Ensure that all data for the open file descriptor named by ``handle``
+  ## is to be transferred to the storage device associated with the file.
+  when defined(windows):
+    let res = flushFileBuffers(uint(handle))
+    if res == 0:
+      return err(ioLastError())
+    ok()
+  else:
+    while true:
+      let res = posix.fsync(cint(handle))
+      if res == -1:
+        let errCode = ioLastError()
+        if errCode == EINTR:
+          continue
+        else:
+          return err(errCode)
+      else:
+        return ok()
 
 proc checkFileSize*(value: int64): IoResult[int] =
   ## Checks if ``value`` fits into supported by Nim string/sequence indexing
