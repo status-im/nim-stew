@@ -34,3 +34,25 @@ suite "ArrayBuf":
 
     v.add(byte 4)
     doAssert v.data() == [byte 0, 1]
+
+  test "setLen clearing":
+    var v: ArrayBuf[5, byte]
+
+    v.add(1)
+    v.add(2)
+
+    check: v.pop() == 2
+
+    v.setLen(2)
+    check:
+      v[^1] == 0 # not 2!
+
+
+    v[1] = 42
+
+    v.setLen(1)
+    check:
+      v[0] == 1
+      v.len == 1
+    v.setLen(2)
+    doAssert v.data() == [byte 1, 0]

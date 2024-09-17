@@ -51,7 +51,7 @@ template setLen*(b: var ArrayBuf, newLenParam: int) =
   newLenParam.evalOnceAs(newLen)
   let nl = typeof(b.n)(newLen)
   for i in newLen ..< b.len():
-    reset(b.buf[b.len() - i - 1]) # reset cleared items when shrinking
+    reset(b.buf[i]) # reset cleared items when shrinking
   b.n = nl
 
 template data*(bParam: ArrayBuf): openArray =
@@ -64,7 +64,7 @@ template data*(bParam: var ArrayBuf): var openArray =
 
 iterator items*[N, T](b: ArrayBuf[N, T]): lent T =
   for i in 0 ..< b.len:
-    yield b.d[i]
+    yield b.buf[i]
 
 iterator mitems*[N, T](b: var ArrayBuf[N, T]): var T =
   for i in 0 ..< b.len:
@@ -82,6 +82,9 @@ template `[]`*[N, T](b: var ArrayBuf[N, T], i: int): var T =
 
 template `[]=`*[N, T](b: var ArrayBuf[N, T], i: int, v: T) =
   b.buf[i] = v
+
+template `[]`*[N, T](b: ArrayBuf[N, T], i: BackwardsIndex): lent T =
+  b.buf[b.len - int(i)]
 
 template `==`*(a, b: ArrayBuf): bool =
   a.data() == b.data()
@@ -102,3 +105,11 @@ template add*[N, T](b: var ArrayBuf[N, T], v: openArray[T]) =
   # TODO `b` is evaluated multiple times but since it's a `var` this should
   #      _hopefully_ be fine..
   b.n += typeof(b.n)(b.buf.toOpenArray(b.len, N - 1).copyFrom(v))
+
+template pop*[N, T](b: var ArrayBuf[N, T]): T =
+  ## Return the last item while removing it from the buffer
+  # TODO `b` is evaluated multiple times but since it's a `var` this should
+  #      _hopefully_ be fine..
+  assert b.n > 0, "pop from empty ArrayBuf"
+  b.n -= 1
+  move(b.buf[b.n])
