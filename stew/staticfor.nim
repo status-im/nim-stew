@@ -25,7 +25,7 @@ macro staticFor*(idx: untyped{nkIdent}, slice: static Slice[int], body: untyped)
   ## staticFor(i, 0..<2):
   ##   echo default(array[i, byte])
   ## ```
-  result = newStmtList()
+  result = newNimNode(nnkStmtList, lineInfoFrom = body)
   for i in slice:
     result.add nnkBlockStmt.newTree(
       ident(":staticFor" & $idx & $i),
