@@ -6,18 +6,17 @@ proc replaceNodes(ast: NimNode, what: NimNode, by: NimNode): NimNode =
     case node.kind:
     of {nnkIdent, nnkSym}:
       if node.eqIdent(what):
-        return by
-      return node
-    of nnkEmpty:
-      return node
-    of nnkLiterals:
-      return node
+        by
+      else:
+        node
+    of nnkEmpty, nnkLiterals:
+      node
     else:
-      var rTree = node.kind.newTree()
+      let rTree = newNimNode(node.kind, lineInfoFrom = node)
       for child in node:
         rTree.add inspect(child)
-      return rTree
-  result = inspect(ast)
+      rTree
+  inspect(ast)
 
 macro staticFor*(idx: untyped{nkIdent}, slice: static Slice[int], body: untyped): untyped =
   ## Unrolled `for` loop over the given range:
