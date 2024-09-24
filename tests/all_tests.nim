@@ -32,6 +32,7 @@ import
   test_ptrops,
   test_sequtils2,
   test_sets,
+  test_staticfor,
   test_strformat,
   test_templateutils,
   test_winacl
