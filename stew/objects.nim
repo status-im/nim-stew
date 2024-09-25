@@ -1,6 +1,16 @@
+# stew
+# Copyright 2018-2024 Status Research & Development GmbH
+# Licensed under either of
+#
+#  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+#  * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+#
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [].}
+
 import
-  macros,
-  sequtils
+  std/[macros, sequtils]
 
 template init*(lvalue: var auto) =
   mixin init
@@ -18,10 +28,7 @@ template init*(lvalue: var auto, a1, a2, a3: auto) =
   mixin init
   lvalue = init(type(lvalue), a1, a2, a3)
 
-when not declared(default):
-  proc default*(T: type): T = discard
-
-proc toArray*[T](N: static int, data: openArray[T]): array[N, T] =
+func toArray*[T](N: static int, data: openArray[T]): array[N, T] =
   doAssert data.len == N
   copyMem(addr result[0], unsafeAddr data[0], N)
 
@@ -86,7 +93,7 @@ macro hasHoles*(T: type[enum]): bool =
 
   quote: `T`.high.ord - `T`.low.ord != `len`
 
-proc contains*[I: SomeInteger](e: type[enum], v: I): bool =
+func contains*[I: SomeInteger](e: type[enum], v: I): bool =
   when I is uint64:
     if v > int.high.uint64:
       return false
@@ -105,14 +112,15 @@ func checkedEnumAssign*[E: enum, I: SomeInteger](res: var E, value: I): bool =
     return false
 
   res = cast[E](value)
-  return true
+  true
 
 func isZeroMemory*[T](x: T): bool =
   # TODO: iterate over words here
-  for b in cast[ptr array[sizeof(T), byte]](unsafeAddr x)[]:
-    if b != 0:
-      return false
-  return true
+  # bufPtr avoids pointless https://github.com/nim-lang/Nim/issues/24093 copy
+  let bufPtr = cast[ptr array[sizeof(T), byte]](unsafeAddr x)
+  for b in bufPtr[]:
+    if b != 0: return false
+  true
 
 func isDefaultValue*[T](x: T): bool =
   # TODO: There are ways to optimise this for simple POD types
