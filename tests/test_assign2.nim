@@ -39,3 +39,11 @@ suite "assign2":
     assign(dis, X(55))
 
     check: int(dis) == 55
+
+    const x = block: # Compile-time assignment
+      var a, b: array[2, byte]
+      a[1] = 2
+      assign(a, b)
+      b
+   check x[1] == 2
+
