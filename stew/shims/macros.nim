@@ -1,5 +1,5 @@
 import
-  std/[macros, tables, hashes]
+  std/[hashes, macros, tables, typetraits]
 
 export
   macros
@@ -394,6 +394,11 @@ proc newLitFixed*(arg: tuple): NimNode {.compileTime.} =
   result = nnkPar.newTree
   for a,b in arg.fieldPairs:
     result.add nnkExprColonExpr.newTree(newIdentNode(a), newLitFixed(b))
+
+proc newLitFixed*(arg: distinct): NimNode {.compileTime.} =
+  result = newLitFixed distinctBase(arg)
+  var typ = getTypeInst(typeof(arg))[1]
+  result = newCall(typ,result)
 
 iterator typedParams*(n: NimNode, skip = 0): (NimNode, NimNode) =
   let params = n[3]
