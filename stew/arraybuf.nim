@@ -48,19 +48,22 @@ template len*(b: ArrayBuf): int =
   int(b.n)
 
 template setLen*(b: var ArrayBuf, newLenParam: int) =
-  newLenParam.evalOnceAs(newLen)
-  let nl = typeof(b.n)(newLen)
-  for i in newLen ..< b.len():
-    reset(b.buf[i]) # reset cleared items when shrinking
-  b.n = nl
+  block:
+    newLenParam.evalOnceAs(newLen)
+    let nl = typeof(b.n)(newLen)
+    for i in newLen ..< b.len():
+      reset(b.buf[i]) # reset cleared items when shrinking
+    b.n = nl
 
 template data*(bParam: ArrayBuf): openArray =
-  bParam.evalOnceAs(b)
-  b.buf.toOpenArray(0, b.len() - 1)
+  block:
+    bParam.evalOnceAs(b)
+    b.buf.toOpenArray(0, b.len() - 1)
 
 template data*(bParam: var ArrayBuf): var openArray =
-  bParam.evalOnceAs(b)
-  b.buf.toOpenArray(0, b.len() - 1)
+  block:
+    bParam.evalOnceAs(b)
+    b.buf.toOpenArray(0, b.len() - 1)
 
 iterator items*[N, T](b: ArrayBuf[N, T]): lent T =
   for i in 0 ..< b.len:
@@ -91,6 +94,22 @@ template `==`*(a, b: ArrayBuf): bool =
 
 template `<`*(a, b: ArrayBuf): bool =
   a.data() < b.data()
+
+template initCopyFrom*[N, T](
+    _: type ArrayBuf[N, T], data: openArray[T]
+): ArrayBuf[N, T] =
+  var v: ArrayBuf[N, T]
+  v.n = typeof(v.n)(v.buf.copyFrom(data))
+  v
+
+template initCopyFrom*[N, T](
+    _: type ArrayBuf[N, T], data: array[N, T]
+): ArrayBuf[N, T] =
+  # Shortcut version that avoids zeroMem on matching lengths
+  ArrayBuf[N, T](
+    buf: data,
+    n: N
+  )
 
 template add*[N, T](b: var ArrayBuf[N, T], v: T) =
   ## Adds items up to capacity then drops the rest
