@@ -56,3 +56,14 @@ suite "ArrayBuf":
       v.len == 1
     v.setLen(2)
     doAssert v.data() == [byte 1, 0]
+
+  test "construction":
+    let
+      a0 = ArrayBuf[4, byte].initCopyFrom([])
+      a2 = ArrayBuf[2, byte].initCopyFrom([byte 2, 3, 4, 5])
+      a5 = ArrayBuf[5, byte].initCopyFrom([byte 2, 3])
+
+    check:
+      a0.len == 0
+      a2.data() == [byte 2, 3]
+      a5.data() == [byte 2, 3]
