@@ -61,9 +61,11 @@ suite "ArrayBuf":
     let
       a0 = ArrayBuf[4, byte].initCopyFrom([])
       a2 = ArrayBuf[2, byte].initCopyFrom([byte 2, 3, 4, 5])
+      a3 = ArrayBuf[5, byte].initCopyFrom([byte 2, 3, 4])
       a5 = ArrayBuf[5, byte].initCopyFrom([byte 2, 3])
 
     check:
       a0.len == 0
       a2.data() == [byte 2, 3]
+      a3.data() == [byte 2, 3, 4]
       a5.data() == [byte 2, 3]

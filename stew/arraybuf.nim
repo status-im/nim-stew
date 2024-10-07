@@ -98,9 +98,18 @@ template `<`*(a, b: ArrayBuf): bool =
 template initCopyFrom*[N, T](
     _: type ArrayBuf[N, T], data: openArray[T]
 ): ArrayBuf[N, T] =
-  var v {.noinit.}: ArrayBuf[N, T]
+  var v: ArrayBuf[N, T]
   v.n = typeof(v.n)(v.buf.copyFrom(data))
   v
+
+template initCopyFrom*[N, T](
+    _: type ArrayBuf[N, T], data: array[N, T]
+): ArrayBuf[N, T] =
+  # Shortcut version that avoids zeroMem on matching lengths
+  ArrayBuf[N, T](
+    buf: data,
+    n: N
+  )
 
 template add*[N, T](b: var ArrayBuf[N, T], v: T) =
   ## Adds items up to capacity then drops the rest
