@@ -56,14 +56,16 @@ template setLen*(b: var ArrayBuf, newLenParam: int) =
     b.n = nl
 
 template data*(bParam: ArrayBuf): openArray =
-  block:
-    bParam.evalOnceAs(b)
-    b.buf.toOpenArray(0, b.len() - 1)
+  # TODO https://github.com/nim-lang/Nim/issues/24260
+  # TODO https://github.com/nim-lang/Nim/issues/24261
+  bParam.evalOnceAs(bArrayBufPrivate)
+  bArrayBufPrivate.buf.toOpenArray(0, bArrayBufPrivate.len() - 1)
 
 template data*(bParam: var ArrayBuf): var openArray =
-  block:
-    bParam.evalOnceAs(b)
-    b.buf.toOpenArray(0, b.len() - 1)
+  # TODO https://github.com/nim-lang/Nim/issues/24260
+  # TODO https://github.com/nim-lang/Nim/issues/24261
+  bParam.evalOnceAs(bArrayBufPrivate)
+  bArrayBufPrivate.buf.toOpenArray(0, bArrayBufPrivate.len() - 1)
 
 iterator items*[N, T](b: ArrayBuf[N, T]): lent T =
   for i in 0 ..< b.len:
