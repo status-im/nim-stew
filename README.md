@@ -20,17 +20,20 @@ broken out into separate repositories.
 Libraries are documented either in-module or on a separate README in their
 respective folders
 
+- `arraybuf` - `array`-based fixed-capacity dynamic-length buffer
 - `arrayops` - small helpers and operations on `array`/`openArray`
 - `assign2` - fast assignments (unlike the `=` operator in nim which is very slow)
 - `bitops2` - an updated version of `bitops.nim`, filling in gaps in original code
 - `byteutils` - utilities that make working with the Nim `byte` type convenient
 - `endians2` - utilities for converting to and from little / big endian integers
+- `io2` - I/O without exceptions
 - `leb128` - utilities for working with LEB128-based formats (such as the varint style found in protobuf)
 - `objects` - get an object's base type at runtime, as a string
 - `ptrops` - pointer arithmetic utilities
 - `result` - moved to [nim-results](https://github.com/arnetheduck/nim-results/)
 - `shims` - backports of nim `devel` code to the stable version that Status is using
 - `sequtils2` - extensions to the `sequtils` module for working conveniently with `seq`
+- `staticfor` - compile-time loop unrolling
 
 ## Layout
 
@@ -77,10 +80,29 @@ else
 
 ## Using stew in your project
 
-We do not recommend using this library as a normal `nimble` dependency - there
-are no versioned releases and we will not maintain API/ABI stability. Instead,
-make sure you pin your dependency to a specific git hash (for example using a
-submodule) or copy the file to your project instead.
+`stew`, due to its experimental nature, does **not** have a stable API/ABI and
+features may be changed or removed. Releases are done on a case-by-case basis
+for when some specific project needs them - open an issue if you need one!
+
+When making a release, we will strive to update the `minor` version whenever a
+major component is removed or changed and the `patch` version if changes are
+mostly additive, but due to the nature of the library being a collection of
+smaller libraries, these guidelines may be streched at times.
+
+It is not expected that the library will reach a `1.0` release. Instead, mature
+code will be [graduated](https://github.com/status-im/nim-stew/commit/2cf408b9609fc3e6c238ddbd90ab31802e650212)
+into independent libraries that can follow a regular release schedule.
+
+* libraries that depend on stew should specify the lowest required version
+  (`stew >= 0.2`). An upper bound (`stew >= 0.2 & <0.3`) or caret versions
+  (`stew ^0.2`) may be used but it is not recommended since this will make your
+  library harder to compose with other libraries that depend on stew
+* applications that depend on stew directly or indirectly should specify a
+  commit ( `stew#abc...`) or a specific version (`stew == 0.2.3`) - this ensures
+  the application will continue to work irrespective of stew updates
+* alternatively, you can just copy the relevant files of stew into your project
+  or use a submodule - this approach maximises composability since each consumer
+  of stew no longer has to restrict the specific version for other consumers
 
 Typically, you will import either a top-level library or drill down into its
 submodules:
@@ -89,7 +111,7 @@ import stew/bitops2
 import stew/ranges/bitranges
 ```
 
-:warning: No API/ABI stability - pick a commit and stick with it :warning:
+:warning: No API/ABI stability - in applications, pick a commit and stick with it :warning:
 
 ## Contributing to stew
 
