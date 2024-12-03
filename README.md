@@ -93,10 +93,12 @@ It is not expected that the library will reach a `1.0` release. Instead, mature
 code will be [graduated](https://github.com/status-im/nim-stew/commit/2cf408b9609fc3e6c238ddbd90ab31802e650212)
 into independent libraries that can follow a regular release schedule.
 
-* libraries that depend on stew should specify the lowest required version
-  (`stew >= 0.2`). An upper bound (`stew >= 0.2 & <0.3`) or caret versions
-  (`stew ^0.2`) may be used but it is not recommended since this will make your
-  library harder to compose with other libraries that depend on stew
+* libraries that depend on `stew` should specify the lowest possible required
+  version (`stew >= 0.2`) that contain the necessary features that they use -
+  this may be lower than latest released version. An upper bound
+  (`stew >= 0.2 & <0.3`) or caret versions (`stew ^0.2`) may be used but it is
+  not recommended since this will make your library harder to compose with other
+  libraries that depend on `stew`.
 * applications that depend on stew directly or indirectly should specify a
   commit ( `stew#abc...`) or a specific version (`stew == 0.2.3`) - this ensures
   the application will continue to work irrespective of stew updates
