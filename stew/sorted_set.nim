@@ -146,7 +146,7 @@ func key*[K,V](data: SortedSetItemRef[K,V]): K =
   ## Getter, extracts the key from the data container item.
   data.key
 
-func len*[K,V](sl: var SortedSet[K,V]): int =
+func len*[K,V](sl: SortedSet[K,V]): int =
   ## Number of list elements
   sl.tree.size
 
@@ -184,27 +184,27 @@ func flush*[K,V](sl: var SortedSet[K,V]) =
 # Public functions, query functions
 # ------------------------------------------------------------------------------
 
-func eq*[K,V](sl: var SortedSet[K,V]; key: K): SortedSetResult[K,V] =
+func eq*[K,V](sl: SortedSet[K,V]; key: K): SortedSetResult[K,V] =
   ## Find `key` in list, returns data container item with the `key` if it
   ## exists.
   sl.tree.rbTreeFindEq(key)
 
-func le*[K,V](sl: var SortedSet[K,V]; key: K): SortedSetResult[K,V] =
+func le*[K,V](sl: SortedSet[K,V]; key: K): SortedSetResult[K,V] =
   ## Find data container iten with *largest* key *less or equal* the argument
   ## `key` in list and return it if found.
   sl.tree.rbTreeFindLe(key)
 
-func lt*[K,V](sl: var SortedSet[K,V]; key: K): SortedSetResult[K,V] =
+func lt*[K,V](sl: SortedSet[K,V]; key: K): SortedSetResult[K,V] =
   ## Find data container item with *largest* key *less than* the argument
   ## `key` in list and return it if found.
   sl.tree.rbTreeFindLt(key)
 
-func ge*[K,V](sl: var SortedSet[K,V]; key: K): SortedSetResult[K,V] =
+func ge*[K,V](sl: SortedSet[K,V]; key: K): SortedSetResult[K,V] =
   ## Find data container item with *smallest* key *greater or equal* the
   ## argument `key` in list and return it if found.
   sl.tree.rbTreeFindGe(key)
 
-func gt*[K,V](sl: var SortedSet[K,V]; key: K): SortedSetResult[K,V] =
+func gt*[K,V](sl:  SortedSet[K,V]; key: K): SortedSetResult[K,V] =
   ## Find data container item with *smallest* key *greater than* the argument
   ## `key` in list and return it if found.
   sl.tree.rbTreeFindGt(key)
@@ -213,7 +213,7 @@ func gt*[K,V](sl: var SortedSet[K,V]; key: K): SortedSetResult[K,V] =
 # Public functions, walk/traversal functions
 # ------------------------------------------------------------------------------
 
-func init*[K,V](T: type SortedSetWalkRef[K,V]; sl: var SortedSet[K,V]): T =
+func init*[K,V](T: type SortedSetWalkRef[K,V]; sl: SortedSet[K,V]): T =
   ## Open traversal descriptor on list and register it on the 'SortedSet`
   ## descriptor.
   sl.tree.newRbWalk
@@ -298,7 +298,7 @@ func `$`*[K,V](rc: SortedSetResult[K,V]): string =
     return $rc.error
   $rc.value
 
-proc verify*[K,V](sl: var SortedSet[K,V]):
+proc verify*[K,V](sl: SortedSet[K,V]):
                   Result[void,(SortedSetItemRef[K,V],RbInfo)]
                     {.gcsafe.} =
   ## Checks for consistency, may print an error message. Returns `rbOk` if
