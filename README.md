@@ -30,7 +30,6 @@ respective folders
 - `leb128` - utilities for working with LEB128-based formats (such as the varint style found in protobuf)
 - `objects` - get an object's base type at runtime, as a string
 - `ptrops` - pointer arithmetic utilities
-- `result` - moved to [nim-results](https://github.com/arnetheduck/nim-results/)
 - `shims` - backports of nim `devel` code to the stable version that Status is using
 - `sequtils2` - extensions to the `sequtils` module for working conveniently with `seq`
 - `staticfor` - compile-time loop unrolling
