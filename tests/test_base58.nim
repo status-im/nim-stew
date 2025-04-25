@@ -1,7 +1,7 @@
 import unittest2
 import ../stew/base58
 
-when defined(nimHasUsed): {.used.}
+{.used.}
 
 func hexToBytes*(a: string, result: var openArray[byte]) =
   doAssert(len(a) == 2 * len(result))
@@ -129,4 +129,3 @@ suite "BASE58 encoding test suite":
       decsize == 0
       Base58.decode("2O", decres, decsize) == Base58Status.Incorrect
       decsize == 0
-

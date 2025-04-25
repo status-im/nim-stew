@@ -1,7 +1,7 @@
 import unittest2
 import ../stew/base32
 
-when defined(nimHasUsed): {.used.}
+{.used.}
 
 const TVBaseUpperPadding = [
   ["f", "MY======"],
@@ -406,4 +406,3 @@ suite "BASE32 encoding test suite":
       decsize == 0
       HexBase32Lower.decode("ww", decres, decsize) == Base32Status.Incorrect
       decsize == 0
-
