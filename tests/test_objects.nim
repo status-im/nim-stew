@@ -2,9 +2,7 @@ import
   unittest2, typetraits,
   ../stew/objects
 
-when defined(nimHasUsed):
-  {.used.}
-
+{.used.}
 {.experimental: "notnil".}
 
 template isZeroAndDefault(x: auto): bool =

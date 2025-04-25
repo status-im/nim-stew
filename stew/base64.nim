@@ -1,4 +1,4 @@
-## Copyright (c) 2018 Status Research & Development GmbH
+## Copyright (c) 2018-2025 Status Research & Development GmbH
 ## Licensed under either of
 ##  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 ##  * MIT license ([LICENSE-MIT](LICENSE-MIT))
@@ -6,7 +6,7 @@
 ## This file may not be copied, modified, or distributed except according to
 ## those terms.
 
-## This module implements BASE64 encoding and decoding procedures.
+## This module implements Base64 encoding and decoding procedures.
 
 type
   Base64Status* {.pure.} = enum
@@ -38,7 +38,7 @@ type
   Base64Error* = object of CatchableError
     ## Base64 specific exception type
 
-proc newAlphabet64*(s: string): Base64Alphabet =
+func newAlphabet64*(s: string): Base64Alphabet =
   doAssert(len(s) == 64)
   for i in 0..<len(s):
     result.encode[i] = cast[uint8](s[i])
@@ -53,24 +53,24 @@ const
   B64UrlAlphabet* = newAlphabet64("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef" &
                                   "ghijklmnopqrstuvwxyz0123456789-_")
 
-proc encodedLength*(btype: typedesc[Base64Types],
+func encodedLength*(btype: typedesc[Base64Types],
                     length: int): int {.inline.} =
-  ## Return estimated length of BASE64 encoded value for plain length
+  ## Return estimated length of Base64 encoded value for plain length
   ## ``length``.
   result = (((length + 2) div 3) * 4) + 1
 
-proc decodedLength*(btype: typedesc[Base64Types],
+func decodedLength*(btype: typedesc[Base64Types],
                     length: int): int {.inline.} =
-  ## Return estimated length of decoded value of BASE64 encoded value of length
+  ## Return estimated length of decoded value of Base64 encoded value of length
   ## ``length``.
   when (btype is Base64Pad) or (btype is Base64UrlPad):
     result = ((length + 3 - 1) div 3) * 4
   elif (btype is Base64) or (btype is Base64Url):
     result = (length * 4 + 3 - 1) div 3
 
-proc encode*(btype: typedesc[Base64Types], inbytes: openArray[byte],
+func encode*(btype: typedesc[Base64Types], inbytes: openArray[byte],
              outstr: var openArray[char], outlen: var int): Base64Status =
-  ## Encode array of bytes ``inbytes`` using BASE64 encoding and store
+  ## Encode array of bytes ``inbytes`` using Base64 encoding and store
   ## result to ``outstr``.
   ##
   ## On success ``Base64Status.Success`` will be returned and ``outlen`` will
@@ -126,9 +126,9 @@ proc encode*(btype: typedesc[Base64Types], inbytes: openArray[byte],
     outlen = offset
     result = Base64Status.Success
 
-proc encode*(btype: typedesc[Base64Types],
+func encode*(btype: typedesc[Base64Types],
              inbytes: openArray[byte]): string {.inline.} =
-  ## Encode array of bytes ``inbytes`` using BASE64 encoding and return
+  ## Encode array of bytes ``inbytes`` using Base64 encoding and return
   ## encoded string.
   var size = btype.encodedLength(len(inbytes))
   result = newString(size)
@@ -138,15 +138,15 @@ proc encode*(btype: typedesc[Base64Types],
   else:
     result = ""
 
-proc decode*[T: byte|char](btype: typedesc[Base64Types], instr: openArray[T],
+func decode*[T: byte|char](btype: typedesc[Base64Types], instr: openArray[T],
              outbytes: var openArray[byte], outlen: var int): Base64Status =
-  ## Decode BASE64 string and store array of bytes to ``outbytes``. On success
+  ## Decode Base64 string and store array of bytes to ``outbytes``. On success
   ## ``Base64Status.Success`` will be returned and ``outlen`` will be set
   ## to number of bytes stored.
   ##
   ## Length of ``outbytes`` must be equal or more then ``len(instr) + 4``.
   ##
-  ## If ``instr`` has characters which are not part of BASE64 alphabet, then
+  ## If ``instr`` has characters which are not part of Base64 alphabet, then
   ## ``Base64Status.Incorrect`` will be returned and ``outlen`` will be set to
   ## ``0``.
   ##
@@ -223,9 +223,9 @@ proc decode*[T: byte|char](btype: typedesc[Base64Types], instr: openArray[T],
   outlen = k
   result = Base64Status.Success
 
-proc decode*[T: byte|char](btype: typedesc[Base64Types],
+func decode*[T: byte|char](btype: typedesc[Base64Types],
                            instr: openArray[T]): seq[byte] =
-  ## Decode BASE64 string ``instr`` and return sequence of bytes as result.
+  ## Decode Base64 string ``instr`` and return sequence of bytes as result.
   if len(instr) == 0:
     result = newSeq[byte]()
   else:
