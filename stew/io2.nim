@@ -1501,7 +1501,10 @@ proc readFile*[T: seq[byte]|string](pathName: string,
   if data.len() != memSize:
     # `zeroMem` creates a measurable performance degradation here
     when data is seq[byte]:
-      data = newSeqUninitialized[byte](memSize)
+      data = when (NimMajor, NimMinor) < (2, 2):
+               newSeqUninitialized[byte](memSize)
+             else:
+               newSeqUninit[byte](memSize)
     else:
       data = newString(memSize)
   let res {.used.} = ? readFile(pathName, data.toOpenArray(0, len(data) - 1))
