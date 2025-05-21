@@ -16,21 +16,21 @@ proc compilationTest {.exportc: "compilationTest".} =
   writeFile("test", bytes)
 
 suite "Byte utils":
-  let simpleBArray = [0x12.byte, 0x34, 0x56, 0x78]
+  const simpleBArray = [0x12.byte, 0x34, 0x56, 0x78]
 
-  test "hexToByteArray: Inplace partial string":
+  dualTest "hexToByteArray: Inplace partial string":
     let s = "0x1234567890"
     var a: array[5, byte]
     hexToByteArray(s, a, 1, 3)
     check a == [0.byte, 0x34, 0x56, 0x78, 0]
 
-  test "hexToByteArray: Inplace full string":
+  dualTest "hexToByteArray: Inplace full string":
     let s = "0xffffffff"
     var a: array[4, byte]
     hexToByteArray(s, a)
     check a == [255.byte, 255, 255, 255]
 
-  test "hexToByteArrayStrict":
+  dualTest "hexToByteArrayStrict":
     let
       short0 = ""
       short1 = "0x"
@@ -56,7 +56,7 @@ suite "Byte utils":
     reject long1
     reject long2
 
-  test "hexToByteArray: Return array":
+  dualTest "hexToByteArray: Return array":
     let
       s = "0x12345678"
       a = hexToByteArray[4](s)
@@ -65,7 +65,7 @@ suite "Byte utils":
     expect(ValueError): discard hexToByteArray[1]("")
     expect(ValueError): discard hexToByteArray[1]("1")
 
-  test "hexToByteArray: missing bytes":
+  dualTest "hexToByteArray: missing bytes":
     var buffer: array[1, byte]
     expect(ValueError):
       hexToByteArray("0x", buffer)
@@ -74,25 +74,25 @@ suite "Byte utils":
     expect(ValueError):
       hexToByteArray("0", buffer)
 
-  test "valid hex with empty array":
+  dualTest "valid hex with empty array":
     var buffer: seq[byte]
     hexToByteArray("0x123", openArray[byte](buffer))
     check(buffer == seq[byte](@[]))
 
-  test "valid hex with empty array of size":
+  dualTest "valid hex with empty array of size":
     var buffer: seq[byte] = newSeq[byte](4)
     hexToByteArray("00000123", openArray[byte](buffer))
     check(buffer == @[0.byte, 0.byte, 1.byte, 35.byte])
     check buffer.toHex == "00000123"
 
-  test "empty output array is ok":
+  dualTest "empty output array is ok":
     var output: array[0, byte]
 
     hexToByteArray("", output)
     hexToByteArray("0x", output)
     hexToByteArray("0x32", output)
 
-  test "array.fromHex":
+  dualTest "array.fromHex":
     let
       s = "0x12345678"
       a2 = array[2, byte].fromHex(s)
@@ -104,7 +104,7 @@ suite "Byte utils":
 
     expect(ValueError): echo array[5, byte].fromHex(s)
 
-  test "toHex":
+  dualTest "toHex":
     check simpleBArray.toHex == "12345678"
     check hexToSeqByte("12345678") == simpleBArray
     check hexToSeqByte("00") == [byte 0]
@@ -118,7 +118,7 @@ suite "Byte utils":
     check simpleBArray & simpleBArray ==
       [0x12.byte, 0x34, 0x56, 0x78, 0x12, 0x34, 0x56, 0x78]
 
-  test "hexToPaddedByteArray":
+  dualTest "hexToPaddedByteArray":
     block:
       let a = hexToPaddedByteArray[4]("0x123")
       check a.toHex == "00000123"
@@ -150,7 +150,7 @@ suite "Byte utils":
       expect ValueError:
         discard hexToPaddedByteArray[2]("0x12345")
 
-  test "lessThan":
+  dualTest "lessThan":
     let
       a = [0'u8, 1, 2]
       b = [2'u8, 1, 0]
@@ -172,16 +172,24 @@ suite "Byte utils":
       c < d
       not (d < c)
 
-  test "strings":
+  proc copyView(v: openArray[char]): seq[byte] =
+    v.toBytes()
+
+  dualTest "strings":
     check:
       "a".toBytes() == @[byte(ord('a'))]
+      copyView("a") == @[byte(ord('a'))]
+
       string.fromBytes([byte(ord('a'))]) == "a"
-      cast[ptr UncheckedArray[byte]](cstring(string.fromBytes([byte(ord('a'))])))[1] == byte(0)
 
       "".toBytes().len() == 0
       string.fromBytes([]) == ""
       @[byte(ord('a'))] == static("a".toBytes())
       "a" == static(string.fromBytes([byte(ord('a'))]))
+
+  test "strings cast":
+    check:
+      cast[ptr UncheckedArray[byte]](cstring(string.fromBytes([byte(ord('a'))])))[1] == byte(0)
 
   test "slices":
     var a: array[4, byte]

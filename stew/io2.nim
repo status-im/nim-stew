@@ -1,4 +1,4 @@
-## Copyright (c) 2020-2023 Status Research & Development GmbH
+## Copyright (c) 2020-2024 Status Research & Development GmbH
 ## Licensed under either of
 ##  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 ##  * MIT license ([LICENSE-MIT](LICENSE-MIT))
@@ -12,8 +12,8 @@
 
 {.push raises: [].}
 
-import algorithm
-import results
+import std/algorithm
+import pkg/results
 export results
 
 when defined(windows):
@@ -32,8 +32,10 @@ when defined(windows):
     FILE_FLAG_OVERLAPPED = 0x40000000'u32
     FILE_SHARE_READ = 0x00000001'u32
     FILE_SHARE_WRITE = 0x00000002'u32
+    FILE_APPEND_DATA = 0x00000004'u32
 
     FILE_FLAG_NO_BUFFERING = 0x20000000'u32
+    FILE_FLAG_WRITE_THROUGH = 0x80000000'u32
     FILE_ATTRIBUTE_READONLY = 0x00000001'u32
     FILE_ATTRIBUTE_DIRECTORY = 0x00000010'u32
 
@@ -54,6 +56,13 @@ when defined(windows):
     BothSeps* = {DirSep, AltSep}
 
     FileBasicInfoClass = 0'u32
+
+    CSIDL_APPDATA = 0x001a'u32
+      # <user name>\Application Data
+    CSIDL_PROFILE = 0x0028'u32
+      # <user name>
+    CSIDL_LOCAL_APPDATA = 0x001c'u32
+      # <user name>\Local Settings\Applicaiton Data (non roaming)
 
   type
     IoErrorCode* = distinct uint32
@@ -176,6 +185,8 @@ when defined(windows):
                         lpNewFilePointer: ptr int64,
                         dwMoveMethod: uint32): int32 {.
        importc: "SetFilePointerEx", dynlib: "kernel32", stdcall, sideEffect.}
+  proc setEndOfFile(hFile: uint): int32 {.
+       importc: "SetEndOfFile", dynlib: "kernel32", stdcall, sideEffect.}
   proc lockFileEx(hFile: uint, dwFlags, dwReserved: uint32,
                   nNumberOfBytesToLockLow, nNumberOfBytesToLockHigh: uint32,
                   lpOverlapped: pointer): uint32 {.
@@ -184,6 +195,14 @@ when defined(windows):
                     nNumberOfBytesToLockLow, nNumberOfBytesToLockHigh: uint32,
                     lpOverlapped: pointer): uint32 {.
        importc: "UnlockFileEx", dynlib: "kernel32", stdcall, sideEffect.}
+  proc shGetSpecialFolderPathW(hwnd: uint, pszPath: WideCString, csidl: uint32,
+                               fCreate: uint32):uint32 {.
+       importc: "SHGetSpecialFolderPathW", dynlib: "shell32", stdcall,
+       sideEffect.}
+  proc getTempPathW(nBufferLength: uint32, lpBuffer: WideCString): uint32 {.
+       importc: "GetTempPathW", dynlib: "kernel32", stdcall, sideEffect.}
+  proc flushFileBuffers(hFile: uint): int32 {.
+       importc: "FlushFileBuffers", dynlib: "kernel32", stdcall, sideEffect.}
 
   const
     NO_ERROR = IoErrorCode(0)
@@ -245,6 +264,8 @@ elif defined(posix):
 
   var errno {.importc, header: "<errno.h>".}: cint
 
+  proc c_getenv(env: cstring): cstring {.
+       importc: "getenv", header: "<stdlib.h>", sideEffect.}
   proc write(a1: cint, a2: pointer, a3: csize_t): int {.
        importc, header: "<unistd.h>", sideEffect.}
   proc read(a1: cint, a2: pointer, a3: csize_t): int {.
@@ -995,19 +1016,27 @@ proc openFile*(pathName: string, flags: set[OpenFlags],
     if OpenFlags.Truncate in flags:
       cflags = cflags or posix.O_TRUNC
     if OpenFlags.Append in flags:
-      cflags = cflags or posix.O_APPEND
+      if ((cflags and posix.O_WRONLY) != 0) or ((cflags and posix.O_RDWR) != 0):
+        cflags = cflags or posix.O_APPEND
+      else:
+        if ((cflags and posix.O_RDONLY) != 0):
+          cflags = cflags and not(posix.O_RDONLY)
+          cflags = cflags or posix.O_APPEND or O_RDWR
+        else:
+          cflags = cflags or posix.O_APPEND or O_WRONLY
     when defined(linux) or defined(freebsd) or defined(netbsd) or
          defined(dragonflybsd):
       if OpenFlags.Direct in flags:
-        cflags = cflags or O_DIRECT
+        cflags = cflags or O_DIRECT or O_SYNC
     if OpenFlags.Inherit notin flags:
       cflags = cflags or O_CLOEXEC
     if OpenFlags.NonBlock in flags:
       cflags = cflags or posix.O_NONBLOCK
 
     while true:
-      let omask = setUmask(0)
-      let ores = posix.open(cstring(pathName), cflags, Mode(createMode))
+      let
+        omask = setUmask(0)
+        ores = posix.open(cstring(pathName), cflags, Mode(createMode))
       discard setUmask(omask)
       if ores == -1:
         let errCode = ioLastError()
@@ -1016,7 +1045,7 @@ proc openFile*(pathName: string, flags: set[OpenFlags],
         else:
           return err(errCode)
       else:
-        when defined(macosx):
+        when defined(macosx) or defined(macos):
           if OpenFlags.Direct in flags:
             while true:
               let fres = posix.fcntl(cint(ores), F_NOCACHE, 1)
@@ -1036,7 +1065,7 @@ proc openFile*(pathName: string, flags: set[OpenFlags],
     var
       dwAccess: uint32
       dwShareMode: uint32
-      dwCreation: uint32
+      dwCreation: uint32 = OPEN_EXISTING
       dwFlags: uint32
 
     var sa = SECURITY_ATTRIBUTES(
@@ -1045,41 +1074,42 @@ proc openFile*(pathName: string, flags: set[OpenFlags],
       bInheritHandle: 0
     )
 
-    if (OpenFlags.Write in flags) and (OpenFlags.Read in flags):
-      dwAccess = dwAccess or (GENERIC_READ or GENERIC_WRITE)
-    else:
-      if OpenFlags.Write in flags:
-        dwAccess = dwAccess or GENERIC_WRITE
-      else:
-        dwAccess = dwAccess or GENERIC_READ
+    if OpenFlags.Write in flags:
+      dwAccess = dwAccess or GENERIC_WRITE
+    if OpenFlags.Read in flags:
+      dwAccess = dwAccess or GENERIC_READ
+    if OpenFlags.Append in flags:
+      dwAccess = dwAccess or FILE_APPEND_DATA
 
-    if {OpenFlags.Create, OpenFlags.Exclusive} <= flags:
-      dwCreation = dwCreation or CREATE_NEW
-    elif OpenFlags.Truncate in flags:
+    if OpenFlags.Truncate in flags:
       if OpenFlags.Create in flags:
         dwCreation = dwCreation or CREATE_ALWAYS
-      elif OpenFlags.Read notin flags:
+      else:
         dwCreation = dwCreation or TRUNCATE_EXISTING
-    elif OpenFlags.Append in flags:
-      dwCreation = dwCreation or OPEN_EXISTING
-    elif OpenFlags.Create in flags:
-      dwCreation = dwCreation or OPEN_ALWAYS
+
+    if {OpenFlags.Create} == flags or
+       {OpenFlags.Create, OpenFlags.Exclusive} == flags:
+      dwCreation = dwCreation or CREATE_NEW
     else:
-      dwCreation = dwCreation or OPEN_EXISTING
+      if OpenFlags.Create in flags:
+        dwCreation = dwCreation and not(OPEN_EXISTING)
+        dwCreation = dwCreation or OPEN_ALWAYS
 
     if dwCreation == OPEN_EXISTING and
-       ((dwAccess and (GENERIC_READ or GENERIC_WRITE)) == GENERIC_READ):
-      dwShareMode = dwShareMode or FILE_SHARE_READ
+       ((dwAccess and GENERIC_READ) == GENERIC_READ):
+      if OpenFlags.Exclusive notin flags:
+        dwShareMode = dwShareMode or FILE_SHARE_READ
 
-    if OpenFlags.ShareRead in flags:
-      dwShareMode = dwShareMode or FILE_SHARE_READ
-    if OpenFlags.ShareWrite in flags:
-      dwShareMode = dwShareMode or FILE_SHARE_WRITE
+    if OpenFlags.Exclusive notin flags:
+      if OpenFlags.ShareRead in flags:
+        dwShareMode = dwShareMode or FILE_SHARE_READ
+      if OpenFlags.ShareWrite in flags:
+        dwShareMode = dwShareMode or FILE_SHARE_WRITE
 
     if OpenFlags.NonBlock in flags:
       dwFlags = dwFlags or FILE_FLAG_OVERLAPPED
     if OpenFlags.Direct in flags:
-      dwFlags = dwFlags or FILE_FLAG_NO_BUFFERING
+      dwFlags = dwFlags or FILE_FLAG_NO_BUFFERING or FILE_FLAG_WRITE_THROUGH
     if OpenFlags.Inherit in flags:
       sa.bInheritHandle = 1
 
@@ -1326,6 +1356,108 @@ proc setFilePos*(handle: IoHandle, offset: int64,
     else:
       ok()
 
+proc updateFilePos*(handle: IoHandle, offset: int64,
+                    whence: SeekPosition): IoResult[int64] =
+  ## Procedure shall set the file offset for the open file associated with the
+  ## file descriptor ``handle``, as follows:
+  ##   * If whence is ``SeekPosition.SeekBegin``, the file offset shall be set
+  ##     to ``offset`` bytes.
+  ##   * If whence is ``SeekPosition.SeekCur``, the file offset shall be set to
+  ##     its current location plus ``offset``.
+  ##   * If whence is ``SeekPosition.SeekEnd``, the file offset shall be set to
+  ##     the size of the file plus ``offset``.
+  ##
+  ## Returns the resulting offset location as measured in bytes from the
+  ## beginning of the file.
+  when defined(windows):
+    var noffset = 0'i64
+    let pos =
+      case whence
+      of SeekBegin:
+        FILE_BEGIN
+      of SeekCurrent:
+        FILE_CURRENT
+      of SeekEnd:
+        FILE_END
+    let res = setFilePointerEx(uint(handle), offset, addr noffset, pos)
+    if res == 0:
+      err(ioLastError())
+    else:
+      ok(noffset)
+  else:
+    let pos =
+      case whence
+      of SeekBegin:
+        posix.SEEK_SET
+      of SeekCurrent:
+        posix.SEEK_CUR
+      of SeekEnd:
+        posix.SEEK_END
+    let res = int64(posix.lseek(cint(handle), Off(offset), pos))
+    if res == -1'i64:
+      err(ioLastError())
+    else:
+      ok(res)
+
+proc truncate*(handle: IoHandle, length: int64): IoResult[void] =
+  ## Procedure cause the regular file referenced by handle ``handle`` to be
+  ## truncated to a size of precisely ``length`` bytes.
+  when defined(windows):
+    let res1 = setFilePointerEx(uint(handle), length, nil, FILE_BEGIN)
+    if res1 == 0:
+      return err(ioLastError())
+    let res2 = setEndOfFile(uint(handle))
+    if res2 == 0:
+      return err(ioLastError())
+    ok()
+  else:
+    let res = posix.ftruncate(cint(handle), Off(length))
+    if res == -1:
+      err(ioLastError())
+    else:
+      ok()
+
+proc truncate*(pathName: string, length: int64): IoResult[void] =
+  ## Procedure cause the regular file referenced by path ``pathName`` to be
+  ## truncated to a size of precisely ``length`` bytes.
+  when defined(windows):
+    let
+      flags = {OpenFlags.Write}
+      handle = openFile(pathName, flags).valueOr:
+        return err(error)
+      res = truncate(handle, length)
+    if res.isErr():
+      discard closeFile(handle)
+      return err(res.error)
+    ? closeFile(handle)
+    ok()
+  else:
+    let res = posix.truncate(pathName, Off(length))
+    if res == -1:
+      err(ioLastError())
+    else:
+      ok()
+
+proc fsync*(handle: IoHandle): IoResult[void] =
+  ## Ensure that all data for the open file descriptor named by ``handle``
+  ## is to be transferred to the storage device associated with the file.
+  when defined(windows):
+    let res = flushFileBuffers(uint(handle))
+    if res == 0:
+      return err(ioLastError())
+    ok()
+  else:
+    while true:
+      let res = posix.fsync(cint(handle))
+      if res == -1:
+        let errCode = ioLastError()
+        if errCode == EINTR:
+          continue
+        else:
+          return err(errCode)
+      else:
+        return ok()
+
 proc checkFileSize*(value: int64): IoResult[int] =
   ## Checks if ``value`` fits into supported by Nim string/sequence indexing
   ## mechanism.
@@ -1369,7 +1501,10 @@ proc readFile*[T: seq[byte]|string](pathName: string,
   if data.len() != memSize:
     # `zeroMem` creates a measurable performance degradation here
     when data is seq[byte]:
-      data = newSeqUninitialized[byte](memSize)
+      data = when (NimMajor, NimMinor) < (2, 2):
+               newSeqUninitialized[byte](memSize)
+             else:
+               newSeqUninit[byte](memSize)
     else:
       data = newString(memSize)
   let res {.used.} = ? readFile(pathName, data.toOpenArray(0, len(data) - 1))
@@ -1547,3 +1682,97 @@ proc unlockFile*(lock: IoLockHandle): IoResult[void] =
     err(res.error())
   else:
     ok()
+
+when defined(windows):
+  proc getSpecialFolderPath(code: uint32): IoResult[string] =
+    var path: array[MAX_PATH, Utf16Char]
+    let
+      wpath = cast[WideCString](addr path[0])
+      res = shGetSpecialFolderPathW(0'u, cast[WideCString](addr path[0]),
+                                    code, 0'u32)
+    if res == 0'u32:
+      err(ioLastError())
+    else:
+      var strpath = `$`(wpath, len(path))
+      normPathEnd(strpath, true)
+      ok(strpath)
+
+proc getHomePath*(): IoResult[string] =
+  ## Returns path to user's home directory.
+  when defined(windows):
+    getSpecialFolderPath(CSIDL_PROFILE)
+  else:
+    let res = c_getenv("HOME")
+    var path = if isNil(res): "" else: $res
+    normPathEnd(path, true)
+    ok(path)
+
+proc getConfigPath*(): IoResult[string] =
+  ## Returns path to application's configuration directory.
+  when defined(windows):
+    getSpecialFolderPath(CSIDL_APPDATA)
+  else:
+    let
+      subpath = ".config"
+      xres = c_getenv("XDG_CONFIG_HOME")
+    var
+      path =
+        if isNil(xres):
+          let hres = c_getenv("HOME")
+          if isNil(hres): subpath else: $hres & DirSep & subpath
+        else:
+          $xres
+    normPathEnd(path, true)
+    ok(path)
+
+proc getCachePath*(): IoResult[string] =
+  ## Returns path to application's cache directory.
+  when defined(windows):
+    getSpecialFolderPath(CSIDL_LOCAL_APPDATA)
+  else:
+    let subpath =
+      when defined(macos) or defined(macosx) or defined(osx):
+        "Library/Caches"
+      else:
+        ".cache"
+    let
+      xres = c_getenv("XDG_CACHE_HOME")
+    var
+      path =
+        if isNil(xres):
+          let hres = c_getenv("HOME")
+          if isNil(hres): subpath else: $hres & DirSep & subpath
+        else:
+          $xres
+    normPathEnd(path, true)
+    ok(path)
+
+proc getTempPath*(): IoResult[string] =
+  ## Returns path to OS temporary directory.
+  when defined(windows):
+    var path: array[MAX_PATH + 1, Utf16Char]
+    let
+      wpath = cast[WideCString](addr path[0])
+      res = getTempPathW(uint32(MAX_PATH), wpath)
+    if res == 0'u32:
+      err(ioLastError())
+    else:
+      var strpath = `$`(wpath, len(path))
+      normPathEnd(strpath, true)
+      ok(strpath)
+  else:
+    for name in ["TMP", "TEMP", "TMPDIR", "TEMPDIR"]:
+      let res = c_getenv(cstring(name))
+      if not(isNil(res)) and isDir($res):
+        var path = $res
+        normPathEnd(path, true)
+        return ok(path)
+    var defaultDir =
+      when defined(android):
+        "/data/local/tmp"
+      else:
+        "/tmp"
+    if isDir(defaultDir):
+      normPathEnd(defaultDir, true)
+      return ok(defaultDir)
+    err(IoErrorCode(2)) # ENOENT

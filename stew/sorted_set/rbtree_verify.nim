@@ -1,5 +1,5 @@
 # Nimbus
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
 #    http://www.apache.org/licenses/LICENSE-2.0)
@@ -8,9 +8,11 @@
 # at your option. This file may not be copied, modified, or distributed except
 # according to those terms.
 
+{.push raises: [].}
+
 import
-  ./rbtree_desc,
-  ../results
+  results,
+  ./rbtree_desc
 
 type
   RbLtFn*[C] = ##\
@@ -40,7 +42,7 @@ type
 # Private
 # ------------------------------------------------------------------------------
 
-proc pp[C](n: RbNodeRef[C]): string =
+func pp[C](n: RbNodeRef[C]): string =
   if n.isNil:
     return "nil"
   result = $n.casket

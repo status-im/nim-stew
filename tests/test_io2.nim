@@ -406,34 +406,135 @@ suite "OS Input/Output procedures test suite":
       removeFile("testblob6").isOk()
 
   test "openFile()/readFile()/writeFile() test":
-    var buffer = newString(10)
-    let flags = {OpenFlags.Write, OpenFlags.Truncate, OpenFlags.Create}
+    var buffer = newString(100)
 
-    var fdres = openFile("testfile.txt", flags)
-    check:
-      fdres.isOk()
-      readFile(fdres.get(), buffer).isErr()
-      writeFile(fdres.get(), "TEST").isOk()
-      readFile(fdres.get(), buffer).isErr()
-      closeFile(fdres.get()).isOk()
+    block:
+      let
+        flags = {OpenFlags.Write, OpenFlags.Truncate, OpenFlags.Create}
+        fdres = openFile("testfile.txt", flags)
+      check:
+        fdres.isOk()
+        readFile(fdres.get(), buffer).isErr()
+        writeFile(fdres.get(), "TEST1").isOk()
+        readFile(fdres.get(), buffer).isErr()
+        closeFile(fdres.get()).isOk()
 
-    fdres = openFile("testfile.txt", {OpenFlags.Read})
-    check:
-      fdres.isOk()
-      readFile(fdres.get(), buffer).isOk()
-      writeFile(fdres.get(), "TEST2").isErr()
-      readFile(fdres.get(), buffer).isOk()
-      closeFile(fdres.get()).isOk()
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Read})
+      check fdres.isOk()
+      let res1 = readFile(fdres.get(), buffer)
+      check:
+        res1.isOk()
+        res1.get() == uint(5)
+        writeFile(fdres.get(), "TEST2").isErr()
+      let res2 = readFile(fdres.get(), buffer)
+      check:
+        res2.isOk()
+        res2.get() == uint(0)
+        closeFile(fdres.get()).isOk()
 
-    fdres = openFile("testfile.txt", {OpenFlags.Read, OpenFlags.Write})
-    check:
-      fdres.isOk()
-      readFile(fdres.get(), buffer).isOk()
-      writeFile(fdres.get(), "TEST2").isOk()
-      closeFile(fdres.get()).isOk()
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Read, OpenFlags.Write})
+      check fdres.isOk()
+      let res1 = readFile(fdres.get(), buffer)
+      check:
+        res1.isOk()
+        res1.get() == uint(5)
+        writeFile(fdres.get(), "TEST3").isOk()
+        closeFile(fdres.get()).isOk()
+
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Read})
+      check fdres.isOk()
+      let res1 = readFile(fdres.get(), buffer)
+      check:
+        res1.isOk()
+        res1.get() == uint(10)
+        buffer[0 .. 9] == "TEST1TEST3"
+        closeFile(fdres.get()).isOk()
+
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Write})
+      check:
+        fdres.isOk()
+        writeFile(fdres.get(), "TEST2").isOk()
+        closeFile(fdres.get()).isOk()
+
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Read})
+      check fdres.isOk()
+      let res1 = readFile(fdres.get(), buffer)
+      check:
+        res1.isOk()
+        res1.get() == uint(10)
+        buffer[0 .. 9] == "TEST2TEST3"
+        closeFile(fdres.get()).isOk()
+
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Append})
+      check:
+        fdres.isOk()
+        writeFile(fdres.get(), "TEST4").isOk()
+        closeFile(fdres.get()).isOk()
+
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Append})
+      check:
+        fdres.isOk()
+        writeFile(fdres.get(), "TEST5").isOk()
+        closeFile(fdres.get()).isOk()
+
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Read})
+      check fdres.isOk()
+      let res = readFile(fdres.get(), buffer)
+      check:
+        res.isOk()
+        res.get() == 20
+        buffer[0 .. 19] == "TEST2TEST3TEST4TEST5"
+        closeFile(fdres.get()).isOk()
 
     check:
       removeFile("testfile.txt").isOk()
+
+    # Create file if not exists and append data to file.
+
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Append, OpenFlags.Create})
+      check:
+        fdres.isOk()
+        writeFile(fdres.get(), "TEST1").isOk()
+        closeFile(fdres.get()).isOk()
+
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Append, OpenFlags.Create})
+      check:
+        fdres.isOk()
+        writeFile(fdres.get(), "TEST2").isOk()
+        closeFile(fdres.get()).isOk()
+
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Read})
+      check fdres.isOk()
+      let res = readFile(fdres.get(), buffer)
+      check:
+        res.isOk()
+        res.get() == 10
+        buffer[0 .. 9] == "TEST1TEST2"
+        closeFile(fdres.get()).isOk()
+
+    check:
+      removeFile("testfile.txt").isOk()
+
+    # Open nonexisting file with different flags.
+
+    check:
+      openFile("testfile.txt", {OpenFlags.Append}).isErr()
+      openFile("testfile.txt", {OpenFlags.Read}).isErr()
+      openFile("testfile.txt", {OpenFlags.Write}).isErr()
+      openFile("testfile.txt", {OpenFlags.Read, OpenFlags.Write}).isErr()
+      openFile("testfile.txt", {OpenFlags.Read, OpenFlags.Write,
+                                OpenFlags.Append}).isErr()
 
   test "toString(set[Permission]) test":
     let emptyMask: set[Permission] = {}
@@ -527,6 +628,31 @@ suite "OS Input/Output procedures test suite":
       positions[2] == 0'i64
       positions[3] == 10'i64
       positions[4] == 20'i64
+
+  test "updateFilePos(handle) test":
+    proc performTest(path: string): IoResult[tuple[s0, s1, s2, s3, s4: int64]] =
+      let flags = {OpenFlags.Write, OpenFlags.Truncate, OpenFlags.Create}
+      let handle = ? openFile(path, flags)
+      let msg = "AAAAABBBBBCCCCCDDDDD"
+      discard ? io2.writeFile(handle, msg)
+      let
+        pos0 = ? updateFilePos(handle, 0'i64, SeekBegin)
+        pos1 = ? updateFilePos(handle, 5'i64, SeekCurrent)
+        pos2 = ? updateFilePos(handle, 5'i64, SeekCurrent)
+        pos3 = ? updateFilePos(handle, 0'i64, SeekEnd)
+        pos4 = ? updateFilePos(handle, -5'i64, SeekEnd)
+      ? closeFile(handle)
+      ? removeFile(path)
+      ok((pos0, pos1, pos2, pos3, pos4))
+    let res = performTest("testblob4")
+    check res.isOk()
+    let positions = res.get()
+    check:
+      positions[0] == 0'i64
+      positions[1] == 5'i64
+      positions[2] == 10'i64
+      positions[3] == 20'i64
+      positions[4] == 15'i64
 
   test "lockFile(handle)/unlockFile(handle) test":
     type
@@ -768,3 +894,78 @@ suite "OS Input/Output procedures test suite":
       isDir(destDir) == false
       isDir(firstDir) == false
       isFile(destFile) == false
+
+  test "getHomePath() test":
+    let res = getHomePath()
+    check:
+      res.isOk()
+      len(res.get()) > 0
+
+  test "getConfigPath() test":
+    let res = getConfigPath()
+    check:
+      res.isOk()
+      len(res.get()) > 0
+
+  test "getCachePath() test":
+    let res = getCachePath()
+    check:
+      res.isOk()
+      len(res.get()) > 0
+
+  test "getTempPath() test":
+    let res = getTempPath()
+    check:
+      res.isOk()
+      len(res.get()) > 0
+
+  test "truncate(IoHandle) test":
+    let flags = {OpenFlags.Create, OpenFlags.Write}
+    block:
+      let fdres = openFile("testtruncate1", flags)
+      check:
+        fdres.isOk()
+        truncate(fdres.get(), 100).isOk()
+        closeFile(fdres.get()).isOk()
+
+    block:
+      let res = getFileSize("testtruncate1")
+      check:
+        res.isOk()
+        res.get() == 100
+
+    block:
+      let fdres = openFile("testtruncate1", flags)
+      check:
+        fdres.isOk()
+        truncate(fdres.get(), 0).isOk()
+        closeFile(fdres.get()).isOk()
+
+    block:
+      let res = getFileSize("testtruncate1")
+      check:
+        res.isOk()
+        res.get() == 0
+
+    check removeFile("testtruncate1").isOk()
+
+  test "truncate(path) test":
+    check:
+      writeFile("testtruncate2", "TEST", 0o644).isOk()
+      truncate("testtruncate2", 200).isOk()
+
+    block:
+      let res = getFileSize("testtruncate2")
+      check:
+        res.isOk()
+        res.get() == 200
+
+    check truncate("testtruncate2", 0).isOk()
+
+    block:
+      let res = getFileSize("testtruncate2")
+      check:
+        res.isOk()
+        res.get() == 0
+
+    check removeFile("testtruncate2").isOk()

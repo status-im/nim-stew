@@ -1,8 +1,15 @@
-import std/sets, ../objects, ../templateutils
+# stew
+# Copyright 2019-2024 Status Research & Development GmbH
+# Licensed under either of
+#
+#  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+#  * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+#
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-when not declared(initHashSet):
-  template initHashSet*[T](initialSize = 64): auto =
-    initSet[T](initialSize)
+{.push raises: [].}
+
+import std/sets, ../objects, ../templateutils
 
 template init*[T](_: type HashSet[T]): auto = initHashSet[T]()
 template init*[T](_: type HashSet[T], defaultSize: int): auto = initHashSet[T](defaultSize)

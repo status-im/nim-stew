@@ -10,6 +10,9 @@ import
   unittest2,
   ../stew/assign2
 
+proc makeCopy(a: array[2, byte]): array[2, byte] =
+  assign(result, a)
+
 suite "assign2":
   test "basic":
     type X = distinct int
@@ -39,3 +42,7 @@ suite "assign2":
     assign(dis, X(55))
 
     check: int(dis) == 55
+
+    const x = makeCopy([byte 0, 2]) # compile-time evaluation
+    check x[1] == 2
+

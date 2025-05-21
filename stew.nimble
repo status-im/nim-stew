@@ -1,7 +1,7 @@
 mode = ScriptMode.Verbose
 
 packageName   = "stew"
-version       = "0.1.0"
+version       = "0.4.0"
 author        = "Status Research & Development GmbH"
 description   = "Backports, standard library candidates and small utilities that don't yet deserve their own repository"
 license       = "MIT or Apache License 2.0"
@@ -18,7 +18,7 @@ let verbose = getEnv("V", "") notin ["", "0"]
 
 let cfg =
   " --styleCheck:usages --styleCheck:error" &
-  (if verbose: "" else: " --verbosity:0 --hints:off") &
+  (if verbose: "" else: " --verbosity:0") &
   " --skipParentCfg --skipUserCfg --outdir:build --nimcache:build/nimcache -f"
 
 proc build(args, path: string) =
@@ -33,6 +33,6 @@ task test, "Run all tests":
       "--threads:off",
       "--threads:on -d:nimTypeNames",
       "--threads:on -d:noIntrinsicsBitOpts -d:noIntrinsicsEndians"]:
-    run args, "tests/all_tests"
+    run args & " --mm:refc", "tests/all_tests"
     if (NimMajor, NimMinor) > (1, 6):
-      run args & " --mm:refc", "tests/all_tests"
+      run args & " --mm:orc", "tests/all_tests"

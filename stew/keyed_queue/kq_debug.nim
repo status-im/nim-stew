@@ -1,5 +1,5 @@
 # Nimbus
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
 #    http://www.apache.org/licenses/LICENSE-2.0)
@@ -12,10 +12,12 @@
 ## =============================
 ##
 
+{.push raises: [].}
+
 import
   std/tables,
-  ../keyed_queue,
-  ../results
+  results,
+  ../keyed_queue
 
 type
   KeyedQueueInfo* = enum ##\
@@ -31,13 +33,11 @@ type
     kQVfyPrvNxtExpected
     kQVfyFirstExpected
 
-{.push raises: [].}
-
 # ------------------------------------------------------------------------------
 # Public functions, debugging
 # ------------------------------------------------------------------------------
 
-proc `$`*[K,V](item: KeyedQueueItem[K,V]): string =
+func `$`*[K,V](item: KeyedQueueItem[K,V]): string =
   ## Pretty print data container item.
   ##
   ## :CAVEAT:
@@ -51,8 +51,8 @@ proc `$`*[K,V](item: KeyedQueueItem[K,V]): string =
   else:
     "(" & $item.value & ", link[" & $item.prv & "," & $item.kNxt & "])"
 
-proc verify*[K,V](rq: var KeyedQueue[K,V]): Result[void,(K,V,KeyedQueueInfo)]
-    {.gcsafe,raises: [KeyError].} =
+func verify*[K,V](rq: var KeyedQueue[K,V]): Result[void,(K,V,KeyedQueueInfo)]
+    {.raises: [KeyError].} =
   ## Check for consistency. Returns an error unless the argument
   ## queue `rq` is consistent.
   let tabLen = rq.tab.len
@@ -97,7 +97,7 @@ proc verify*[K,V](rq: var KeyedQueue[K,V]): Result[void,(K,V,KeyedQueueInfo)]
 
   ok()
 
-proc dumpLinkedKeys*[K,V](rq: var KeyedQueue[K,V]): string =
+func dumpLinkedKeys*[K,V](rq: var KeyedQueue[K,V]): string =
   ## Dump the linked key list. This function depends on the `$` operator
   ## for converting a `K` type into a string
   if 0 < rq.tab.len:

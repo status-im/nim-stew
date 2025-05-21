@@ -1,5 +1,5 @@
 # Nimbus
-# Copyright (c) 2018-2023 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
 #    http://www.apache.org/licenses/LICENSE-2.0)
@@ -8,17 +8,17 @@
 # at your option. This file may not be copied, modified, or distributed except
 # according to those terms.
 
-import
-  ./rbtree_desc,
-  ../results
-
 {.push raises: [].}
+
+import
+  results,
+  ./rbtree_desc
 
 # ----------------------------------------------------------------------- ------
 # Public
 # ------------------------------------------------------------------------------
 
-proc rbTreeFindEq*[C,K](rbt: RbTreeRef[C,K]; key: K): RbResult[C] =
+func rbTreeFindEq*[C,K](rbt: RbTreeRef[C,K]; key: K): RbResult[C] =
   ## Generic red-black tree function. Search for a data container `casket` of
   ## type `C` in the red black tree which matches the argument `key`,
   ## i.e. `rbt.cmp(casket,key) == 0`. If found, this data container `casket` is
@@ -51,7 +51,7 @@ proc rbTreeFindEq*[C,K](rbt: RbTreeRef[C,K]; key: K): RbResult[C] =
   return err(rbNotFound)
 
 
-proc rbTreeFindGe*[C,K](rbt: RbTreeRef[C,K]; key: K): RbResult[C] =
+func rbTreeFindGe*[C,K](rbt: RbTreeRef[C,K]; key: K): RbResult[C] =
   ## Generic red-black tree function. Search for the *smallest* data container
   ## `casket` of type `C` which is *greater or equal* to the specified argument
   ## `key` in the red black-tree. If such a  data container is found in the
@@ -109,7 +109,7 @@ proc rbTreeFindGe*[C,K](rbt: RbTreeRef[C,K]; key: K): RbResult[C] =
   return err(rbNotFound)
 
 
-proc rbTreeFindGt*[C,K](rbt: RbTreeRef[C,K]; key: K): RbResult[C] =
+func rbTreeFindGt*[C,K](rbt: RbTreeRef[C,K]; key: K): RbResult[C] =
   ## Generic red-black tree function. Search for the *smallest* data container
   ## of type `C` which is *strictly greater* than the specified argument `key`
   ## in the red-black tree.
@@ -148,7 +148,7 @@ proc rbTreeFindGt*[C,K](rbt: RbTreeRef[C,K]; key: K): RbResult[C] =
   return err(rbNotFound)
 
 
-proc rbTreeFindLe*[C,K](rbt: RbTreeRef[C,K]; key: K): RbResult[C] =
+func rbTreeFindLe*[C,K](rbt: RbTreeRef[C,K]; key: K): RbResult[C] =
   ## Generic red-black tree function. Search for the *greatest* data container
   ## of type `C` which is *less than or equal* to the specified argument
   ## `key` in the red-black tree.
@@ -190,7 +190,7 @@ proc rbTreeFindLe*[C,K](rbt: RbTreeRef[C,K]; key: K): RbResult[C] =
   return err(rbNotFound)
 
 
-proc rbTreeFindLt*[C,K](rbt: RbTreeRef[C,K]; key: K): RbResult[C] =
+func rbTreeFindLt*[C,K](rbt: RbTreeRef[C,K]; key: K): RbResult[C] =
   ## Generic red-black tree function. Search for the *greatest* data container
   ## of type `C` which is *strictly less* than the specified argument `key` in
   ## the red-black tree.

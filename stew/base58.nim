@@ -1,4 +1,4 @@
-## Copyright (c) 2018 Status Research & Development GmbH
+## Copyright (c) 2018-2025 Status Research & Development GmbH
 ## Licensed under either of
 ##  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 ##  * MIT license ([LICENSE-MIT](LICENSE-MIT))
@@ -6,8 +6,8 @@
 ## This file may not be copied, modified, or distributed except according to
 ## those terms.
 
-## This module implements BASE58 encoding and decoding procedures.
-## This module supports two variants of BASE58 encoding (Bitcoin and Flickr).
+## This module implements Base58 encoding and decoding procedures.
+## This module supports two variants of Base58 encoding (Bitcoin and Flickr).
 
 type
   Base58Status* {.pure.} = enum
@@ -32,7 +32,7 @@ type
   Base58Error* = object of CatchableError
     ## Base58 specific exception type
 
-proc newAlphabet58*(s: string): Base58Alphabet =
+func newAlphabet58*(s: string): Base58Alphabet =
   doAssert(len(s) == 58)
   for i in 0..<len(s):
     result.encode[i] = cast[uint8](s[i])
@@ -47,19 +47,19 @@ const
   FlickrAlphabet* = newAlphabet58("123456789abcdefghijkmnopqrstu" &
                                   "vwxyzABCDEFGHJKLMNPQRSTUVWXYZ")
 
-proc encodedLength*(btype: typedesc[Base58C], length: int): int =
-  ## Return estimated length of BASE58 encoded value for plain length
+func encodedLength*(btype: typedesc[Base58C], length: int): int =
+  ## Return estimated length of Base58 encoded value for plain length
   ## ``length``.
   result = (length * 138) div 100 + 1
 
-proc decodedLength*(btype: typedesc[Base58C], length: int): int =
-  ## Return estimated length of decoded value of BASE58 encoded value of length
+func decodedLength*(btype: typedesc[Base58C], length: int): int =
+  ## Return estimated length of decoded value of Base58 encoded value of length
   ## ``length``.
   result = length + 4
 
-proc encode*(btype: typedesc[Base58C], inbytes: openArray[byte],
+func encode*(btype: typedesc[Base58C], inbytes: openArray[byte],
              outstr: var openArray[char], outlen: var int): Base58Status =
-  ## Encode array of bytes ``inbytes`` using BASE58 encoding and store
+  ## Encode array of bytes ``inbytes`` using Base58 encoding and store
   ## result to ``outstr``. On success ``Base58Status.Success`` will be returned
   ## and ``outlen`` will be set to number of characters stored inside of
   ## ``outstr``. If length of ``outstr`` is not enough then
@@ -111,9 +111,9 @@ proc encode*(btype: typedesc[Base58C], inbytes: openArray[byte],
       inc(i)
     result = Base58Status.Success
 
-proc encode*(btype: typedesc[Base58C],
+func encode*(btype: typedesc[Base58C],
              inbytes: openArray[byte]): string {.inline.} =
-  ## Encode array of bytes ``inbytes`` using BASE58 encoding and return
+  ## Encode array of bytes ``inbytes`` using Base58 encoding and return
   ## encoded string.
   var size = (len(inbytes) * 138) div 100 + 1
   result = newString(size)
@@ -123,15 +123,15 @@ proc encode*(btype: typedesc[Base58C],
   else:
     result = ""
 
-proc decode*[T: byte|char](btype: typedesc[Base58C], instr: openArray[T],
+func decode*[T: byte|char](btype: typedesc[Base58C], instr: openArray[T],
              outbytes: var openArray[byte], outlen: var int): Base58Status =
-  ## Decode BASE58 string and store array of bytes to ``outbytes``. On success
+  ## Decode Base58 string and store array of bytes to ``outbytes``. On success
   ## ``Base58Status.Success`` will be returned and ``outlen`` will be set
   ## to number of bytes stored.
   ##
   ## Length of ``outbytes`` must be equal or more then ``len(instr) + 4``.
   ##
-  ## If ``instr`` has characters which are not part of BASE58 alphabet, then
+  ## If ``instr`` has characters which are not part of Base58 alphabet, then
   ## ``Base58Status.Incorrect`` will be returned and ``outlen`` will be set to
   ## ``0``.
   ##
@@ -227,8 +227,8 @@ proc decode*[T: byte|char](btype: typedesc[Base58C], instr: openArray[T],
   outlen += zcount
   result = Base58Status.Success
 
-proc decode*(btype: typedesc[Base58C], instr: string): seq[byte] =
-  ## Decode BASE58 string ``instr`` and return sequence of bytes as result.
+func decode*(btype: typedesc[Base58C], instr: string): seq[byte] =
+  ## Decode Base58 string ``instr`` and return sequence of bytes as result.
   if len(instr) > 0:
     var size = len(instr) + 4
     result = newSeq[byte](size)
