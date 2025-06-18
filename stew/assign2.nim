@@ -33,7 +33,11 @@ func assign*[T](tgt: var openArray[T], src: openArray[T]) =
 func assign*[T](tgt: var seq[T], src: openArray[T]) =
   mixin assign
 
-  tgt.setLen(src.len)
+  when supportsCopyMem(T) and compiles(tgt.setLenUninit(src.len)):
+    # Available from https://github.com/nim-lang/Nim/pull/22767
+    tgt.setLenUninit(src.len)
+  else:
+    tgt.setLen(src.len)
 
   when nimvm:
     for i in 0..<tgt.len:
