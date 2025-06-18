@@ -91,3 +91,9 @@ suite "ptrops":
       var v = [2, 3]
       check:
         makeUncheckedArray(baseAddr v)[1] == 3
+
+  test "var makeOpenArray":
+    # fixed in 2.0.10+: https://github.com/nim-lang/Nim/pull/23882
+    proc takesVar(v: var openArray[byte]) = discard
+    var tmp: byte
+    check compiles(takesVar(makeOpenArray(addr tmp, 1)))

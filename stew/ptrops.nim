@@ -57,7 +57,12 @@ func makeUncheckedArray*[T](p: ptr T): ptr UncheckedArray[T] =
   cast[ptr UncheckedArray[T]](p)
 
 template makeOpenArray*[T](p: ptr T, len: Natural): openArray[T] =
-  toOpenArray(cast[ptr UncheckedArray[T]](p), 0, len - 1)
+  # `var` works around https://github.com/nim-lang/Nim/issues/19171
+  var tmp = cast[ptr UncheckedArray[T]](p)
+  toOpenArray(tmp, 0, len - 1)
 
 template makeOpenArray*(p: pointer, T: type, len: Natural): openArray[T] =
-  toOpenArray(cast[ptr UncheckedArray[T]](p), 0, len - 1)
+  # `var` works around https://github.com/nim-lang/Nim/issues/19171
+  # fixed in 2.0.10
+  var tmp = cast[ptr UncheckedArray[T]](p)
+  toOpenArray(tmp, 0, len - 1)
