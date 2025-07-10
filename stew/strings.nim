@@ -3,4 +3,3 @@ proc add*(s: var string, data: openArray[char]) =
     let prevEnd = s.len
     s.setLen(prevEnd + data.len)
     copyMem(addr s[prevEnd], unsafeAddr data[0], data.len)
-
