@@ -10,7 +10,7 @@
 {.push raises: [].}
 
 import
-  std/[macros, sequtils]
+  std/[macros, sequtils], ./assign2
 
 template init*(lvalue: var auto) =
   mixin init
@@ -30,7 +30,7 @@ template init*(lvalue: var auto, a1, a2, a3: auto) =
 
 func toArray*[T](N: static int, data: openArray[T]): array[N, T] =
   doAssert data.len == N
-  copyMem(addr result[0], unsafeAddr data[0], N)
+  assign(result, data)
 
 template anonConst*(val: untyped): untyped =
   const c = val

@@ -14,7 +14,7 @@ proc makeCopy(a: array[2, byte]): array[2, byte] =
   assign(result, a)
 
 suite "assign2":
-  test "basic":
+  dualTest "basic":
     type X = distinct int
     var
       a = 5
@@ -36,13 +36,12 @@ suite "assign2":
     assign(d, "there!")
     check: d == "there!"
 
-    var
-      dis = X(53)
+    when (NimMajor, NimMinor) >= (2, 0):
+      var dis = X(53)
 
-    assign(dis, X(55))
+      assign(dis, X(55))
 
-    check: int(dis) == 55
+      check: int(dis) == 55
 
-    const x = makeCopy([byte 0, 2]) # compile-time evaluation
-    check x[1] == 2
-
+      const x = makeCopy([byte 0, 2]) # compile-time evaluation
+      check x[1] == 2
