@@ -2,15 +2,21 @@ import
   std/typetraits,
   ./shims/macros
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
-func assign*[T](tgt: var seq[T], src: openArray[T]) {.gcsafe.}
-func assign*[T](tgt: var openArray[T], src: openArray[T]) {.gcsafe.}
-func assign*[T](tgt: var T, src: T) {.gcsafe.}
+func assign*[T](tgt: var seq[T], src: openArray[T])
+func assign*[T](tgt: var openArray[T], src: openArray[T])
+func assign*[T](tgt: var T, src: T)
+
+template hasMoveMem(): bool =
+  when nimvm:
+    false
+  else:
+    not defined(js) and not defined(nimscript)
 
 func assignImpl[T](tgt: var openArray[T], src: openArray[T]) =
   mixin assign
-  when supportsCopyMem(T):
+  when hasMoveMem and supportsCopyMem(T):
     if tgt.len > 0:
       moveMem(addr tgt[0], unsafeAddr src[0], sizeof(tgt[0]) * tgt.len)
   else:
@@ -24,11 +30,7 @@ func assign*[T](tgt: var openArray[T], src: openArray[T]) =
     raiseAssert "Target and source lengths don't match: " &
       $tgt.len & " vs " & $src.len
 
-  when nimvm:
-    for i in 0..<tgt.len:
-      tgt[i] = src[i]
-  else:
-    assignImpl(tgt, src)
+  assignImpl(tgt, src)
 
 func assign*[T](tgt: var seq[T], src: openArray[T]) =
   mixin assign
@@ -39,19 +41,12 @@ func assign*[T](tgt: var seq[T], src: openArray[T]) =
   else:
     tgt.setLen(src.len)
 
-  when nimvm:
-    for i in 0..<tgt.len:
-      tgt[i] = src[i]
-  else:
-    assignImpl(tgt.toOpenArray(0, tgt.high), src)
+  assignImpl(tgt, src)
 
 func assign*(tgt: var string, src: string) =
   tgt.setLen(src.len)
-  when nimvm:
-    for i in 0..<tgt.len:
-      tgt[i] = src[i]
-  else:
-    assignImpl(tgt.toOpenArrayByte(0, tgt.high), src.toOpenArrayByte(0, tgt.high))
+
+  assignImpl(tgt, src)
 
 macro unsupported(T: typed): untyped =
   error "Assignment of the type " & humaneTypeName(T) & " is not supported"
@@ -61,9 +56,7 @@ func assign*[T](tgt: var T, src: T) =
   # is ridiculously slow. When syncing, the application was spending 50%+ CPU
   # time in it - `assign`, in the same test, doesn't even show in the perf trace
   mixin assign
-  when nimvm:
-    tgt = src
-  else:
+  when hasMoveMem:
     when supportsCopyMem(T):
       when sizeof(src) <= sizeof(int):
         tgt = src
@@ -83,3 +76,5 @@ func assign*[T](tgt: var T, src: T) =
       assign(distinctBase tgt, distinctBase src)
     else:
       unsupported T
+  else:
+    tgt = src

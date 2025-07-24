@@ -14,7 +14,7 @@ proc makeCopy(a: array[2, byte]): array[2, byte] =
   assign(result, a)
 
 suite "assign2":
-  test "basic":
+  dualTest "basic":
     type X = distinct int
     var
       a = 5
