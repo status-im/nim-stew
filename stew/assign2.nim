@@ -9,19 +9,21 @@ func assign*[T](tgt: var openArray[T], src: openArray[T])
 func assign*[T](tgt: var T, src: T)
 
 template hasMoveMem(): bool =
-  when nimvm:
-    false
-  else:
     not defined(js) and not defined(nimscript)
 
 func assignImpl[T](tgt: var openArray[T], src: openArray[T]) =
   mixin assign
-  when hasMoveMem and supportsCopyMem(T):
-    if tgt.len > 0:
-      moveMem(addr tgt[0], unsafeAddr src[0], sizeof(tgt[0]) * tgt.len)
-  else:
+  when nimvm:
+    # TODO does not work when tgt overlaps src!
     for i in 0..<tgt.len:
-      assign(tgt[i], src[i])
+      tgt[i] = src[i]
+  else:
+    when hasMoveMem and supportsCopyMem(T):
+      if tgt.len > 0:
+        moveMem(addr tgt[0], unsafeAddr src[0], sizeof(tgt[0]) * tgt.len)
+    else:
+      for i in 0..<tgt.len:
+        assign(tgt[i], src[i])
 
 func assign*[T](tgt: var openArray[T], src: openArray[T]) =
   mixin assign
@@ -56,25 +58,28 @@ func assign*[T](tgt: var T, src: T) =
   # is ridiculously slow. When syncing, the application was spending 50%+ CPU
   # time in it - `assign`, in the same test, doesn't even show in the perf trace
   mixin assign
-  when hasMoveMem:
-    when supportsCopyMem(T):
-      when sizeof(src) <= sizeof(int):
-        tgt = src
-      else:
-        moveMem(addr tgt, unsafeAddr src, sizeof(tgt))
-    elif T is object|tuple:
-      for t, s in fields(tgt, src):
-        when supportsCopyMem(type s) and sizeof(s) <= sizeof(int) * 2:
-          t = s # Shortcut
-        else:
-          assign(t, s)
-    elif T is seq:
-      assign(tgt, src.toOpenArray(0, src.high))
-    elif T is ref:
-      tgt = src
-    elif compiles(distinctBase(tgt)):
-      assign(distinctBase tgt, distinctBase src)
-    else:
-      unsupported T
-  else:
+  when nimvm:
     tgt = src
+  else:
+    when hasMoveMem:
+      when supportsCopyMem(T):
+        when sizeof(src) <= sizeof(int):
+          tgt = src
+        else:
+          moveMem(addr tgt, unsafeAddr src, sizeof(tgt))
+      elif T is object|tuple:
+        for t, s in fields(tgt, src):
+          when supportsCopyMem(type s) and sizeof(s) <= sizeof(int) * 2:
+            t = s # Shortcut
+          else:
+            assign(t, s)
+      elif T is seq:
+        assign(tgt, src.toOpenArray(0, src.high))
+      elif T is ref:
+        tgt = src
+      elif compiles(distinctBase(tgt)):
+        assign(distinctBase tgt, distinctBase src)
+      else:
+        unsupported T
+    else:
+      tgt = src
