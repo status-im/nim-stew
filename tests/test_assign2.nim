@@ -14,29 +14,31 @@ proc makeCopy(a: array[2, byte]): array[2, byte] =
   assign(result, a)
 
 suite "assign2":
-  dualTest "basic":
-    type X = distinct int
-    var
-      a = 5
-      b = [2, 3]
-      c = @[5, 6]
-      d = "hello"
+  # trouble with compile-time tests on 1.6
+  when (NimMajor, NimMinor) >= (2, 0):
 
-    assign(c, b)
-    check: c == b
-    assign(b, [4, 5])
-    check: b == [4, 5]
+    dualTest "basic":
+      type X = distinct int
+      var
+        a = 5
+        b = [2, 3]
+        c = @[5, 6]
+        d = "hello"
 
-    assign(a, 6)
-    check: a == 6
+      assign(c, b)
+      check: c == b
+      assign(b, [4, 5])
+      check: b == [4, 5]
 
-    assign(c.toOpenArray(0, 1), [2, 2])
-    check: c == [2, 2]
+      assign(a, 6)
+      check: a == 6
 
-    assign(d, "there!")
-    check: d == "there!"
+      assign(c.toOpenArray(0, 1), [2, 2])
+      check: c == [2, 2]
 
-    when (NimMajor, NimMinor) >= (2, 0):
+      assign(d, "there!")
+      check: d == "there!"
+
       var dis = X(53)
 
       assign(dis, X(55))
@@ -45,3 +47,10 @@ suite "assign2":
 
       const x = makeCopy([byte 0, 2]) # compile-time evaluation
       check x[1] == 2
+
+    test "Overlaps":
+      # This does not work correctly at compile time
+      var s = @[byte 0, 1, 2, 3, 0, 0, 0, 0]
+      assign(s.toOpenArray(1, s.high), s.toOpenArray(0, s.high - 1))
+      check:
+        s == [byte 0, 0, 1, 2, 3, 0, 0, 0]
