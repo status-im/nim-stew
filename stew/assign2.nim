@@ -1,6 +1,4 @@
-import
-  std/typetraits,
-  ./shims/macros
+import std/typetraits, ./shims/macros
 
 {.push raises: [], gcsafe.}
 
@@ -9,28 +7,27 @@ func assign*[T](tgt: var openArray[T], src: openArray[T])
 func assign*[T](tgt: var T, src: T)
 
 template hasMoveMem(): bool =
-    not defined(js) and not defined(nimscript)
+  not defined(js) and not defined(nimscript)
 
 func assignImpl[T](tgt: var openArray[T], src: openArray[T]) =
   mixin assign
   when nimvm:
     # TODO does not work when tgt overlaps src!
-    for i in 0..<tgt.len:
+    for i in 0 ..< tgt.len:
       tgt[i] = src[i]
   else:
     when hasMoveMem and supportsCopyMem(T):
       if tgt.len > 0:
         moveMem(addr tgt[0], unsafeAddr src[0], sizeof(tgt[0]) * tgt.len)
     else:
-      for i in 0..<tgt.len:
+      for i in 0 ..< tgt.len:
         assign(tgt[i], src[i])
 
 func assign*[T](tgt: var openArray[T], src: openArray[T]) =
   mixin assign
 
   if tgt.len != src.len:
-    raiseAssert "Target and source lengths don't match: " &
-      $tgt.len & " vs " & $src.len
+    raiseAssert "Target and source lengths don't match: " & $tgt.len & " vs " & $src.len
 
   assignImpl(tgt, src)
 
@@ -67,7 +64,7 @@ func assign*[T](tgt: var T, src: T) =
           tgt = src
         else:
           moveMem(addr tgt, unsafeAddr src, sizeof(tgt))
-      elif T is object|tuple:
+      elif T is object | tuple:
         for t, s in fields(tgt, src):
           when supportsCopyMem(type s) and sizeof(s) <= sizeof(int) * 2:
             t = s # Shortcut
