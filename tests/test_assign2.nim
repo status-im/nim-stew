@@ -47,8 +47,9 @@ suite "assign2":
       check x[1] == 2
 
   test "Overlaps":
-    # This does not work correctly at compile time
-    var s = @[byte 0, 1, 2, 3, 0, 0, 0, 0]
-    assign(s.toOpenArray(1, s.high), s.toOpenArray(0, s.high - 1))
-    check:
-      s == [byte 0, 0, 1, 2, 3, 0, 0, 0]
+    when (NimMajor, NimMinor) >= (2, 0):
+      # This does not work correctly at compile time
+      var s = @[byte 0, 1, 2, 3, 0, 0, 0, 0]
+      assign(s.toOpenArray(1, s.high), s.toOpenArray(0, s.high - 1))
+      check:
+        s == [byte 0, 0, 1, 2, 3, 0, 0, 0]
