@@ -216,7 +216,7 @@ func toHex*(ba: openArray[byte]): string {.inline.} =
   ## Convert a byte-array to its hex representation
   ## Output is in lowercase
   ## No "endianness" reordering is done.
-  result = newSeqOfCap(2 * ba.len)
+  result = newStringOfCap(2 * ba.len)
   for c in toHex(ba):
     result.add c
 
@@ -224,7 +224,7 @@ func to0xHex*(ba: openArray[byte]): string {.inline.} =
   ## Convert a byte-array to its hex representation
   ## Output is in lowercase
   ## No "endianness" reordering is done.
-  result = newSeqOfCap(2 * ba.len + 2)
+  result = newStringOfCap(2 * ba.len + 2)
   for c in to0xHex(ba):
     result.add c
 
