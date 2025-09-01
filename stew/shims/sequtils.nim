@@ -12,10 +12,27 @@ export sequtils
 
 when not declared(sequtils.findIt):
   # https://github.com/nim-lang/Nim/pull/25134
-  template findIt*(s: openArray, predicate: untyped): int =
-    var res = -1
-    for i, it {.inject.} in items(s):
+  template unCheckedInc(x) =
+    {.push overflowChecks: off.}
+    inc(x)
+    {.pop.}
+
+  template findIt*(s, predicate: untyped): int =
+    ## Iterates through a container and returns the index of the first item that
+    ## fulfills the predicate, or -1
+    ##
+    ## Unlike the `find`, the predicate needs to be an expression using
+    ## the `it` variable for testing, like: `findIt([3, 2, 1], it == 2)`.
+    var
+      res = -1
+      i = 0
+
+    # We must use items here since both `find` and `anyIt` are defined in terms
+    # of `items`
+    # (and not `pairs`)
+    for it {.inject.} in items(s):
       if predicate:
         res = i
         break
+      unCheckedInc(i)
     res
