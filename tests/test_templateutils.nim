@@ -70,6 +70,7 @@ test "Template utils":
 
   # let symbols need lent to avoid copying;
   # they are still computed once though
-  when (NimMajor, NimMinor, NimPatch) >= (2, 2, 0):
+  when (NimMajor, NimMinor, NimPatch) >= (2, 2, 0) or
+      (defined(gcRefc) and ((NimMajor, NimMinor, NimPatch) >= (2, 0, 8))):
     check templateParamAddresses[2] == unsafeAddr s2
     check templateParamAddresses[3] == addr o.accessSeq
