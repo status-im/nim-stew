@@ -9,11 +9,11 @@
 
 # Enable `lent` in latest Nim versions
 # see https://github.com/arnetheduck/nim-results/blob/df8113dda4c2d74d460a8fa98252b0b771bf1f27/results.nim#L380
-const resultsLent =
+const useLent =
   (NimMajor, NimMinor, NimPatch) >= (2, 2, 0) or
   (defined(gcRefc) and ((NimMajor, NimMinor, NimPatch) >= (2, 0, 8)))
 
-when resultsLent:
+when useLent:
   template maybeLent(T: untyped): untyped =
     lent T
 else:
