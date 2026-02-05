@@ -66,7 +66,11 @@ test "Template utils":
 
   check computations == ["call", "var", "let", "accessor"]
 
-  check:
-    templateParamAddresses[1] == addr s1
-    templateParamAddresses[2] == unsafeAddr s2
-    templateParamAddresses[3] == addr o.accessSeq
+  check templateParamAddresses[1] == addr s1
+  check templateParamAddresses[3] == addr o.accessSeq
+
+  # let symbols need lent to avoid copying;
+  # they are still computed once though
+  when (NimMajor, NimMinor, NimPatch) >= (2, 2, 0) or
+      (defined(gcRefc) and ((NimMajor, NimMinor, NimPatch) >= (2, 0, 8))):
+    check templateParamAddresses[2] == unsafeAddr s2
