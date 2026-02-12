@@ -1,7 +1,7 @@
 ## This module may hold various saturating arithmetic definitions.
 ## It will be expanded on demand as Status project require its definition
 
-{.deprecated.}
+{.deprecated: "Use https://github.com/vacp2p/nim-intops instead".}
 
 func saturate*(T: type int64, u: uint64): T =
   ##[ Convert a uint64 to int64. If the value won't fit in int64,
