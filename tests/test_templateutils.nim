@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Copyright (c) 2021-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license: http://opensource.org/licenses/MIT
 #   * Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0
