@@ -26,14 +26,12 @@ suite "Lent utils":
       else:
         check unsafeAddr(s) != unsafeAddr(x)
 
-  # sanity check
-  when (NimMajor, NimMinor, NimPatch) >= (2, 2, 4):
+  when (NimMajor, NimMinor, NimPatch) >= (2, 2, 0):
     test "iterator always yields a lent type in newer Nim":
       let s = @[1, 2, 3]
       for x in lenter(s):
         check unsafeAddr(s) == unsafeAddr(x)
 
-  # sanity check
   when (NimMajor, NimMinor, NimPatch) < (2, 0, 8):
     test "iterator never yields a lent type in older Nim":
       let s = @[1, 2, 3]
