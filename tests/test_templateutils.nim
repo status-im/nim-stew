@@ -1,14 +1,17 @@
-# Copyright (c) 2021-2022 Status Research & Development GmbH
+# Copyright (c) 2021-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license: http://opensource.org/licenses/MIT
 #   * Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
 {.used.}
 
 import
   unittest2,
   ../stew/templateutils
+
+from ../stew/lentutils import useLent
 
 var computations = newSeq[string]()
 var templateParamAddresses = newSeq[pointer]()
@@ -66,7 +69,10 @@ test "Template utils":
 
   check computations == ["call", "var", "let", "accessor"]
 
-  check:
-    templateParamAddresses[1] == addr s1
-    templateParamAddresses[2] == unsafeAddr s2
-    templateParamAddresses[3] == addr o.accessSeq
+  check templateParamAddresses[1] == addr s1
+  check templateParamAddresses[3] == addr o.accessSeq
+
+  # let symbols need lent to avoid copying;
+  # they are still computed once though
+  when useLent:
+    check templateParamAddresses[2] == unsafeAddr s2
