@@ -7,6 +7,8 @@
 #
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 ## Enable `lent` usage in newer Nim versions where it's known to work well.
 
 # Based on https://github.com/arnetheduck/nim-results/blob/df8113dda4c2d74d460a8fa98252b0b771bf1f27/results.nim#L380
