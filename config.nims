@@ -1,4 +1,4 @@
-# begin Nimble config (version 1)
-when system.fileExists("nimble.paths"):
-  include "nimble.paths"
-# end Nimble config
+switch("passL", "-Wno-stringop-overflow")
+switch("passC", "-flto")
+switch("passL", "-flto")
+put("secp256k1.always", "-fno-lto")

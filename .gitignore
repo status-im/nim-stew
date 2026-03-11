@@ -1,5 +1,0 @@
-nimcache/
-*.exe
-nimble.develop
-nimble.paths
-/build/
