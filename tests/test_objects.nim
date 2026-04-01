@@ -74,7 +74,7 @@ suite "Objects":
       T6 is DistinctBar
       T6 isnot Bar
 
-  test "isZeroMemory":
+  test "isZeroMemory/isDefaultValue":
     type
       Foo = object
         x: string
