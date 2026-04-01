@@ -1,5 +1,5 @@
 # stew
-# Copyright 2018-2024 Status Research & Development GmbH
+# Copyright 2018-2026 Status Research & Development GmbH
 # Licensed under either of
 #
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
@@ -9,8 +9,9 @@
 
 {.push raises: [].}
 
-import
-  std/[macros, sequtils], ./assign2
+import std/macros, ./[assign2, enums]
+
+export enums
 
 template init*(lvalue: var auto) =
   mixin init
@@ -78,41 +79,6 @@ else:
 
   proc baseType*(obj: ref RootObj): cstring {.deprecated.} =
     obj[].baseType
-
-macro enumRangeInt64*(a: type[enum]): untyped =
-  ## This macro returns an array with all the ordinal values of an enum
-  let
-    values = a.getType[1][1..^1]
-    valuesOrded = values.mapIt(newCall("int64", it))
-  newNimNode(nnkBracket).add(valuesOrded)
-
-macro hasHoles*(T: type[enum]): bool =
-  # As an enum is always sorted, just substract the first and the last ordinal value
-  # and compare the result to the number of element in it will do the trick.
-  let len = T.getType[1].len - 2
-
-  quote: `T`.high.ord - `T`.low.ord != `len`
-
-func contains*[I: SomeInteger](e: type[enum], v: I): bool =
-  when I is uint64:
-    if v > int.high.uint64:
-      return false
-  when e.hasHoles():
-    v.int64 in enumRangeInt64(e)
-  else:
-    v.int64 in e.low.int64 .. e.high.int64
-
-func checkedEnumAssign*[E: enum, I: SomeInteger](res: var E, value: I): bool =
-  ## This function can be used to safely assign a tainted integer value (coming
-  ## from untrusted source) to an enum variable. The function will return `true`
-  ## if the integer value is within the acceped values of the enum and `false`
-  ## otherwise.
-
-  if value notin E:
-    return false
-
-  res = cast[E](value)
-  true
 
 func isZeroMemory*[T](x: T): bool =
   # TODO: iterate over words here

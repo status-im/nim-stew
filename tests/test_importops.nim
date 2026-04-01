@@ -1,5 +1,7 @@
 import ../stew/importops
 
+{.used.}
+
 when tryImport std / tables:
   discard Table[string, string]() # avoid unused warning
 else:
