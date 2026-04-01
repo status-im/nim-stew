@@ -17,7 +17,7 @@ template init*(lvalue: var auto) =
   mixin init
   lvalue = init(type(lvalue))
 
-template init*(lvalue: var auto, a1: auto) =
+template init*(lvalue: var auto, a1: auto)=
   mixin init
   lvalue = init(type(lvalue), a1)
 
@@ -54,7 +54,8 @@ func declval*(T: type): T {.compileTime.} =
   ## 2. It will work for types that lack a valid default value due
   ##    to `not nil` or `requiresInit` requirements.
   ##
-  doAssert false, "declval should be used only in `typeof` expressions and concepts"
+  doAssert false,
+    "declval should be used only in `typeof` expressions and concepts"
   default(ptr T)[]
 
 when not compiles(len((1, 2))):
@@ -68,19 +69,10 @@ when not compiles(len((1, 2))):
 # From: https://gist.github.com/stefantalpalaru/82dc71bb547d6f9178b916e3ed5b527d
 when not defined(nimTypeNames):
   proc baseType*(obj: RootObj): cstring {.error: "baseType requires -d:nimTypeNames".}
-  proc baseType*(
-    obj: ref RootObj
-  ): cstring {.error: "baseType requires -d:nimTypeNames".}
-
+  proc baseType*(obj: ref RootObj): cstring {.error: "baseType requires -d:nimTypeNames".}
 elif defined(gcArc) or defined(gcOrc):
-  proc baseType*(
-    obj: RootObj
-  ): cstring {.error: "baseType is not available in ARC/ORC".}
-
-  proc baseType*(
-    obj: ref RootObj
-  ): cstring {.error: "baseType is not available in ARC/ORC".}
-
+  proc baseType*(obj: RootObj): cstring {.error: "baseType is not available in ARC/ORC".}
+  proc baseType*(obj: ref RootObj): cstring {.error: "baseType is not available in ARC/ORC".}
 else:
   proc baseType*(obj: RootObj): cstring {.deprecated.} =
     {.emit: "result = `obj`->m_type->name;".}
@@ -93,8 +85,7 @@ func isZeroMemory*[T](x: T): bool =
   # bufPtr avoids pointless https://github.com/nim-lang/Nim/issues/24093 copy
   let bufPtr = cast[ptr array[sizeof(T), byte]](unsafeAddr x)
   for b in bufPtr[]:
-    if b != 0:
-      return false
+    if b != 0: return false
   true
 
 func isDefaultValue*[T](x: T): bool =
