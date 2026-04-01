@@ -1,5 +1,5 @@
 # byteutils
-# Copyright (c) 2018-2022 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license (license terms in the root directory or at http://opensource.org/licenses/MIT).
 #   * Apache v2 license (license terms in the root directory or at http://www.apache.org/licenses/LICENSE-2.0).
@@ -16,13 +16,14 @@ import
 # backwards compat
 export arrayops.`&`, arrayops.initArrayWith, arrayops.`[]=`
 
-{.push raises: [Defect].}
+{.push raises: [].}
+{.pragma: hexRaises, raises: [ValueError].}
 
 ########################################################################################################
 #####################################   Hex utilities   ################################################
 
 proc readHexChar*(c: char): byte
-                 {.raises: [ValueError, Defect], noSideEffect, inline.} =
+                 {.hexRaises, noSideEffect, inline.} =
   ## Converts an hex char to a byte
   case c
   of '0'..'9': result = byte(ord(c) - ord('0'))
@@ -37,81 +38,126 @@ template skip0xPrefix(hexStr: openArray[char]): int =
   if hexStr.len > 1 and hexStr[0] == '0' and hexStr[1] in {'x', 'X'}: 2
   else: 0
 
-func hexToByteArrayImpl(hexStr: openArray[char], output: var openArray[byte], fromIdx, toIdx: int): int
-                       {.raises: [ValueError, Defect].} =
-  ## Read a hex string and store it in a byte array `output`. No "endianness" reordering is done.
-  ## Allows specifying the byte range to process into the array
+func hexToByteArrayImpl(
+    hexStr: openArray[char], output: var openArray[byte], fromIdx, toIdx: int):
+    int {.hexRaises.} =
   var sIdx = skip0xPrefix(hexStr)
+  # Fun with closed intervals
+  doAssert fromIdx >= 0 and
+    toIdx <= output.high and
+    fromIdx <= (toIdx + 1)
 
-  doAssert(fromIdx >= 0 and toIdx >= fromIdx and fromIdx < output.len and toIdx < output.len)
-  let sz = toIdx - fromIdx + 1
+  let sz = toIdx + 1 - fromIdx
 
   if hexStr.len - sIdx < 2*sz:
     raise (ref ValueError)(msg: "hex string too short")
+
   sIdx += fromIdx * 2
   for bIdx in fromIdx ..< sz + fromIdx:
-    output[bIdx] = hexStr[sIdx].readHexChar shl 4 or hexStr[sIdx + 1].readHexChar
+    output[bIdx] =
+      (hexStr[sIdx].readHexChar shl 4) or
+      hexStr[sIdx + 1].readHexChar
     inc(sIdx, 2)
 
   sIdx
 
-func hexToByteArray*(hexStr: string, output: var openArray[byte], fromIdx, toIdx: int)
-                    {.raises: [ValueError, Defect].} =
-  ## Read a hex string and store it in a byte array `output`. No "endianness" reordering is done.
-  ## Allows specifying the byte range to process into the array.
-  ## The hex input may be longer than strictly necessary.
+func hexToByteArray*(
+    hexStr: openArray[char], output: var openArray[byte], fromIdx, toIdx: int)
+    {.hexRaises.} =
+  ## Read hex-encoded data from `hexStr[mapHex(fromIdx..toIdx)]` and store
+  ## corresponding bytes in `output[fromIdx..toIdx]` where `mapHex` takes into
+  ## account stripped characters.
+  ##
+  ## * `0x`/`0X` is stripped if present
+  ## * `ValueError` is raised if the string is too short or contains invalid
+  ##   data in the parsed part
+  ## * Longer strings are allowed
+  ## * No "endianness" reordering is done
+  ## * Allows specifying the byte range to process into the array - the indices
+  ##   are mapped to the string after potentially stripping "0x"
   discard hexToByteArrayImpl(hexStr, output, fromIdx, toIdx)
 
-func hexToByteArray*(hexStr: string, output: var openArray[byte])
-                    {.raises: [ValueError, Defect], inline.} =
-  ## Read a hex string and store it in a byte array `output`. No "endianness" reordering is done.
-  ## The hex input may be longer than strictly necessary.
+func hexToByteArray*(hexStr: openArray[char], output: var openArray[byte])
+                    {.hexRaises.} =
+  ## Read hex-encoded data from `hexStr` and store corresponding bytes in
+  ## `output`.
+  ##
+  ## * `0x`/`0X` is stripped if present
+  ## * `ValueError` is raised if the string is too short or contains invalid
+  ##   data
+  ## * Longer strings are allowed
+  ## * No "endianness" reordering is done
   hexToByteArray(hexStr, output, 0, output.high)
 
-func hexToByteArray*[N: static[int]](hexStr: string): array[N, byte]
-                    {.raises: [ValueError, Defect], noinit, inline.}=
-  ## Read an hex string and store it in a byte array. No "endianness" reordering is done.
-  ## The hex input may be longer than strictly necessary.
+func hexToByteArray*[N: static[int]](hexStr: openArray[char]): array[N, byte]
+                    {.hexRaises, noinit.}=
+  ## Read hex-encoded data from `hexStr` returning an array of N bytes.
+  ##
+  ## * `0x`/`0X` is stripped if present
+  ## * `ValueError` is raised if the string is too short or contains invalid
+  ##   data
+  ## * Longer strings are allowed
+  ## * No "endianness" reordering is done
   hexToByteArray(hexStr, result)
 
-func hexToByteArray*(hexStr: string, N: static int): array[N, byte]
-                    {.raises: [ValueError, Defect], noinit, inline.}=
-  ## Read an hex string and store it in a byte array. No "endianness" reordering is done.
-  ## The hex input may be longer than strictly necessary.
+func hexToByteArray*(hexStr: openArray[char], N: static int): array[N, byte]
+                    {.hexRaises, noinit.}=
+  ## Read hex-encoded data from `hexStr` returning an array of N bytes.
+  ##
+  ## * `0x`/`0X` is stripped if present
+  ## * `ValueError` is raised if the string is too short or contains invalid
+  ##   data
+  ## * Longer strings are allowed
+  ## * No "endianness" reordering is done
   hexToByteArray(hexStr, result)
-
-func hexToByteArrayStrict*(hexStr: openArray[char], output: var openArray[byte], fromIdx, toIdx: int)
-                          {.raises: [ValueError, Defect].} =
-  ## Read a hex string and store it in a byte array `output`. No "endianness" reordering is done.
-  ## Allows specifying the byte range to process into the array. The entire input must be consumed.
-  if hexToByteArrayImpl(hexStr, output, fromIdx, toIdx) != hexStr.len:
-    raise (ref ValueError)(msg: "hex string too long")
 
 func hexToByteArrayStrict*(hexStr: openArray[char], output: var openArray[byte])
-                          {.raises: [ValueError, Defect], inline.} =
-  ## Read a hex string and store it in a byte array `output`. No "endianness" reordering is done.
-  ## The entire input must be consumed.
-  hexToByteArrayStrict(hexStr, output, 0, output.high)
+                          {.hexRaises.} =
+  ## Read hex-encoded data from `hexStr` and store corresponding bytes in
+  ## `output`.
+  ##
+  ## * `0x`/`0X` is stripped if present
+  ## * `ValueError` is raised if the string is too short, too long or contains
+  ##   invalid data
+  ## * No "endianness" reordering is done
+  if hexToByteArrayImpl(hexStr, output, 0, output.high) != hexStr.len:
+    raise (ref ValueError)(msg: "hex string too long")
 
 func hexToByteArrayStrict*[N: static[int]](hexStr: openArray[char]): array[N, byte]
-                          {.raises: [ValueError, Defect], noinit, inline.}=
-  ## Read an hex string and store it in a byte array. No "endianness" reordering is done.
-  ## The entire input must be consumed.
+                          {.hexRaises, noinit, inline.}=
+  ## Read hex-encoded data from `hexStr` and store corresponding bytes in
+  ## `output`.
+  ##
+  ## * `0x`/`0X` is stripped if present
+  ## * `ValueError` is raised if the string is too short, too long or contains
+  ##   invalid data
+  ## * No "endianness" reordering is done
   hexToByteArrayStrict(hexStr, result)
 
 func hexToByteArrayStrict*(hexStr: openArray[char], N: static int): array[N, byte]
-                          {.raises: [ValueError, Defect], noinit, inline.}=
-  ## Read an hex string and store it in a byte array. No "endianness" reordering is done.
-  ## The entire input must be consumed.
+                          {.hexRaises, noinit, inline.}=
+  ## Read hex-encoded data from `hexStr` and store corresponding bytes in
+  ## `output`.
+  ##
+  ## * `0x`/`0X` is stripped if present
+  ## * `ValueError` is raised if the string is too short, too long or contains
+  ##   invalid data
+  ## * No "endianness" reordering is done
   hexToByteArrayStrict(hexStr, result)
 
 func fromHex*[N](A: type array[N, byte], hexStr: string): A
-             {.raises: [ValueError, Defect], noinit, inline.}=
-  ## Read an hex string and store it in a byte array. No "endianness" reordering is done.
+             {.hexRaises, noinit, inline.}=
+  ## Read hex-encoded data from `hexStr` returning an array of N bytes.
+  ##
+  ## * `0x`/`0X` is stripped if present
+  ## * `ValueError` is raised if the string is too short or contains invalid
+  ##   data
+  ## * Longer strings are allowed
+  ## * No "endianness" reordering is done
   hexToByteArray(hexStr, result)
 
 func hexToPaddedByteArray*[N: static[int]](hexStr: string): array[N, byte]
-                          {.raises: [ValueError, Defect].} =
+                          {.hexRaises.} =
   ## Read a hex string and store it in a byte array `output`.
   ## The string may be shorter than the byte array.
   ## No "endianness" reordering is done.
@@ -140,7 +186,7 @@ func hexToPaddedByteArray*[N: static[int]](hexStr: string): array[N, byte]
     bIdx += shift shr 2
 
 func hexToSeqByte*(hexStr: string): seq[byte]
-                  {.raises: [ValueError, Defect].} =
+                  {.hexRaises.} =
   ## Read an hex string and store it in a sequence of bytes. No "endianness" reordering is done.
   if (hexStr.len and 1) == 1:
     raise (ref ValueError)(msg: "hex string must have even length")
@@ -152,56 +198,47 @@ func hexToSeqByte*(hexStr: string): seq[byte]
   for i in 0 ..< N:
     result[i] = hexStr[2*i + skip].readHexChar shl 4 or hexStr[2*i + 1 + skip].readHexChar
 
-func toHexAux(ba: openArray[byte], with0x: static bool): string =
-  ## Convert a byte-array to its hex representation
-  ## Output is in lowercase
-  ## No "endianness" reordering is done.
-  const hexChars = "0123456789abcdef"
-
-  let extra = when with0x: 2 else: 0
-  result = newStringOfCap(2 * ba.len + extra)
-  when with0x:
-    result.add("0x")
-
+iterator toHex*(ba: openArray[byte]): char =
+  const hexChars =
+    ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd','e', 'f']
   for b in ba:
-    result.add(hexChars[int(b shr 4 and 0x0f'u8)])
-    result.add(hexChars[int(b and 0x0f'u8)])
+    yield hexChars[int(b shr 4 and 0x0f'u8)]
+    yield hexChars[int(b and 0x0f'u8)]
+
+iterator to0xHex*(ba: openArray[byte]): char =
+  yield '0'
+  yield 'x'
+
+  for b in toHex(ba):
+    yield b
 
 func toHex*(ba: openArray[byte]): string {.inline.} =
   ## Convert a byte-array to its hex representation
   ## Output is in lowercase
   ## No "endianness" reordering is done.
-  toHexAux(ba, false)
-
-func toHex*[N: static[int]](ba: array[N, byte]): string {.inline.} =
-  ## Convert a big endian byte-array to its hex representation
-  ## Output is in lowercase
-  ## No "endianness" reordering is done.
-  toHexAux(ba, false)
+  result = newStringOfCap(2 * ba.len)
+  for c in toHex(ba):
+    result.add c
 
 func to0xHex*(ba: openArray[byte]): string {.inline.} =
   ## Convert a byte-array to its hex representation
   ## Output is in lowercase
   ## No "endianness" reordering is done.
-  toHexAux(ba, true)
+  result = newStringOfCap(2 * ba.len + 2)
+  for c in to0xHex(ba):
+    result.add c
 
-func to0xHex*[N: static[int]](ba: array[N, byte]): string {.inline.} =
-  ## Convert a big endian byte-array to its hex representation
-  ## Output is in lowercase
-  ## No "endianness" reordering is done.
-  toHexAux(ba, true)
+func toBytes*(s: openArray[char]): seq[byte] =
+  ## Convert a char array to the corresponding byte sequence - since strings in
+  ## nim essentially are byte sequences without any particular encoding, this
+  ## simply copies the bytes without a null terminator
+  @(s.toOpenArrayByte(0, s.high))
 
 func toBytes*(s: string): seq[byte] =
   ## Convert a string to the corresponding byte sequence - since strings in
   ## nim essentially are byte sequences without any particular encoding, this
   ## simply copies the bytes without a null terminator
-  when nimvm:
-    var r = newSeq[byte](s.len)
-    for i, c in s:
-      r[i] = cast[byte](c)
-    r
-  else:
-    @(s.toOpenArrayByte(0, s.high))
+  @(s.toOpenArrayByte(0, s.high))
 
 func fromBytes*(T: type string, v: openArray[byte]): string =
   if v.len > 0:

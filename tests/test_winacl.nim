@@ -1,9 +1,16 @@
-import
-  unittest2,
-  ../stew/io2
+# Copyright (c) 2020-2022 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license: http://opensource.org/licenses/MIT
+#   * Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.used.}
+
+import unittest2
 
 when defined(windows):
   import ../stew/windows/acl
+  const TestsCount = 50
 
 suite "Windows security descriptor tests suite":
   test "File/Folder user-only ACL create/verify test":
@@ -29,11 +36,34 @@ suite "Windows security descriptor tests suite":
         ? removeDir(path3)
         ? removeFile(path2)
         ? removeDir(path1)
+        free(sdd)
+        free(sdf)
         if res1 and res2 and res3 and res4:
           ok(true)
         else:
           err(IoErrorCode(UserErrorCode))
       check:
         performTest("testblob14", "testblob15").isOk()
+    else:
+      skip()
+
+  test "Create/Verify multiple folders in user/config home directory":
+    when defined(windows):
+      proc performTest(directory: string): IoResult[void] =
+        var sdd = ? createFoldersUserOnlySecurityDescriptor()
+        var results = newSeq[bool](TestsCount)
+        for i in 0 ..< TestsCount:
+          let path = directory & "\\" & "ACLTEST" & $i
+          ? createPath(path, secDescriptor = sdd.getDescriptor())
+          results[i] = ? checkCurrentUserOnlyACL(path)
+          ? removeDir(path)
+        free(sdd)
+        for chk in results:
+          if not(chk):
+            return err(IoErrorCode(UserErrorCode))
+        ok()
+      check:
+        performTest(getHomePath().get()).isOk()
+        performTest(getConfigPath().get()).isOk()
     else:
       skip()

@@ -1,6 +1,6 @@
 # Nimbus - Types, data structures and shared utilities used in network sync
 #
-# Copyright (c) 2018-2021 Status Research & Development GmbH
+# Copyright (c) 2018-2023 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
 #    http://www.apache.org/licenses/LICENSE-2.0)
@@ -8,6 +8,8 @@
 #    http://opensource.org/licenses/MIT)
 # at your option. This file may not be copied, modified, or
 # distributed except according to those terms.
+
+{.used.}
 
 import
   unittest2,
@@ -53,54 +55,57 @@ else:
 # ------------------------------------------------------------------------------
 
 # use a sub-range for `FancyPoint` elements
-proc high(T: type FancyPoint): T = uHigh.to(FancyPoint)
-proc low(T: type FancyPoint): T = uLow.to(FancyPoint)
+func high(T: type FancyPoint): T = uHigh.to(FancyPoint)
+func low(T: type FancyPoint): T = uLow.to(FancyPoint)
 
-proc to(num: FancyPoint; T: type FancyScalar): T = num.T
-proc `$`(num: FancyPoint): string = $num.to(FancyScalar)
+func to(num: FancyPoint; T: type FancyScalar): T = num.T
+func `$`(num: FancyPoint): string = $num.to(FancyScalar)
 
-proc `+`*(a: FancyPoint; b: FancyScalar): FancyPoint =
+func `+`*(a: FancyPoint; b: FancyScalar): FancyPoint =
   (a.to(FancyScalar) + b).FancyPoint
 
-proc `-`*(a: FancyPoint; b: FancyScalar): FancyPoint =
+func `-`*(a: FancyPoint; b: FancyScalar): FancyPoint =
   (a.to(FancyScalar) - b).FancyPoint
 
-proc `-`*(a, b: FancyPoint): FancyScalar =
+func `-`*(a, b: FancyPoint): FancyScalar =
   (a.to(FancyScalar) - b.to(FancyScalar))
 
-proc `==`*(a, b: FancyPoint): bool = a.to(FancyScalar) == b.to(FancyScalar)
-proc `<=`*(a, b: FancyPoint): bool = a.to(FancyScalar) <= b.to(FancyScalar)
-proc `<`*(a, b: FancyPoint): bool = a.to(FancyScalar) < b.to(FancyScalar)
+func `==`*(a, b: FancyPoint): bool = a.to(FancyScalar) == b.to(FancyScalar)
+func `<=`*(a, b: FancyPoint): bool = a.to(FancyScalar) <= b.to(FancyScalar)
+func `<`*(a, b: FancyPoint): bool = a.to(FancyScalar) < b.to(FancyScalar)
 
 # ------------------------------------------------------------------------------
 # Private functions
 # ------------------------------------------------------------------------------
 
-proc truncate(num: FancyPoint; T: type uint64): uint64 =
+func truncate(num: FancyPoint; T: type uint64): uint64 =
   num.to(FancyScalar).truncate(uint64)
 
-proc merge(br: FancyRanges; left, right: uint64): uint64 =
+func merge(br: FancyRanges; left, right: uint64): uint64 =
   let (a, b) = (left.to(FancyPoint), right.to(FancyPoint))
   br.merge(a, b).truncate(uint64)
 
-proc reduce(br: FancyRanges; left, right: uint64): uint64 =
+func reduce(br: FancyRanges; left, right: uint64): uint64 =
   let (a, b) = (left.to(FancyPoint), right.to(FancyPoint))
   br.reduce(a, b).truncate(uint64)
 
-proc covered(br: FancyRanges; left, right: uint64): uint64 =
+func covered(br: FancyRanges; left, right: uint64): uint64 =
   let (a, b) = (left.to(FancyPoint), right.to(FancyPoint))
   br.covered(a, b).truncate(uint64)
 
-proc delete(br: FancyRanges; start: uint64): Result[FancyInterval,void] =
+func delete(br: FancyRanges; start: uint64): Result[FancyInterval,void] =
   br.delete(start.to(FancyPoint))
 
-proc le(br: FancyRanges; start: uint64): Result[FancyInterval,void] =
+func le(br: FancyRanges; start: uint64): Result[FancyInterval,void] =
   br.le(start.to(FancyPoint))
 
-proc ge(br: FancyRanges; start: uint64): Result[FancyInterval,void] =
+func ge(br: FancyRanges; start: uint64): Result[FancyInterval,void] =
   br.ge(start.to(FancyPoint))
 
-proc iv(left, right: uint64): FancyInterval =
+func envelope(br: FancyRanges; start: uint64): Result[FancyInterval,void] =
+  br.envelope(start.to(FancyPoint))
+
+func iv(left, right: uint64): FancyInterval =
   FancyInterval.new(left.to(FancyPoint), right.to(FancyPoint))
 
 # ------------------------------------------------------------------------------
@@ -175,26 +180,111 @@ suite "IntervalSet: Intervals of FancyPoint entries over FancyScalar":
     check br.total.truncate(uint64) == (uHigh - 10000000) + 1
     check br.verify.isOk
 
-  test "Merge disjunct intervals on 1st set":
+  test "More edge cases detected and fixed":
+    br.clear()
+    check br.total == 0 and br.chunks == 0
+    check br.merge(uHigh,uHigh) == 1
+
+    block:
+      var (ivVal, ivSet) = (iv(0,0), false)
+      for iv in br.increasing:
+        check ivSet == false
+        (ivVal, ivSet) = (iv, true)
+      check ivVal == iv(uHigh,uHigh)
+    block:
+      var (ivVal, ivSet) = (iv(0,0), false)
+      for iv in br.decreasing:
+        check ivSet == false
+        (ivVal, ivSet) = (iv, true)
+      check ivVal == iv(uHigh,uHigh)
+
+    br.clear() # from blockchain sync crash
+    check br.total == 0 and br.chunks == 0
+    check br.merge(1477152,uHigh) == uHigh - 1477151
+    check br.merge(1477151,1477151) == 1
+
+    br.clear() # from blockchain snap sync odd behaviour
+    check br.merge(0,uHigh) == 0
+    check br.ge(1000) == ivError
+    check 0 < br.reduce(99999,uHigh-1)
+    check br.ge(1000) == iv(uHigh,uHigh)
+
+    br.clear()
+    check br.merge(0,uHigh) == 0
+    check br.le(uHigh) == iv(0,uHigh)
+    check br.le(uHigh-1) == ivError
+    check 0 < br.reduce(99999,uHigh-1)
+    check br.le(uHigh) == iv(uHigh,uHigh)
+    check br.le(uHigh-1) == iv(0,99998)
+    check br.le(uHigh-2) == iv(0,99998)
+
+  test "Interval envelopes":
+    br.clear()
+    check br.merge(0,uHigh) == 0
+    check br.ge(1000) == ivError
+    check br.le(1000) == ivError
+    check br.envelope(1000) == iv(0,uHigh)
+
+    check 0 < br.reduce(1000,1000)
+    check br.envelope(1000) == ivError
+
+    check 0 < br.reduce(uHigh,uHigh)
+    check br.envelope(2000) == iv(1001,uHigh-1)
+    check br.envelope(uHigh-1) == iv(1001,uHigh-1)
+
+    check 0 < br.merge(0,uHigh) # actually == 2
+    check 0 < br.reduce(uHigh-1,uHigh-1)
+    check br.envelope(uHigh-1) == ivError
+    check br.envelope(uHigh-2) == iv(0,uHigh-2)
+    check br.ge(uHigh) == iv(uHigh,uHigh)
+    check br.envelope(uHigh) == iv(uHigh,uHigh)
+
+  test "Merge overlapping intervals":
+    br.clear()
+    check br.merge(100, 199) == 100
+    check br.merge(150, 200) == 1
+    check br.total == 101
+    check br.chunks == 1
+    check br.verify.isOk
+    check br.merge( 99, 150) == 1
+    check br.total == 102
+    check br.chunks == 1
+    check br.verify.isOk
+
+
+  template checkBundle1(): untyped =
     br.clear()
     check br.merge(  0,  99) == 100
     check br.merge(200, 299) == 100
     check br.merge(400, 499) == 100
     check br.merge(600, 699) == 100
     check br.merge(800, 899) == 100
+
+  test "Merge disjunct intervals on 1st set":
+    checkBundle1()
     check br.total == 500
     check br.chunks == 5
     check br.verify.isOk
 
-  test "Reduce non overlapping intervals on 1st set":
+
+  template checkBundle2(): untyped =
+    checkBundle1()
     check br.reduce(100, 199) == 0
     check br.reduce(300, 399) == 0
     check br.reduce(500, 599) == 0
     check br.reduce(700, 799) == 0
+
+  test "Reduce non overlapping intervals on 1st set":
+    checkBundle2()
     check br.verify.isOk
 
-  test "Clone a 2nd set and verify covered data ranges":
+
+  template checkBundle3(): untyped =
+    checkBundle2()
     dup = br.clone
+
+  test "Clone a 2nd set and verify covered data ranges":
+    checkBundle3()
     check dup.covered(  0,  99) == 100
     check dup.covered(100, 199) == 0
     check dup.covered(200, 299) == 100
@@ -212,12 +302,18 @@ suite "IntervalSet: Intervals of FancyPoint entries over FancyScalar":
     check dup.chunks == 5
     check dup.verify.isOk
 
-  test "Merge overlapping intervals on 2nd set":
+
+  template checkBundle4(): untyped =
+    checkBundle3()
     check dup.merge( 50, 250) == 100
     check dup.merge(450, 850) == 200
+
+  test "Merge overlapping intervals on 2nd set":
+    checkBundle4()
     check dup.verify.isOk
 
   test "Verify covered data ranges on 2nd set":
+    checkBundle4()
     check dup.covered(  0, 299) == 300
     check dup.covered(300, 399) == 0
     check dup.covered(400, 899) == 500
@@ -227,20 +323,28 @@ suite "IntervalSet: Intervals of FancyPoint entries over FancyScalar":
     check dup.verify.isOk
 
   test "Verify 1st and 2nd set differ":
+    checkBundle4()
     check br != dup
 
-  test "Reduce overlapping intervals on 2nd set":
+
+  template checkBundle5(): untyped =
+    checkBundle4()
     check dup.reduce(100, 199) == 100
     check dup.reduce(500, 599) == 100
     check dup.reduce(700, 799) == 100
+
+  test "Reduce overlapping intervals on 2nd set":
+    checkBundle5()
     check dup.verify.isOk
 
   test "Verify 1st and 2nd set equal":
+    checkBundle5()
     check br == dup
     check br == br
     check dup == dup
 
   test "Find intervals in the 1st set":
+    checkBundle5()
     check br.le(100) == iv(  0,  99)
     check br.le(199) == iv(  0,  99)
     check br.le(200) == iv(  0,  99)
@@ -254,6 +358,7 @@ suite "IntervalSet: Intervals of FancyPoint entries over FancyScalar":
     check br.ge(801) == ivError
 
   test "Delete intervals from the 2nd set":
+    checkBundle5()
     check dup.delete(200) == iv(200, 299)
     check dup.delete(800) == iv(800, 899)
     check dup.verify.isOk

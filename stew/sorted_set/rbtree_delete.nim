@@ -1,5 +1,5 @@
 # Nimbus
-# Copyright (c) 2018 Status Research & Development GmbH
+# Copyright (c) 2018-2024 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
 #    http://www.apache.org/licenses/LICENSE-2.0)
@@ -8,18 +8,18 @@
 # at your option. This file may not be copied, modified, or distributed except
 # according to those terms.
 
-import
-  ./rbtree_desc,
-  ./rbtree_rotate,
-  ../results
+{.push raises: [].}
 
-{.push raises: [Defect].}
+import
+  results,
+  ./rbtree_desc,
+  ./rbtree_rotate
 
 # ------------------------------------------------------------------------------
 # Public
 # ------------------------------------------------------------------------------
 
-proc rbTreeDelete*[C,K](rbt: RbTreeRef[C,K]; key: K): RbResult[C] =
+func rbTreeDelete*[C,K](rbt: RbTreeRef[C,K]; key: K): RbResult[C] =
   ## Generic red-black tree function, removes a node from the red-black tree.
   ## The node to be removed wraps a data container `casket` matching the
   ## argument `key`, i.e. `rbt.cmp(casket,key) == 0`.
@@ -119,8 +119,9 @@ proc rbTreeDelete*[C,K](rbt: RbTreeRef[C,K]; key: K): RbResult[C] =
       dirY = q.linkLeft.isNil.toDir
     parent.link[dirX] = q.link[dirY];
     # clear node cache if this was the one to be deleted
-    if not rbt.cache.isNil and rbt.cmp(rbt.cache.casket,key) == 0:
-      rbt.cache = nil
+    if not rbt.cache.isNil:
+      if rbt.cmp(rbt.cache.casket,key) == 0:
+        rbt.cache = nil
     q = nil # some hint for the GC to recycle that node
 
     rbt.size.dec

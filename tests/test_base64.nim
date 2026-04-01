@@ -1,8 +1,7 @@
-import
-  unittest2,
-  ../stew/[base64, byteutils]
+import unittest2
+import ../stew/[base64, byteutils]
 
-when defined(nimHasUsed): {.used.}
+{.used.}
 
 const TVBasePadding = [
   ["f", "Zg=="],

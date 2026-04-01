@@ -1,4 +1,4 @@
-## Copyright (c) 2018 Status Research & Development GmbH
+## Copyright (c) 2018-2025 Status Research & Development GmbH
 ## Licensed under either of
 ##  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 ##  * MIT license ([LICENSE-MIT](LICENSE-MIT))
@@ -6,8 +6,8 @@
 ## This file may not be copied, modified, or distributed except according to
 ## those terms.
 
-## This module implements BASE32 encoding and decoding procedures.
-## This module supports RFC4648's BASE32.
+## This module implements Base32 encoding and decoding procedures.
+## This module supports RFC4648's Base32.
 
 type
   Base32Status* {.pure.} = enum
@@ -50,7 +50,7 @@ type
   Base32Error* = object of CatchableError
     ## Base32 specific exception type
 
-proc newAlphabet32*(s: string): Base32Alphabet =
+func newAlphabet32*(s: string): Base32Alphabet =
   doAssert(len(s) == 32)
   for i in 0..<len(s):
     result.encode[i] = cast[uint8](s[i])
@@ -65,8 +65,8 @@ const
   HEXUpperCaseAlphabet* = newAlphabet32("0123456789ABCDEFGHIJKLMNOPQRSTUV")
   HEXLowerCaseAlphabet* = newAlphabet32("0123456789abcdefghijklmnopqrstuv")
 
-proc encodedLength*(btype: typedesc[Base32Types], length: int): int =
-  ## Return estimated length of BASE32 encoded value for plain length
+func encodedLength*(btype: typedesc[Base32Types], length: int): int =
+  ## Return estimated length of Base32 encoded value for plain length
   ## ``length``.
   let reminder = length mod 5
   when btype is Base32NoPadTypes:
@@ -76,13 +76,13 @@ proc encodedLength*(btype: typedesc[Base32Types], length: int): int =
     if reminder != 0:
       result += 8
 
-proc decodedLength*(btype: typedesc[Base32Types], length: int): int =
-  ## Return estimated length of decoded value of BASE32 encoded value of length
+func decodedLength*(btype: typedesc[Base32Types], length: int): int =
+  ## Return estimated length of decoded value of Base32 encoded value of length
   ## ``length``.
   let reminder = length mod 8
   result = (length div 8) * 5 + ((reminder * 5) div 8)
 
-proc convert5to8(inbytes: openArray[byte], outbytes: var openArray[char],
+func convert5to8(inbytes: openArray[byte], outbytes: var openArray[char],
                  length: int): int {.inline.} =
   if length >= 1:
     outbytes[0] = chr(inbytes[0] shr 3)
@@ -107,7 +107,7 @@ proc convert5to8(inbytes: openArray[byte], outbytes: var openArray[char],
     outbytes[7] = chr(inbytes[4] and 31'u8)
     result = 8
 
-proc convert8to5(inbytes: openArray[byte], outbytes: var openArray[byte],
+func convert8to5(inbytes: openArray[byte], outbytes: var openArray[byte],
                  length: int): int {.inline.} =
   if length >= 2:
     outbytes[0] = inbytes[0] shl 3
@@ -132,9 +132,9 @@ proc convert8to5(inbytes: openArray[byte], outbytes: var openArray[byte],
     outbytes[4] = outbytes[4] or (inbytes[7] and 31'u8)
     result = 5
 
-proc encode*(btype: typedesc[Base32Types], inbytes: openArray[byte],
+func encode*(btype: typedesc[Base32Types], inbytes: openArray[byte],
              outstr: var openArray[char], outlen: var int): Base32Status =
-  ## Encode array of bytes ``inbytes`` using BASE32 encoding and store
+  ## Encode array of bytes ``inbytes`` using Base32 encoding and store
   ## result to ``outstr``. On success ``Base32Status.Success`` will be returned
   ## and ``outlen`` will be set to number of characters stored inside of
   ## ``outstr``. If length of ``outstr`` is not enough then
@@ -183,9 +183,9 @@ proc encode*(btype: typedesc[Base32Types], inbytes: openArray[byte],
   outlen = k
   result = Base32Status.Success
 
-proc encode*(btype: typedesc[Base32Types],
+func encode*(btype: typedesc[Base32Types],
              inbytes: openArray[byte]): string {.inline.} =
-  ## Encode array of bytes ``inbytes`` using BASE32 encoding and return
+  ## Encode array of bytes ``inbytes`` using Base32 encoding and return
   ## encoded string.
   if len(inbytes) == 0:
     result = ""
@@ -197,9 +197,9 @@ proc encode*(btype: typedesc[Base32Types],
     else:
       result = ""
 
-proc decode*[T: byte|char](btype: typedesc[Base32Types], instr: openArray[T],
+func decode*[T: byte|char](btype: typedesc[Base32Types], instr: openArray[T],
              outbytes: var openArray[byte], outlen: var int): Base32Status =
-  ## Decode BASE32 string and store array of bytes to ``outbytes``. On success
+  ## Decode Base32 string and store array of bytes to ``outbytes``. On success
   ## ``Base32Status.Success`` will be returned and ``outlen`` will be set
   ## to number of bytes stored.
   ##
@@ -270,9 +270,9 @@ proc decode*[T: byte|char](btype: typedesc[Base32Types], instr: openArray[T],
   outlen = k + left
   result = Base32Status.Success
 
-proc decode*[T: byte|char](btype: typedesc[Base32Types],
+func decode*[T: byte|char](btype: typedesc[Base32Types],
                            instr: openArray[T]): seq[byte] =
-  ## Decode BASE32 string ``instr`` and return sequence of bytes as result.
+  ## Decode Base32 string ``instr`` and return sequence of bytes as result.
   if len(instr) == 0:
     result = newSeq[byte]()
   else:

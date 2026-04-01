@@ -1,30 +1,76 @@
-import
-  typetraits,
-  unittest2,
-  ../stew/enums
+# stew
+# Copyright 2023-2026 Status Research & Development GmbH
+# Licensed under either of
+#
+#  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+#  * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+#
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.used.}
+
+import std/typetraits, unittest2, ../stew/enums
+
+suite "enumStyle":
+  test "OrdinalEnum":
+    type EnumTest = enum
+      x0
+      x1
+      x2
+
+    check EnumTest.enumStyle == EnumStyle.Numeric
+
+  test "HoleyEnum":
+    type EnumTest = enum
+      y1 = 1
+      y3 = 3
+      y4
+      y6 = 6
+
+    check EnumTest.enumStyle == EnumStyle.Numeric
+
+  test "StringEnum":
+    type EnumTest = enum
+      z1 = "aaa"
+      z2 = "bbb"
+      z3 = "ccc"
+
+    check EnumTest.enumStyle == EnumStyle.AssociatedStrings
 
 suite "enums":
   test "enumRangeInt64":
     type
       WithoutHoles = enum
-        A1, A2, A3
+        A1
+        A2
+        A3
+
       WithoutHoles2 = enum
-        B1 = 4, B2 = 5, B3 = 6
+        B1 = 4
+        B2 = 5
+        B3 = 6
+
       WithHoles = enum
-        C1 = 1, C2 = 3, C3 = 5
+        C1 = 1
+        C2 = 3
+        C3 = 5
 
     check:
-      enumRangeInt64(WithoutHoles) == [ 0'i64, 1, 2 ]
-      enumRangeInt64(WithoutHoles2) == [ 4'i64, 5, 6 ]
-      enumRangeInt64(WithHoles) == [ 1'i64, 3, 5 ]
+      enumRangeInt64(WithoutHoles) == [0'i64, 1, 2]
+      enumRangeInt64(WithoutHoles2) == [4'i64, 5, 6]
+      enumRangeInt64(WithHoles) == [1'i64, 3, 5]
 
   test "enumStringValues":
     type
       RegularEnum = enum
-        A1, A2, A3
+        A1
+        A2
+        A3
 
       EnumWithHoles = enum
-        C1 = 1, C2 = 3, C3 = 5
+        C1 = 1
+        C2 = 3
+        C3 = 5
 
       StringyEnum = enum
         A = "value A"
@@ -42,15 +88,29 @@ suite "enums":
   test "contains":
     type
       WithoutHoles = enum
-        A1, A2, A3
+        A1
+        A2
+        A3
+
       WithoutHoles2 = enum
-        B1 = 4, B2 = 5, B3 = 6
+        B1 = 4
+        B2 = 5
+        B3 = 6
+
       WithHoles = enum
-        C1 = 1, C2 = 3, C3 = 5
+        C1 = 1
+        C2 = 3
+        C3 = 5
+
       WithoutHoles3 = enum
-        D1 = -1, D2 = 0, D3 = 1
+        D1 = -1
+        D2 = 0
+        D3 = 1
+
       WithHoles2 = enum
-        E1 = -5, E2 = 0, E3 = 5
+        E1 = -5
+        E2 = 0
+        E3 = 5
 
     check:
       1 in WithoutHoles
@@ -81,16 +141,24 @@ suite "enums":
         A0
 
       WithoutHoles = enum
-        A1, B1, C1
+        A1
+        B1
+        C1
 
       WithoutHoles2 = enum
-        A2 = 2, B2 = 3, C2 = 4
+        A2 = 2
+        B2 = 3
+        C2 = 4
 
       WithHoles = enum
-        A3, B3 = 2, C3
+        A3
+        B3 = 2
+        C3
 
       WithBigHoles = enum
-        A4 = 0, B4 = 2000, C4 = 4000
+        A4 = 0
+        B4 = 2000
+        C4 = 4000
 
     check:
       hasHoles(EnumWithOneValue) == false
@@ -102,13 +170,20 @@ suite "enums":
   test "checkedEnumAssign":
     type
       SomeEnum = enum
-        A1, B1, C1
+        A1
+        B1
+        C1
 
       AnotherEnum = enum
-        A2 = 2, B2, C2
+        A2 = 2
+        B2
+        C2
 
       EnumWithHoles = enum
-        A3, B3 = 3, C3
+        A3
+        B3 = 3
+        C3
+
     var
       e1 = A1
       e2 = A2
@@ -141,4 +216,3 @@ suite "enums":
       e3 == A3
       not checkedEnumAssign(e3, -1)
       e3 == A3
-

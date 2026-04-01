@@ -1,6 +1,5 @@
 import
-  random,
-  unittest2,
+  unittest2, random,
   ../stew/[byteutils, leb128, results]
 
 const edgeValues = {

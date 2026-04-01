@@ -1,5 +1,5 @@
 # stew
-# Copyright 2018-2019 Status Research & Development GmbH
+# Copyright 2018-2022 Status Research & Development GmbH
 # Licensed under either of
 #
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
@@ -7,9 +7,11 @@
 #
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import
-  unittest2,
-  ../stew/ptrops
+{.used.}
+
+import unittest2
+
+import ../stew/ptrops
 
 var ints = [2, 3, 4]
 
@@ -57,3 +59,41 @@ suite "ptrops":
       p0.distance(p0) == 0
       p0.distance(p1) == 2
       p1.distance(p0) == -2
+
+  test "baseAddr":
+    block arrays:
+      var
+        v0: array[0, int] = []
+        v1 = [22]
+
+      check:
+        baseAddr(v0) == nil
+        baseAddr(v1) == addr v1[0]
+        baseAddr(v1)[] == v1[0]
+
+    block seqs:
+      var
+        v0: seq[int]
+        v1 = @[22]
+
+      check:
+        baseAddr(v0) == nil
+        baseAddr(v1) == addr v1[0]
+        baseAddr(v1)[] == v1[0]
+
+    block oas:
+      var v = 56
+      check:
+        baseAddr(makeOpenArray(nil, int, 0)) == nil
+        baseAddr(makeOpenArray(addr v, 1)) == addr v
+
+    block ua:
+      var v = [2, 3]
+      check:
+        makeUncheckedArray(baseAddr v)[1] == 3
+
+  test "var makeOpenArray":
+    # fixed in 2.0.10+: https://github.com/nim-lang/Nim/pull/23882
+    proc takesVar(v: var openArray[byte]) = discard
+    var tmp: byte
+    check compiles(takesVar(makeOpenArray(addr tmp, 1)))

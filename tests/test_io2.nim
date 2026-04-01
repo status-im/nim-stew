@@ -1,6 +1,19 @@
-import
-  unittest2,
-  ../stew/io2
+# Copyright (c) 2020-2022 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license: http://opensource.org/licenses/MIT
+#   * Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.used.}
+
+import unittest2
+import std/[osproc, strutils, algorithm]
+import ../stew/io2
+
+from os import getAppDir
+
+when defined(posix):
+  from std/posix import EAGAIN
 
 suite "OS Input/Output procedures test suite":
   test "getCurrentDir() test":
@@ -393,34 +406,135 @@ suite "OS Input/Output procedures test suite":
       removeFile("testblob6").isOk()
 
   test "openFile()/readFile()/writeFile() test":
-    var buffer = newString(10)
-    let flags = {OpenFlags.Write, OpenFlags.Truncate, OpenFlags.Create}
+    var buffer = newString(100)
 
-    var fdres = openFile("testfile.txt", flags)
-    check:
-      fdres.isOk()
-      readFile(fdres.get(), buffer).isErr()
-      writeFile(fdres.get(), "TEST").isOk()
-      readFile(fdres.get(), buffer).isErr()
-      closeFile(fdres.get()).isOk()
+    block:
+      let
+        flags = {OpenFlags.Write, OpenFlags.Truncate, OpenFlags.Create}
+        fdres = openFile("testfile.txt", flags)
+      check:
+        fdres.isOk()
+        readFile(fdres.get(), buffer).isErr()
+        writeFile(fdres.get(), "TEST1").isOk()
+        readFile(fdres.get(), buffer).isErr()
+        closeFile(fdres.get()).isOk()
 
-    fdres = openFile("testfile.txt", {OpenFlags.Read})
-    check:
-      fdres.isOk()
-      readFile(fdres.get(), buffer).isOk()
-      writeFile(fdres.get(), "TEST2").isErr()
-      readFile(fdres.get(), buffer).isOk()
-      closeFile(fdres.get()).isOk()
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Read})
+      check fdres.isOk()
+      let res1 = readFile(fdres.get(), buffer)
+      check:
+        res1.isOk()
+        res1.get() == uint(5)
+        writeFile(fdres.get(), "TEST2").isErr()
+      let res2 = readFile(fdres.get(), buffer)
+      check:
+        res2.isOk()
+        res2.get() == uint(0)
+        closeFile(fdres.get()).isOk()
 
-    fdres = openFile("testfile.txt", {OpenFlags.Read, OpenFlags.Write})
-    check:
-      fdres.isOk()
-      readFile(fdres.get(), buffer).isOk()
-      writeFile(fdres.get(), "TEST2").isOk()
-      closeFile(fdres.get()).isOk()
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Read, OpenFlags.Write})
+      check fdres.isOk()
+      let res1 = readFile(fdres.get(), buffer)
+      check:
+        res1.isOk()
+        res1.get() == uint(5)
+        writeFile(fdres.get(), "TEST3").isOk()
+        closeFile(fdres.get()).isOk()
+
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Read})
+      check fdres.isOk()
+      let res1 = readFile(fdres.get(), buffer)
+      check:
+        res1.isOk()
+        res1.get() == uint(10)
+        buffer[0 .. 9] == "TEST1TEST3"
+        closeFile(fdres.get()).isOk()
+
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Write})
+      check:
+        fdres.isOk()
+        writeFile(fdres.get(), "TEST2").isOk()
+        closeFile(fdres.get()).isOk()
+
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Read})
+      check fdres.isOk()
+      let res1 = readFile(fdres.get(), buffer)
+      check:
+        res1.isOk()
+        res1.get() == uint(10)
+        buffer[0 .. 9] == "TEST2TEST3"
+        closeFile(fdres.get()).isOk()
+
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Append})
+      check:
+        fdres.isOk()
+        writeFile(fdres.get(), "TEST4").isOk()
+        closeFile(fdres.get()).isOk()
+
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Append})
+      check:
+        fdres.isOk()
+        writeFile(fdres.get(), "TEST5").isOk()
+        closeFile(fdres.get()).isOk()
+
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Read})
+      check fdres.isOk()
+      let res = readFile(fdres.get(), buffer)
+      check:
+        res.isOk()
+        res.get() == 20
+        buffer[0 .. 19] == "TEST2TEST3TEST4TEST5"
+        closeFile(fdres.get()).isOk()
 
     check:
       removeFile("testfile.txt").isOk()
+
+    # Create file if not exists and append data to file.
+
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Append, OpenFlags.Create})
+      check:
+        fdres.isOk()
+        writeFile(fdres.get(), "TEST1").isOk()
+        closeFile(fdres.get()).isOk()
+
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Append, OpenFlags.Create})
+      check:
+        fdres.isOk()
+        writeFile(fdres.get(), "TEST2").isOk()
+        closeFile(fdres.get()).isOk()
+
+    block:
+      let fdres = openFile("testfile.txt", {OpenFlags.Read})
+      check fdres.isOk()
+      let res = readFile(fdres.get(), buffer)
+      check:
+        res.isOk()
+        res.get() == 10
+        buffer[0 .. 9] == "TEST1TEST2"
+        closeFile(fdres.get()).isOk()
+
+    check:
+      removeFile("testfile.txt").isOk()
+
+    # Open nonexisting file with different flags.
+
+    check:
+      openFile("testfile.txt", {OpenFlags.Append}).isErr()
+      openFile("testfile.txt", {OpenFlags.Read}).isErr()
+      openFile("testfile.txt", {OpenFlags.Write}).isErr()
+      openFile("testfile.txt", {OpenFlags.Read, OpenFlags.Write}).isErr()
+      openFile("testfile.txt", {OpenFlags.Read, OpenFlags.Write,
+                                OpenFlags.Append}).isErr()
 
   test "toString(set[Permission]) test":
     let emptyMask: set[Permission] = {}
@@ -514,3 +628,344 @@ suite "OS Input/Output procedures test suite":
       positions[2] == 0'i64
       positions[3] == 10'i64
       positions[4] == 20'i64
+
+  test "updateFilePos(handle) test":
+    proc performTest(path: string): IoResult[tuple[s0, s1, s2, s3, s4: int64]] =
+      let flags = {OpenFlags.Write, OpenFlags.Truncate, OpenFlags.Create}
+      let handle = ? openFile(path, flags)
+      let msg = "AAAAABBBBBCCCCCDDDDD"
+      discard ? io2.writeFile(handle, msg)
+      let
+        pos0 = ? updateFilePos(handle, 0'i64, SeekBegin)
+        pos1 = ? updateFilePos(handle, 5'i64, SeekCurrent)
+        pos2 = ? updateFilePos(handle, 5'i64, SeekCurrent)
+        pos3 = ? updateFilePos(handle, 0'i64, SeekEnd)
+        pos4 = ? updateFilePos(handle, -5'i64, SeekEnd)
+      ? closeFile(handle)
+      ? removeFile(path)
+      ok((pos0, pos1, pos2, pos3, pos4))
+    let res = performTest("testblob4")
+    check res.isOk()
+    let positions = res.get()
+    check:
+      positions[0] == 0'i64
+      positions[1] == 5'i64
+      positions[2] == 10'i64
+      positions[3] == 20'i64
+      positions[4] == 15'i64
+
+  test "lockFile(handle)/unlockFile(handle) test":
+    type
+      TestResult = object
+        output: string
+        status: int
+
+    proc createLockFile(path: string): IoResult[void] =
+      io2.writeFile(path, "LOCKFILEDATA")
+
+    proc removeLockFile(path: string): IoResult[void] =
+      io2.removeFile(path)
+
+    proc lockTest(path: string, flags: set[OpenFlags],
+                  lockType: LockType): IoResult[array[3, TestResult]] =
+      let helperPath = getAppDir() & "/test_helper "
+      let
+        handle = ? openFile(path, flags)
+        lock = ? lockFile(handle, lockType)
+      let res1 =
+        try:
+          execCmdEx(helperPath & path)
+        except CatchableError as exc:
+          echo "Exception happens [", $exc.name, "]: ", $exc.msg
+          ("", -1)
+      ? unlockFile(lock)
+      let res2 =
+        try:
+          execCmdEx(helperPath & path)
+        except CatchableError as exc:
+          echo "Exception happens [", $exc.name, "]: ", $exc.msg
+          ("", -1)
+      ? closeFile(handle)
+      let res3 =
+        try:
+          execCmdEx(helperPath & path)
+        except CatchableError as exc:
+          echo "Exception happens [", $exc.name, "]: ", $exc.msg
+          ("", -1)
+      ok([
+        TestResult(output: strip(res1.output), status: res1.exitCode),
+        TestResult(output: strip(res2.output), status: res2.exitCode),
+        TestResult(output: strip(res3.output), status: res3.exitCode),
+      ])
+
+    proc performTest(): IoResult[void] =
+      let path1 = "testfile.lock"
+
+      when defined(windows):
+        const
+          ERROR_LOCK_VIOLATION = 33
+          ERROR_SHARING_VIOLATION = 32
+        let
+          LockTests = [
+            (
+              {OpenFlags.Read},
+              LockType.Shared,
+              "OK:E$1:E$1:E$1:OK:E$1:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "OK:E$1:E$1:E$1:OK:E$1:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Write},
+              LockType.Exclusive,
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Read, OpenFlags.Write},
+              LockType.Shared,
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Read, OpenFlags.Write},
+              LockType.Exclusive,
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Read, OpenFlags.ShareRead},
+              LockType.Shared,
+              "OK:E$1:E$1:E$1:OK:E$1:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "OK:E$1:E$1:E$1:OK:E$1:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Write, OpenFlags.ShareWrite},
+              LockType.Exclusive,
+              "E$1:E$1:E$1:E$1:E$1:E$2:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION, $ERROR_LOCK_VIOLATION],
+              "E$1:E$1:E$1:E$1:E$1:OK:E$1:E$1" %
+                [$ERROR_SHARING_VIOLATION],
+              "OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Read, OpenFlags.Write, OpenFlags.ShareRead,
+               OpenFlags.ShareWrite},
+              LockType.Shared,
+              "E$1:E$1:E$1:E$1:E$1:E$1:OK:E$2" %
+                [$ERROR_SHARING_VIOLATION, $ERROR_LOCK_VIOLATION],
+              "E$1:E$1:E$1:E$1:E$1:E$1:OK:OK" %
+                [$ERROR_SHARING_VIOLATION],
+              "OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Read, OpenFlags.Write, OpenFlags.ShareRead,
+               OpenFlags.ShareWrite},
+              LockType.Exclusive,
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$2:E$2" %
+                [$ERROR_SHARING_VIOLATION, $ERROR_LOCK_VIOLATION],
+              "E$1:E$1:E$1:E$1:E$1:E$1:OK:OK" %
+                [$ERROR_SHARING_VIOLATION],
+              "OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+          ]
+      else:
+        let
+          LockTests = [
+            (
+              {OpenFlags.Read},
+              LockType.Shared,
+              "OK:E$1:OK:E$1:OK:E$1:OK:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Write},
+              LockType.Exclusive,
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Read, OpenFlags.Write},
+              LockType.Shared,
+              "OK:E$1:OK:E$1:OK:E$1:OK:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Read, OpenFlags.Write},
+              LockType.Exclusive,
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Read, OpenFlags.ShareRead},
+              LockType.Shared,
+              "OK:E$1:OK:E$1:OK:E$1:OK:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Write, OpenFlags.ShareWrite},
+              LockType.Exclusive,
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+            (
+              {OpenFlags.Read, OpenFlags.Write, OpenFlags.ShareRead,
+               OpenFlags.ShareWrite},
+              LockType.Shared,
+              "OK:E$1:OK:E$1:OK:E$1:OK:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK",
+            ),
+            (
+              {OpenFlags.Read, OpenFlags.Write, OpenFlags.ShareRead,
+               OpenFlags.ShareWrite},
+              LockType.Exclusive,
+              "E$1:E$1:E$1:E$1:E$1:E$1:E$1:E$1" % [$EAGAIN],
+              "OK:OK:OK:OK:OK:OK:OK:OK",
+              "OK:OK:OK:OK:OK:OK:OK:OK"
+            ),
+          ]
+
+      ? createLockFile(path1)
+      for item in LockTests:
+        let res = ? lockTest(path1, item[0], item[1])
+        check:
+          res[0].status == 0
+          res[1].status == 0
+          res[2].status == 0
+          res[0].output == item[2]
+          res[1].output == item[3]
+          res[2].output == item[4]
+      ? removeLockFile(path1)
+      ok()
+
+    check performTest().isOk()
+
+  test "Long path directory/file management test":
+    const MAX_PATH = 260 - 12
+    var
+      parentName = newString(MAX_PATH)
+      directoryName = newString(MAX_PATH)
+      fileName = newString(MAX_PATH)
+    parentName.fill('1')
+    directoryName.fill('2')
+    fileName.fill('3')
+
+    let workingDir = getAppDir()
+    let
+      firstDir = workingDir & DirSep & parentName
+      destDir = firstDir & DirSep & directoryName
+      destFile = firstDir & DirSep & fileName
+
+    check:
+      createPath(firstDir).isOk() == true
+      createPath(destDir).isOk() == true
+      io2.writeFile(destFile, "test").isOk() == true
+      isDir(destDir) == true
+      isDir(firstDir) == true
+      isFile(destFile) == true
+
+    let data = readAllChars(destFile).tryGet()
+
+    check:
+      data == "test"
+      removeFile(destFile).isOk() == true
+      removeDir(destDir).isOk() == true
+      removeDir(firstDir).isOk() == true
+      isDir(destDir) == false
+      isDir(firstDir) == false
+      isFile(destFile) == false
+
+  test "getHomePath() test":
+    let res = getHomePath()
+    check:
+      res.isOk()
+      len(res.get()) > 0
+
+  test "getConfigPath() test":
+    let res = getConfigPath()
+    check:
+      res.isOk()
+      len(res.get()) > 0
+
+  test "getCachePath() test":
+    let res = getCachePath()
+    check:
+      res.isOk()
+      len(res.get()) > 0
+
+  test "getTempPath() test":
+    let res = getTempPath()
+    check:
+      res.isOk()
+      len(res.get()) > 0
+
+  test "truncate(IoHandle) test":
+    let flags = {OpenFlags.Create, OpenFlags.Write}
+    block:
+      let fdres = openFile("testtruncate1", flags)
+      check:
+        fdres.isOk()
+        truncate(fdres.get(), 100).isOk()
+        closeFile(fdres.get()).isOk()
+
+    block:
+      let res = getFileSize("testtruncate1")
+      check:
+        res.isOk()
+        res.get() == 100
+
+    block:
+      let fdres = openFile("testtruncate1", flags)
+      check:
+        fdres.isOk()
+        truncate(fdres.get(), 0).isOk()
+        closeFile(fdres.get()).isOk()
+
+    block:
+      let res = getFileSize("testtruncate1")
+      check:
+        res.isOk()
+        res.get() == 0
+
+    check removeFile("testtruncate1").isOk()
+
+  test "truncate(path) test":
+    check:
+      writeFile("testtruncate2", "TEST", 0o644).isOk()
+      truncate("testtruncate2", 200).isOk()
+
+    block:
+      let res = getFileSize("testtruncate2")
+      check:
+        res.isOk()
+        res.get() == 200
+
+    check truncate("testtruncate2", 0).isOk()
+
+    block:
+      let res = getFileSize("testtruncate2")
+      check:
+        res.isOk()
+        res.get() == 0
+
+    check removeFile("testtruncate2").isOk()

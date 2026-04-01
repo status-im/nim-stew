@@ -48,3 +48,21 @@ template distance*[T](a, b: ptr T): int =
   # Number of elements between a and b - undefined behavior when difference
   # exceeds what can be represented in an int
   distance(cast[pointer](a), cast[pointer](b)) div sizeof(T)
+
+func baseAddr*[T](x: openArray[T]): ptr T =
+  # Return the address of the zero:th element of x or `nil` if x is empty
+  if x.len == 0: nil else: cast[ptr T](x)
+
+func makeUncheckedArray*[T](p: ptr T): ptr UncheckedArray[T] =
+  cast[ptr UncheckedArray[T]](p)
+
+template makeOpenArray*[T](p: ptr T, len: Natural): openArray[T] =
+  # `var` works around https://github.com/nim-lang/Nim/issues/19171
+  var tmp = cast[ptr UncheckedArray[T]](p)
+  toOpenArray(tmp, 0, len - 1)
+
+template makeOpenArray*(p: pointer, T: type, len: Natural): openArray[T] =
+  # `var` works around https://github.com/nim-lang/Nim/issues/19171
+  # fixed in 2.0.10
+  var tmp = cast[ptr UncheckedArray[T]](p)
+  toOpenArray(tmp, 0, len - 1)
