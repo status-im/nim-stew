@@ -1,4 +1,4 @@
-import std/typetraits, ./shims/macros
+import std/typetraits, ./shims/[macros, sequninit]
 
 {.push raises: [], gcsafe.}
 
@@ -34,7 +34,7 @@ func assign*[T](tgt: var openArray[T], src: openArray[T]) =
 func assign*[T](tgt: var seq[T], src: openArray[T]) =
   mixin assign
 
-  when supportsCopyMem(T) and compiles(tgt.setLenUninit(src.len)):
+  when supportsCopyMem(T):
     # Available from https://github.com/nim-lang/Nim/pull/22767
     tgt.setLenUninit(src.len)
   else:
