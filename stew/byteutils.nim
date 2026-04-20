@@ -161,8 +161,9 @@ func hexToPaddedByteArray*[N: static[int]](hexStr: string): array[N, byte]
   ## Read a hex string and store it in a byte array `output`.
   ## The string may be shorter than the byte array.
   ## No "endianness" reordering is done.
+  var p = skip0xPrefix(hexStr)
+  while p < hexStr.len and hexStr[p] == '0': inc p # Skip leading zeroes.
   let
-    p = skip0xPrefix(hexStr)
     sz = hexStr.len - p
     maxStrSize = result.len * 2
   var
