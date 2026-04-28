@@ -160,12 +160,18 @@ suite "enums":
         B4 = 2000
         C4 = 4000
 
+      WithLimits = enum
+        A5 = int32.low()
+        B5 = 0
+        C5 = int32.high()
+
     check:
       hasHoles(EnumWithOneValue) == false
       hasHoles(WithoutHoles) == false
       hasHoles(WithoutHoles2) == false
       hasHoles(WithHoles) == true
       hasHoles(WithBigHoles) == true
+      hasHoles(WithLimits) == true
 
   test "checkedEnumAssign":
     type
@@ -184,10 +190,16 @@ suite "enums":
         B3 = 3
         C3
 
+      EnumWithLimits = enum
+        A4 = int32.low()
+        B4 = 0
+        C4 = int32.high()
+
     var
       e1 = A1
       e2 = A2
       e3 = A3
+      e4 = A4
 
     check:
       checkedEnumAssign(e1, 2)
@@ -216,3 +228,12 @@ suite "enums":
       e3 == A3
       not checkedEnumAssign(e3, -1)
       e3 == A3
+
+      checkedEnumAssign(e4, 0)
+      e4 == B4
+      not checkedEnumAssign(e4, 1)
+      e4 == B4
+      checkedEnumAssign(e4, int32.high)
+      e4 == C4
+      not checkedEnumAssign(e4, -1)
+      e4 == C4
