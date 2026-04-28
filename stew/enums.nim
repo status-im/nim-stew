@@ -7,6 +7,8 @@
 #
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
+{.push raises: [].}
+
 import std/[macros, options, sequtils]
 
 type EnumStyle* {.pure.} = enum
@@ -87,7 +89,7 @@ macro enumLen(T: type[enum]): int =
   let len = T.getType[1].len - 2
   quote: `len`
 
-proc hasHoles*(T: type enum): bool =
+func hasHoles*(T: type enum): bool =
   # As an enum is always sorted, just substract the first and the last ordinal value
   # and compare the result to the number of element in it will do the trick.
   const ret = int64(T.high.ord) - int64(T.low.ord) != int64(enumLen(T))
