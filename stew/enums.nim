@@ -88,7 +88,7 @@ macro hasHoles*(T: type[enum]): bool =
   # and compare the result to the number of element in it will do the trick.
   let len = T.getType[1].len - 2
 
-  quote: uint64(`T`.high.ord) - uint64(`T`.low.ord) != uint64(`len`)
+  quote: int64(`T`.high.ord) - int64(`T`.low.ord) != int64(`len`)
 
 func contains*[I: SomeInteger](e: type[enum], v: I): bool =
   when I is uint64:
