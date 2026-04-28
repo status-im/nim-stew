@@ -83,16 +83,19 @@ template enumStrValuesSeq*(E: type[enum]): seq[string] =
   const values = @(enumStrValuesArray E)
   values
 
-macro hasHoles*(T: type[enum]): bool =
+macro enumLen(T: type[enum]): int =
+  let len = T.getType[1].len - 2
+  quote: `len`
+
+proc hasHoles*(T: type enum): bool =
   # As an enum is always sorted, just substract the first and the last ordinal value
   # and compare the result to the number of element in it will do the trick.
-  let len = T.getType[1].len - 2
-
-  quote: int64(`T`.high.ord) - int64(`T`.low.ord) != int64(`len`)
+  const ret = int64(T.high.ord) - int64(T.low.ord) != int64(enumLen(T))
+  ret
 
 func contains*[I: SomeInteger](e: type[enum], v: I): bool =
   when I is uint64:
-    if v > int.high.uint64:
+    if v > int64.high.uint64:
       return false
   when e.hasHoles():
     v.int64 in enumRangeInt64(e)
