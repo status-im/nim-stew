@@ -160,10 +160,15 @@ suite "enums":
         B4 = 2000
         C4 = 4000
 
-      WithLimits = enum
+      WithLimits32 = enum
         A5 = int32.low()
         B5 = 0
         C5 = int32.high()
+
+      WithLimits64 = enum
+        A6 = int64.low()
+        B6 = 0
+        C6 = int64.high()
 
     check:
       hasHoles(EnumWithOneValue) == false
@@ -171,7 +176,8 @@ suite "enums":
       hasHoles(WithoutHoles2) == false
       hasHoles(WithHoles) == true
       hasHoles(WithBigHoles) == true
-      hasHoles(WithLimits) == true
+      hasHoles(WithLimits32) == true
+      hasHoles(WithLimits64) == true
 
   test "checkedEnumAssign":
     type
