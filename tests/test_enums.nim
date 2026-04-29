@@ -9,7 +9,7 @@
 
 {.used.}
 
-import std/typetraits, unittest2, ../stew/enums
+import unittest2, ../stew/enums
 
 suite "enumStyle":
   test "OrdinalEnum":
