@@ -85,10 +85,11 @@ template enumStrValuesSeq*(E: type[enum]): seq[string] =
   const values = @(enumStrValuesArray E)
   values
 
-func hasHoles*(T: type enum): bool {.compileTime.} =
+func hasHoles*(T: type enum): bool =
   # As an enum is always sorted, just substract the first and the last ordinal value
   # and compare the result to the number of element in it will do the trick.
-  int64(T.high.ord) - int64(T.low.ord) != int64(enumLen(T) - 1)
+  const ret = int64(T.high.ord) - int64(T.low.ord) != int64(enumLen(T) - 1)
+  ret
 
 func contains*[I: SomeInteger](e: type[enum], v: I): bool =
   when I is uint64:
