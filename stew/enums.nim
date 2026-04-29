@@ -85,7 +85,7 @@ template enumStrValuesSeq*(E: type[enum]): seq[string] =
   const values = @(enumStrValuesArray E)
   values
 
-func hasHoles*(T: type enum): bool =
+template hasHoles*(T: type enum): bool =
   # As an enum is always sorted, just substract the first and the last ordinal value
   # and compare the result to the number of element in it will do the trick.
   const ret = int64(T.high.ord) - int64(T.low.ord) != int64(enumLen(T) - 1)
