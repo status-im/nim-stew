@@ -7,7 +7,9 @@
 #
 # at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-import std/[macros, options, sequtils]
+{.push raises: [].}
+
+import std/[macros, options, sequtils, typetraits]
 
 type EnumStyle* {.pure.} = enum
   Numeric
@@ -83,16 +85,12 @@ template enumStrValuesSeq*(E: type[enum]): seq[string] =
   const values = @(enumStrValuesArray E)
   values
 
-macro hasHoles*(T: type[enum]): bool =
-  # As an enum is always sorted, just substract the first and the last ordinal value
-  # and compare the result to the number of element in it will do the trick.
-  let len = T.getType[1].len - 2
-
-  quote: `T`.high.ord - `T`.low.ord != `len`
+template hasHoles*(T: type enum): bool =
+  T is typetraits.HoleyEnum
 
 func contains*[I: SomeInteger](e: type[enum], v: I): bool =
   when I is uint64:
-    if v > int.high.uint64:
+    if v > int64.high.uint64:
       return false
   when e.hasHoles():
     v.int64 in enumRangeInt64(e)
