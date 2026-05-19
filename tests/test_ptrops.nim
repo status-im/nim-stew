@@ -91,6 +91,7 @@ suite "ptrops":
       var v = [2, 3]
       check:
         makeUncheckedArray(baseAddr v)[1] == 3
+        makeUncheckedArray(cast[pointer](baseAddr v), int)[1] == 3
 
   test "var makeOpenArray":
     # fixed in 2.0.10+: https://github.com/nim-lang/Nim/pull/23882
