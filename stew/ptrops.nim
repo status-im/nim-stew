@@ -56,6 +56,9 @@ func baseAddr*[T](x: openArray[T]): ptr T =
 func makeUncheckedArray*[T](p: ptr T): ptr UncheckedArray[T] =
   cast[ptr UncheckedArray[T]](p)
 
+func makeUncheckedArray*(p: pointer, T: type): ptr UncheckedArray[T] =
+  cast[ptr UncheckedArray[T]](p)
+
 template makeOpenArray*[T](p: ptr T, len: Natural): openArray[T] =
   # `var` works around https://github.com/nim-lang/Nim/issues/19171
   var tmp = cast[ptr UncheckedArray[T]](p)
