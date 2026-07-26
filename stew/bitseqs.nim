@@ -1,4 +1,4 @@
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   bitops2, ptrops
@@ -59,7 +59,7 @@ func add*(s: var BitSeq, value: bool) =
     s.Bytes.add byte(1)
 
 func loadLEBytes(WordType: type, bytes: openArray[byte]): WordType =
-  # TODO: this is a temporary proc until the endians API is improved
+  # TODO: this is a temporary func until the endians API is improved
   var shift = 0
   for b in bytes:
     result = result or (WordType(b) shl shift)
@@ -252,19 +252,7 @@ func isSubsetOf*(a, b: BitSeq): bool =
       return false
   true
 
-proc isZeros*(x: BitSeq): bool =
+func isZeros*(x: BitSeq): bool =
   for w in words(x):
     if w != 0: return false
-  return true
-
-template raiseBit*(s: var BitSeq, pos: Natural) {.deprecated: "setBit".} =
-  setBit(s, pos)
-
-template lowerBit*(s: var BitSeq, pos: Natural) {.deprecated: "clearBit".} =
-  clearBit(s, pos)
-
-template raiseBit*(a: var BitArray, pos: Natural) {.deprecated: "setBit".} =
-  setBit(a, pos)
-
-template lowerBit*(a: var BitArray, pos: Natural) {.deprecated: "lowerBit".} =
-  clearBit(a, pos)
+  true

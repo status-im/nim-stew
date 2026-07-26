@@ -18,7 +18,7 @@
 ## This module is also compatible with other backends: ``Javascript``, ``Nimscript``
 ## as well as the ``compiletime VM``.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   endians2
@@ -556,48 +556,6 @@ template toggleBitLE*(bytes: var openArray[byte], pos: Natural) =
 func toggleBitBE*(bytes: var openArray[byte], pos: Natural) {.inline.} =
   toggleBitBE(bytes[byteIndex pos], bitIndex pos)
 
-template setBit*(x: var BitIndexable, bit: Natural, val: bool) {.deprecated: "changeBit".} =
-  changeBit(x, bit, val)
-template setBitLE*(x: var BitIndexable, bit: Natural, val: bool) {.deprecated: "changeBitLE".} =
-  changeBitLE(x, bit, val)
-template setBitBE*(x: var BitIndexable, bit: Natural, val: bool) {.deprecated: "changeBitBE".} =
-  changeBitBE(x, bit, val)
-
-template raiseBit*(x: var BitIndexable, bit: Natural) {.deprecated: "setBit".} =
-  setBit(x, bit)
-template raiseBitLE*(x: var BitIndexable, bit: Natural) {.deprecated: "setBitLE".} =
-  setBitLE(x, bit)
-template raiseBitBE*(x: var BitIndexable, bit: Natural) {.deprecated: "setBitBE".} =
-  setBitBE(x, bit)
-
-func lowerBit*(x: var BitIndexable, bit: Natural) {.inline, deprecated: "clearBit".} =
-  clearBit(x, bit)
-template lowerBitLE*(x: var BitIndexable, bit: Natural) {.deprecated: "clearBitLE".} =
-  clearBit(x, bit)
-template lowerBitBE*(x: var BitIndexable, bit: Natural) {.deprecated: "clearBitBE".} =
-  clearBitBE(x, bit)
-
-template setBit*(bytes: var openArray[byte], pos: Natural, val: bool) {.deprecated: "changeBit".} =
-  changeBit(bytes, pos, val)
-template setBitLE*(bytes: var openArray[byte], pos: Natural, val: bool) {.deprecated: "changeBitLE".} =
-  changeBitLE(bytes, pos, val)
-template setBitBE*(bytes: var openArray[byte], pos: Natural, val: bool) {.deprecated: "changeBitBE".} =
-  changeBitBE(bytes, pos, val)
-
-template raiseBit*(bytes: var openArray[byte], pos: Natural) {.deprecated: "setBit".} =
-  setBit(bytes, pos)
-template raiseBitLE*(bytes: var openArray[byte], pos: Natural) {.deprecated: "setBitLE".} =
-  setBitLE(bytes, pos)
-template raiseBitBE*(bytes: var openArray[byte], pos: Natural) {.deprecated: "setBitBE".} =
-  setBitBE(bytes, pos)
-
-template lowerBit*(bytes: var openArray[byte], pos: Natural) {.deprecated: "clearBit".} =
-  clearBit(bytes, pos)
-template lowerBitLE*(bytes: var openArray[byte], pos: Natural) {.deprecated: "clearBitLE".} =
-  clearBitLE(bytes, pos)
-template lowerBitBE*(bytes: var openArray[byte], pos: Natural) {.deprecated: "clearBitBE".} =
-  clearBitBE(bytes, pos)
-
 func getBitsBE*(data: openArray[byte], slice: HSlice, T: type[SomeUnsignedInt]): T =
   ## Treats `data` as an unsigned big endian integer and returns a slice of bits
   ## extracted from it, assuming 0 to be the possition of the most significant bit.
@@ -640,4 +598,3 @@ func getBitsBE*(data: openArray[byte], slice: HSlice, T: type[SomeUnsignedInt]):
 
 template getBitsBE*(data: openArray[byte], slice: HSlice): BiggestUInt =
   getBitsBE(data, slice, BiggestUInt)
-
