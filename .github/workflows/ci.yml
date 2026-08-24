@@ -3,13 +3,15 @@ on:
   push:
     branches:
       - master
+      - test-minver
   pull_request:
   workflow_dispatch:
 
 jobs:
   build:
-    uses: status-im/nimbus-common-workflow/.github/workflows/common.yml@main
+    uses: status-im/nimbus-common-workflow/.github/workflows/common.yml@minver
     with:
+      install-command: 'nimble --resolver:minver install -y --depsOnly'
       test-command: |
         env NIMLANG=c nimble test
         env NIMLANG=cpp nimble test
