@@ -7,9 +7,9 @@ description   = "Backports, standard library candidates and small utilities that
 license       = "MIT or Apache License 2.0"
 skipDirs      = @["tests"]
 
-requires "nim >= 2.0.10",
+requires "nim >= 1.6.18",
          "results >= 0.5.0",
-         "unittest2 >= 0.2.0"
+         "unittest2 >= 0.2.5"
 
 let nimc = getEnv("NIMC", "nim") # Which nim compiler to use
 let lang = getEnv("NIMLANG", "c") # Which backend (c/cpp/js)
@@ -34,4 +34,5 @@ task test, "Run all tests":
       "--threads:on -d:nimTypeNames",
       "--threads:on -d:noIntrinsicsBitOpts -d:noIntrinsicsEndians"]:
     run args & " --mm:refc", "tests/all_tests"
-    run args & " --mm:orc", "tests/all_tests"
+    if (NimMajor, NimMinor) > (1, 6):
+      run args & " --mm:orc", "tests/all_tests"
