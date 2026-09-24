@@ -1,3 +1,5 @@
+{.push raises: [].}
+
 import
   std/[hashes, macros, tables, typetraits]
 
@@ -16,8 +18,6 @@ type
 
 const
   nnkPragmaCallKinds = {nnkExprColonExpr, nnkCall, nnkCallStrLit}
-
-{.push raises: [].}
 
 proc hash*(x: LineInfo): Hash =
   !$(hash(x.filename) !& hash(x.line) !& hash(x.column))
@@ -217,12 +217,15 @@ proc getPragma(T: NimNode, lookedUpField: string, pragma: NimNode): NimNode =
   if isTuple(Tresolved):
     return nil
 
-  for f in recordFields(Tresolved.getImpl):
-    var fieldName = f.name
+  # Index into fields rather than iterate across elements to work around
+  # https://github.com/nim-lang/Nim/issues/26273
+  let fields = recordFields(Tresolved.getImpl)
+  for i in 0 ..< fields.len:
+    var fieldName = fields[i].name
     # TODO: Fix this in eqIdent
     if fieldName.kind == nnkAccQuoted: fieldName = fieldName[0]
     if eqIdent(fieldName, lookedUpField):
-      return f.pragmas.findPragma(pragma)
+      return fields[i].pragmas.findPragma(pragma)
 
   error "The type " & $Tresolved & " doesn't have a field named " & lookedUpField
 
