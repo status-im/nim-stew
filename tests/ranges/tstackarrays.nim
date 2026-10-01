@@ -11,6 +11,13 @@ import
   ../../stew/ptrops,
   ../../stew/ranges/[stackarrays]
 
+when defined(vcc):
+  proc frameAddress(): pointer {.
+    importc: "_AddressOfReturnAddress", header: "<intrin.h>".}
+else:
+  proc frameAddress(level: cuint = 0): pointer {.
+    importc: "__builtin_frame_address", nodecl.}
+
 suite "Stack arrays":
   test "Basic operations work as expected":
     var arr = allocStackArray(int, 10)
@@ -44,13 +51,14 @@ suite "Stack arrays":
       arr[3] = "another test"
 
   test "proof of stack allocation":
-    proc fun() =
-      # NOTE: has to be inside a proc otherwise x1 not allocated on stack.
-      var x1 = 0
+    proc fun(): int =
+      # NOTE: frame address rather than address of a local variable,
+      # as ASAN `detect_stack_use_after_return` moves those to the heap.
+      let x1 = frameAddress()
       var arr = allocStackArray(int, 3)
+      abs(cast[int](x1) - cast[int](addr(arr[0])))
 
-      check:
-        # stack can go either up or down, hence `abs`.
-        # 1024 should be large enough (was 312 on OSX).
-        abs(cast[int](x1.addr) - cast[int](addr(arr[0]))) < 1024
-    fun()
+    check:
+      # stack can go either up or down, hence `abs`.
+      # 1024 should be large enough (was 312 on OSX).
+      fun() < 1024

@@ -508,13 +508,13 @@ proc getCurrentDir*(): IoResult[string] =
         return ok(buffer)
   elif defined(windows):
     var bufsize = uint32(MAX_PATH)
-    var buffer = newWideCString("", int(bufsize))
+    var buffer = newWideCString(int(bufsize))
     while true:
       let res = getCurrentDirectoryW(bufsize, buffer)
       if res == 0'u32:
         return err(ioLastError())
       elif res > bufsize:
-        buffer = newWideCString("", int(res))
+        buffer = newWideCString(int(res))
         bufsize = res
       else:
         return ok(buffer$int(res))
