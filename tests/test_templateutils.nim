@@ -45,7 +45,7 @@ template evalManyTimes(xParam: untyped, shouldBeMutable: bool): string =
     res.add " => "
     res.add $x
 
-    templateParamAddresses.add(unsafeAddr x)
+    templateParamAddresses.add(addr x)
   res
 
 test "Template utils":
@@ -75,4 +75,4 @@ test "Template utils":
   # let symbols need lent to avoid copying;
   # they are still computed once though
   when useLent:
-    check templateParamAddresses[2] == unsafeAddr s2
+    check templateParamAddresses[2] == addr s2

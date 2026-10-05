@@ -573,7 +573,7 @@ func getBitsBE*(data: openArray[byte], slice: HSlice, T: type[SomeUnsignedInt]):
   const resultBits = sizeof(result) * 8
   doAssert a < b and sliceLen <= resultBits and b <= totalBits
 
-  let limbs = cast[ptr UncheckedArray[T]](unsafeAddr data[0])
+  let limbs = cast[ptr UncheckedArray[T]](addr data[0])
 
   template readLimb(idx: int): auto =
     when cpuEndian == bigEndian or sizeof(result) == 1:
