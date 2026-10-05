@@ -72,7 +72,7 @@ func storeLEBytes(value: SomeUnsignedInt, dst: var openArray[byte]) =
       result[i] = byte((v shr shift) and 0xff)
       shift += 8
   else:
-    copyMem(addr dst[0], unsafeAddr value, dst.len)
+    copyMem(addr dst[0], addr value, dst.len)
 
 template loopOverWords(lhs, rhs: BitSeq,
                        lhsIsVar, rhsIsVar: static bool,
@@ -138,10 +138,10 @@ template loopOverWords(lhs, rhs: BitSeq,
         let rhsEndResult = (rhsWord and mask) or markerBit
         storeLEBytes(rhsEndResult, lastWordBytes(rhs))
 
-  var lhsCurrAddr = cast[ptr WordType](unsafeAddr Bytes(lhs)[0])
+  var lhsCurrAddr = cast[ptr WordType](addr Bytes(lhs)[0])
   let lhsEndAddr = offset(lhsCurrAddr, fullWordsCount)
   when hasRhs:
-    var rhsCurrAddr = cast[ptr WordType](unsafeAddr Bytes(rhs)[0])
+    var rhsCurrAddr = cast[ptr WordType](addr Bytes(rhs)[0])
 
   while lhsCurrAddr < lhsEndAddr:
     template lhsBits: auto = lhsCurrAddr[]

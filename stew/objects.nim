@@ -83,7 +83,7 @@ else:
 func isZeroMemory*[T](x: T): bool =
   # TODO: iterate over words here
   # bufPtr avoids pointless https://github.com/nim-lang/Nim/issues/24093 copy
-  let bufPtr = cast[ptr array[sizeof(T), byte]](unsafeAddr x)
+  let bufPtr = cast[ptr array[sizeof(T), byte]](addr x)
   for b in bufPtr[]:
     if b != 0: return false
   true

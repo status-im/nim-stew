@@ -1143,7 +1143,7 @@ proc writeFile*(handle: IoHandle,
   when defined(posix):
     if len(data) > 0:
       while true:
-        let res = write(cint(handle), unsafeAddr data[0], csize_t(len(data)))
+        let res = write(cint(handle), addr data[0], csize_t(len(data)))
         if res == -1:
           let errCode = ioLastError()
           if errCode == EINTR:
@@ -1157,7 +1157,7 @@ proc writeFile*(handle: IoHandle,
   elif defined(windows):
     if len(data) > 0:
       var lpNumberOfBytesWritten = 0'u32
-      let res = writeFile(uint32(handle), unsafeAddr data[0], uint32(len(data)),
+      let res = writeFile(uint32(handle), addr data[0], uint32(len(data)),
                           lpNumberOfBytesWritten, nil)
       if res != 0:
         ok(lpNumberOfBytesWritten)
@@ -1182,7 +1182,7 @@ proc readFile*(handle: IoHandle,
   when defined(posix):
     if len(data) > 0:
       while true:
-        let res = read(cint(handle), unsafeAddr data[0], csize_t(len(data)))
+        let res = read(cint(handle), addr data[0], csize_t(len(data)))
         if res == -1:
           let errCode = ioLastError()
           if errCode == EINTR:
@@ -1196,7 +1196,7 @@ proc readFile*(handle: IoHandle,
   elif defined(windows):
     if len(data) > 0:
       var lpNumberOfBytesRead = 0'u32
-      let res = readFile(uint32(handle), unsafeAddr data[0], uint32(len(data)),
+      let res = readFile(uint32(handle), addr data[0], uint32(len(data)),
                          lpNumberOfBytesRead, nil)
       if res != 0:
         ok(lpNumberOfBytesRead)

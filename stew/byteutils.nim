@@ -247,7 +247,7 @@ func fromBytes*(T: type string, v: openArray[byte]): string =
       for i, c in v:
         result[i] = cast[char](c)
     else:
-      copyMem(addr result[0], unsafeAddr v[0], v.len)
+      copyMem(addr result[0], addr v[0], v.len)
 
 func `<`*(a, b: openArray[byte]): bool =
   ## Lexicographical compare of two byte arrays

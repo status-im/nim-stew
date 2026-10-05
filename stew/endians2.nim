@@ -102,7 +102,7 @@ func toBytes*(x: SomeEndianInt, endian: Endianness = system.cpuEndian):
     for i in 0..<sizeof(result):
       result[i] = byte((v shr (i * 8)) and 0xff)
   else:
-    copyMem(addr result, unsafeAddr v, sizeof(result))
+    copyMem(addr result, addr v, sizeof(result))
 
 func toBytesLE*(x: SomeEndianInt):
     array[sizeof(x), byte] {.inline.} =
@@ -139,7 +139,7 @@ func fromBytes*(
   else:
     # `copyMem` helps compilers optimize the copy into a single instruction, when
     # alignment etc permits
-    copyMem(addr result, unsafeAddr x[0], sizeof(result))
+    copyMem(addr result, addr x[0], sizeof(result))
 
   if endian != system.cpuEndian:
     # The swap is turned into a CPU-specific instruction and/or combined with
