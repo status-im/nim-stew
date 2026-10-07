@@ -89,7 +89,8 @@ proc skipPtr*(T: NimNode): NimNode =
   if T.kind == nnkBracketExpr and eqIdent(T[0], "ptr"):
     result = T[1]
 
-template readPragma*(field: FieldDescription, pragmaName: static string): NimNode =
+template readPragma*(
+    field: FieldDescription, pragmaName: static string): NimNode =
   let p = findPragma(field.pragmas, bindSym(pragmaName))
   if p != nil and p.len == 2: p[1] else: p
 
@@ -180,6 +181,8 @@ proc collectFieldsInHierarchy(result: var seq[FieldDescription],
   if baseType.kind != nnkEmpty:
     baseType.expectKind nnkOfInherit
     baseType = baseType[0]
+    if baseType.kind == nnkBracketExpr:
+      baseType = baseType[0]
     baseType.expectKind nnkSym
     baseType = getImpl(baseType)
     baseType.expectKind nnkTypeDef
@@ -191,19 +194,21 @@ proc collectFieldsInHierarchy(result: var seq[FieldDescription],
   collectFieldsFromRecList result, recList
 
 proc recordFields*(typeImpl: NimNode): seq[FieldDescription] =
+  var fields: seq[FieldDescription]
   if typeImpl.isTuple:
     for i in 1 ..< typeImpl.len:
-      result.add FieldDescription(typ: typeImpl[i], name: ident("Field" & $(i - 1)))
-    return
+      fields.add FieldDescription(
+        typ: typeImpl[i], name: ident("Field" & $(i - 1)))
+    return fields
 
   let objectType = case typeImpl.kind
     of nnkObjectTy: typeImpl
     of nnkTypeDef: typeImpl[2]
     else:
       macros.error("object type expected", typeImpl)
-      return
 
-  collectFieldsInHierarchy(result, objectType)
+  collectFieldsInHierarchy(fields, objectType)
+  fields
 
 macro field*(obj: typed, fieldName: static string): untyped =
   newDotExpr(obj, ident fieldName)

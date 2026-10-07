@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2022 Status Research & Development GmbH
+# Copyright (c) 2020-2026 Status Research & Development GmbH
 # Licensed and distributed under either of
 #   * MIT license: http://opensource.org/licenses/MIT
 #   * Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0
@@ -43,11 +43,17 @@ type
   DerivedFromRefType = ref object of DerivedType
     anotherDerivedField: string
 
+  GenericBaseType[T] = object of RootObj
+    genericBaseField: T
+
+  DerivedFromGenericType = object of GenericBaseType[int]
+    derivedField: int
+
   EmptyObject = object
   EmptyRefObject = ref object
 
 macro getFieldsLists(T: type): untyped =
-  result = newTree(nnkBracket)
+  let fieldNames = newTree(nnkBracket)
 
   var resolvedType = skipPtr skipRef getType(T)[1]
   doAssert resolvedType.kind == nnkSym
@@ -55,7 +61,8 @@ macro getFieldsLists(T: type): untyped =
   doAssert objectType.kind == nnkTypeDef
 
   for f in recordFields(objectType):
-    result.add newLit($f.name)
+    fieldNames.add newLit($f.name)
+  fieldNames
 
 static:
   doAssert getFieldsLists(DerivedFromRefType) == [
@@ -66,10 +73,16 @@ static:
     "anotherDerivedField"
   ]
 
+  doAssert getFieldsLists(DerivedFromGenericType) == [
+    "genericBaseField",
+    "derivedField"
+  ]
+
   doAssert getFieldsLists(EmptyObject).len == 0
   doAssert getFieldsLists(EmptyRefObject).len == 0
 
-let myType = MyType[string](myField: "test", myGeneric: "test", kind: true, first: "test")
+let myType = MyType[string](
+  myField: "test", myGeneric: "test", kind: true, first: "test")
 
 suite "Macros":
   test "hasCustomPragmaFixed":
