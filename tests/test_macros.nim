@@ -156,6 +156,8 @@ type
   PragmaAliasType = object
     aliasField {.zeroAlias.}: int
 
+  TupleType = tuple[tupleField: int]
+
   EmptyObject = object
   EmptyRefObject = ref object
 
@@ -262,6 +264,13 @@ macro quotedPtrFieldsLists(): untyped =
       quotedField {.zero.}: int
   untypedFieldsLists(typeSection[0])
 
+func zeroFields(T: type): seq[string] =
+  var fields: seq[string]
+  for name, _ in default(T).fieldPairs:
+    when T.hasCustomPragmaFixed(name, zero):
+      fields.add name
+  fields
+
 static:
   doAssert getFieldsLists(MyType[string]) == [
     "myField: string {.zero, one(\"foo\"), two(\"foo\", \"bar\").}",
@@ -298,6 +307,8 @@ static:
     "genericBaseField: seq[int] {.zero.}",
     "genericDerivedField: int"
   ]
+
+  doAssert GenericDerivedType[int].zeroFields == @["genericBaseField"]
 
   doAssert getFieldsLists(DerivedFromGenericType) == [
     "genericBaseField: seq[int] {.zero.}",
@@ -441,6 +452,8 @@ let myType = MyType[string](
 
 suite "Macros":
   test "hasCustomPragmaFixed":
+    type LocalType = object
+      localField {.zero.}: int
     check:
       not myType.type.hasCustomPragmaFixed("myField", unknown)
       myType.type.hasCustomPragmaFixed("myField", zero)
@@ -453,8 +466,15 @@ suite "Macros":
       myType.type.hasCustomPragmaFixed("second", zero)
 
       DerivedFromRefBaseType.hasCustomPragmaFixed("refBaseKind", zero)
+      ErrorType.hasCustomPragmaFixed("errorField", zero)
+      not ErrorType.hasCustomPragmaFixed("msg", zero)
+      MultiDerivedType[int, string].hasCustomPragmaFixed("multiBaseField", two)
       not WhenBaseType[string].hasCustomPragmaFixed("whenField", zero)
       WhenBaseType[string].hasCustomPragmaFixed("whenField", one)
+      not DerivedFromWhenType.hasCustomPragmaFixed("whenField", zero)
+      DerivedFromWhenType.hasCustomPragmaFixed("whenField", one)
+      StaticType[2].hasCustomPragmaFixed("staticWhenField", one)
+      WhenInCaseType[int].hasCustomPragmaFixed("whenInCaseField", zero)
       not WhenInCaseType[string].hasCustomPragmaFixed("whenInCaseField", zero)
       GenericRefType[int].hasCustomPragmaFixed("genericRefField", zero)
       PublicType.hasCustomPragmaFixed("publicField", zero)
@@ -462,6 +482,17 @@ suite "Macros":
       PtrType.hasCustomPragmaFixed("ptrField", zero)
       QuotedType.hasCustomPragmaFixed("quotedField", one)
       not QuotedType.hasCustomPragmaFixed("type", one)
+      SharedIdentDefsType.hasCustomPragmaFixed("sharedB", zero)
+      not SharedIdentDefsType.hasCustomPragmaFixed("sharedA", zero)
+      NestedCaseType.hasCustomPragmaFixed("innerKind", zero)
+      PragmaAliasType.hasCustomPragmaFixed("aliasField", zero)
+      not TupleType.hasCustomPragmaFixed("tupleField", zero)
+      not (int, string).hasCustomPragmaFixed("Field0", zero)
+      DerivedFromGensymType.hasCustomPragmaFixed("gensymBaseField", zero)
+      MacroType.hasCustomPragmaFixed("macroField", zero)
+      LocalType.hasCustomPragmaFixed("localField", zero)
+    when compiles(MyType[string].hasCustomPragmaFixed("unknownField", zero)):
+      check false
 
   test "getCustomPragmaFixed":
     check:
@@ -476,7 +507,17 @@ suite "Macros":
       myType.type.getCustomPragmaFixed("second", zero).isNil
 
       DerivedFromRefBaseType.getCustomPragmaFixed("refBaseField", one) == "ref"
+      MultiDerivedType[int, string].getCustomPragmaFixed(
+        "multiBaseField", two) == (one: "multi", two: "base")
       WhenBaseType[string].getCustomPragmaFixed("whenField", one) == "else"
+      DerivedFromWhenType.getCustomPragmaFixed("whenField", one) == "else"
+      StaticType[2].getCustomPragmaFixed("staticWhenField", one) == "big"
       WhenInCaseType[string].getCustomPragmaFixed(
         "whenInCaseField", one) == "else"
       QuotedType.getCustomPragmaFixed("quotedField", one) == "quoted"
+      NestedCaseType.getCustomPragmaFixed("nestedField", one) == "nested"
+      PragmaAliasType.getCustomPragmaFixed("aliasField", zero).isNil
+      TupleType.getCustomPragmaFixed("tupleField", zero).isNil
+      (int, string).getCustomPragmaFixed("Field0", zero).isNil
+    when compiles(MyType[string].getCustomPragmaFixed("unknownField", zero)):
+      check false
