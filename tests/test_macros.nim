@@ -46,36 +46,69 @@ type
   GenericBaseType[T] = object of RootObj
     genericBaseField: T
 
-  DerivedFromGenericType = object of GenericBaseType[int]
+  GenericDerivedType[T] = object of GenericBaseType[seq[T]]
+    genericDerivedField: T
+
+  DerivedFromGenericType = object of GenericDerivedType[int]
     derivedField: int
 
   EmptyObject = object
   EmptyRefObject = ref object
 
-macro getFieldsLists(T: type): untyped =
-  let fieldNames = newTree(nnkBracket)
+func fieldsList(typeImpl: NimNode): NimNode =
+  let fields = newTree(nnkBracket)
+  for f in recordFields(typeImpl):
+    var field = ""
+    if f.caseField != nil:
+      field.add $f.caseField[0].skipPragma
+      if f.caseBranch.kind == nnkElse:
+        field.add " else"
+      for i in 0 ..< f.caseBranch.len - 1:
+        field.add(if i == 0: " of " else: ", ")
+        field.add f.caseBranch[i].repr
+      field.add ": "
+    if f.isDiscriminator:
+      field.add "case "
+    field.add f.name.repr
+    if f.isPublic:
+      field.add "*"
+    field.add ": " & f.typ.repr
+    if f.pragmas != nil:
+      field.add f.pragmas.repr
+    fields.add newLit(field)
+  if fields.len > 0:
+    fields
+  else:
+    quote do: array[0, string](`fields`)
 
-  var resolvedType = skipPtr skipRef getType(T)[1]
-  doAssert resolvedType.kind == nnkSym
-  var objectType = getImpl(resolvedType)
-  doAssert objectType.kind == nnkTypeDef
+macro typeFieldsLists(T: type): untyped =
+  fieldsList(T.getTypeInst[1])
 
-  for f in recordFields(objectType):
-    fieldNames.add newLit($f.name)
-  fieldNames
+macro typeImplFieldsLists(T: type): untyped =
+  fieldsList(T.getTypeInst[1].getTypeImpl)
+
+template getFieldsLists(T: type): untyped =
+  block:
+    const
+      res1 = typeFieldsLists(T)
+      res2 = typeImplFieldsLists(T)
+    doAssert res1 == res2
+    res1
+
 
 static:
   doAssert getFieldsLists(DerivedFromRefType) == [
-    "baseField",
-    "baseCaseField",
-    "baseA",
-    "derivedField",
-    "anotherDerivedField"
+    "baseField: int",
+    "case baseCaseField: FieldKind",
+    "baseCaseField of KindA: baseA: int",
+    "derivedField: int",
+    "anotherDerivedField: string"
   ]
 
   doAssert getFieldsLists(DerivedFromGenericType) == [
-    "genericBaseField",
-    "derivedField"
+    "genericBaseField: seq[int]",
+    "genericDerivedField: int",
+    "derivedField: int"
   ]
 
   doAssert getFieldsLists(EmptyObject).len == 0
