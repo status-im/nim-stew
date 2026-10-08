@@ -135,11 +135,16 @@ macro typeImplFieldsLists(T: type): untyped =
 macro typeFieldsLists(T: type): untyped =
   fieldsList(T.getType[1])
 
+macro typeDefFieldsLists(T: type): untyped =
+  let typ = T.getTypeInst[1]
+  fieldsList(if typ.kind == nnkSym: typ.getImpl else: typ)
+
 template getFieldsLists(T: type): untyped =
   block:
     const res = typeInstFieldsLists(T)
     doAssert typeImplFieldsLists(T) == res
     doAssert typeFieldsLists(T) == res
+    doAssert typeDefFieldsLists(T) == res
     res
 
 macro getUntypedFieldsLists(typeSection: untyped): untyped =

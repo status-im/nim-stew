@@ -314,6 +314,16 @@ func recordFields*(typ: NimNode): seq[FieldDescription] =
         return fields
     elif typ[1].kind == nnkOfInherit:
       return recordFields(typ[1][0])
+  of nnkTypeDef:
+    var name = typ[0]
+    if name.kind == nnkPragmaExpr:
+      name = name[0]
+    if name.kind == nnkPostfix:
+      name = name[1]
+    if name.kind == nnkSym and typ[1].kind == nnkEmpty and
+        name.getImpl.kind == nnkTypeDef:
+      collectFieldsFromType(fields, name, name.getTypeImpl)
+      return fields
   else:
     discard
 
