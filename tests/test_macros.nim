@@ -78,6 +78,11 @@ type
   QuotedType = object
     `quoted field` {.one("quoted").}: int
     `type`: int
+    case `quoted kind`: bool
+    of true:
+      quotedBranch {.zero.}: int
+    of false:
+      discard
 
   EmptyObject = object
   EmptyRefObject = ref object
@@ -219,7 +224,9 @@ static:
 
   doAssert getFieldsLists(QuotedType) == [
     "`quoted field`: int {.one(\"quoted\").}",
-    "`type`: int"
+    "`type`: int",
+    "case `quoted kind`: bool",
+    "quotedkind of true: quotedBranch: int {.zero.}"
   ]
 
   doAssert getFieldsLists(EmptyObject).len == 0

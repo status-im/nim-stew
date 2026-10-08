@@ -215,7 +215,7 @@ func isSameCaseField(a, b: FieldDescription): bool =
   if aName == nil or bName == nil:
     aName == nil and bName == nil
   else:
-    aName.eqIdent(bName)
+    aName.isSameName(bName)
 
 func definedField(
     defFields: seq[FieldDescription],
