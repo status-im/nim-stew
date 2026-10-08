@@ -239,6 +239,13 @@ static:
     "untypedField: int {.zero.}"
   ]
 
+  const untypedPtrFieldsLists = getUntypedFieldsLists:
+    type U = ptr object
+      untypedField {.zero.}: int
+  doAssert untypedPtrFieldsLists == [
+    "untypedField: int {.zero.}"
+  ]
+
 let myType = MyType[string](
   myField: "test", myGeneric: "test", kind: true, first: "test")
 

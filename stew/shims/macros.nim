@@ -169,9 +169,9 @@ func collectFieldsInHierarchy(
     fields: var seq[FieldDescription], objectType: NimNode) =
   var objectType = objectType
 
-  objectType.expectKind {nnkObjectTy, nnkRefTy}
+  objectType.expectKind {nnkObjectTy, nnkRefTy, nnkPtrTy}
 
-  if objectType.kind == nnkRefTy:
+  if objectType.kind in {nnkRefTy, nnkPtrTy}:
     objectType = objectType[0]
 
   objectType.expectKind nnkObjectTy
@@ -328,7 +328,7 @@ func recordFields*(typ: NimNode): seq[FieldDescription] =
     discard
 
   let objectType = case typ.kind
-    of nnkObjectTy, nnkRefTy: typ
+    of nnkObjectTy, nnkRefTy, nnkPtrTy: typ
     of nnkTypeDef: typ[2]
     else:
       macros.error("object type expected", typ)
