@@ -52,6 +52,14 @@ type
   DerivedFromGenericType = object of GenericDerivedType[int]
     derivedField: int
 
+  IntBaseType = GenericBaseType[int]
+  AliasBaseType = IntBaseType
+
+  DerivedFromAliasType = object of AliasBaseType
+    aliasDerivedField: int
+
+  TypeofAliasType = typeof(DerivedFromAliasType())
+
   QuotedType = object
     `quoted field` {.one("quoted").}: int
     `type`: int
@@ -93,14 +101,28 @@ macro typeImplFieldsLists(T: type): untyped =
 
 template getFieldsLists(T: type): untyped =
   block:
-    const
-      res1 = typeFieldsLists(T)
-      res2 = typeImplFieldsLists(T)
-    doAssert res1 == res2
-    res1
+    const res = typeFieldsLists(T)
+    doAssert typeImplFieldsLists(T) == res
+    res
 
+macro getUntypedFieldsLists(typeSection: untyped): untyped =
+  let typeDef = typeSection[0][0]
+  let genSymTypeDef = typeDef.copyNimTree
+  genSymTypeDef[0] = genSym(nskType, $typeDef[0])
+  let res = fieldsList(typeDef)
+  doAssert fieldsList(typeDef[2]) == res
+  doAssert fieldsList(genSymTypeDef) == res
+  res
 
 static:
+  doAssert getFieldsLists(MyType[string]) == [
+    "myField: string {.zero, one(\"foo\"), two(\"foo\", \"bar\").}",
+    "myGeneric: string {.zero.}",
+    "case kind: bool {.zero.}",
+    "kind of true: first: string {.zero.}",
+    "kind else: second: string {.zero.}"
+  ]
+
   doAssert getFieldsLists(DerivedFromRefType) == [
     "baseField: int",
     "case baseCaseField: FieldKind",
@@ -120,8 +142,30 @@ static:
     "derivedField: int"
   ]
 
+  doAssert getFieldsLists(DerivedFromAliasType) == [
+    "genericBaseField: int",
+    "aliasDerivedField: int"
+  ]
+
+  doAssert getFieldsLists(TypeofAliasType) == [
+    "genericBaseField: int",
+    "aliasDerivedField: int"
+  ]
+
+  doAssert getFieldsLists(QuotedType) == [
+    "`quoted field`: int {.one(\"quoted\").}",
+    "`type`: int"
+  ]
+
   doAssert getFieldsLists(EmptyObject).len == 0
   doAssert getFieldsLists(EmptyRefObject).len == 0
+
+  const untypedFieldsLists = getUntypedFieldsLists:
+    type U = object
+      untypedField {.zero.}: int
+  doAssert untypedFieldsLists == [
+    "untypedField: int {.zero.}"
+  ]
 
 let myType = MyType[string](
   myField: "test", myGeneric: "test", kind: true, first: "test")

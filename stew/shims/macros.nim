@@ -192,14 +192,32 @@ func collectFieldsInHierarchy(
   let recList = objectType[2]
   collectFieldsFromRecList fields, recList
 
-func isSameName(declaredName, name: NimNode): bool =
-  if declaredName.kind == nnkAccQuoted and declaredName.len > 1:
-    eqIdent($declaredName, name)  # https://github.com/nim-lang/Nim/issues/26383
+func isSameName(defName, name: NimNode): bool =
+  if defName.kind == nnkAccQuoted and defName.len > 1:
+    eqIdent($defName, name)  # https://github.com/nim-lang/Nim/issues/26383
   else:
-    eqIdent(declaredName, name)
+    eqIdent(defName, name)
+
+func definedField(
+    defFields: seq[FieldDescription],
+    field: FieldDescription): FieldDescription =
+  for i in 0 ..< defFields.len:
+    if defFields[i].name.isSameName(field.name):
+      var definedField = defFields[i]
+      definedField.typ = field.typ
+      return definedField
+  macros.error("no definition found for field " & $field.name, field.name)
+
+func objectDefinition(typeInst: NimNode): NimNode =
+  let typeSym = if typeInst.kind == nnkBracketExpr: typeInst[0] else: typeInst
+  let typeDef = getImpl(typeSym)
+  if typeDef.kind != nnkTypeDef:
+    return nil
+  let body = typeDef[2]
+  if body.kind == nnkObjectTy: body else: nil
 
 func collectFieldsFromType(
-    fields: var seq[FieldDescription], typeImpl: NimNode) =
+    fields: var seq[FieldDescription], typeInst, typeImpl: NimNode) =
   var typeImpl = typeImpl
   while typeImpl.kind in {nnkRefTy, nnkPtrTy}:
     typeImpl = typeImpl[0].getTypeImpl
@@ -208,9 +226,20 @@ func collectFieldsFromType(
   let baseType = typeImpl[1]
   if baseType.kind != nnkEmpty:
     baseType.expectKind nnkOfInherit
-    collectFieldsFromType fields, baseType[0].getTypeImpl
+    collectFieldsFromType fields, baseType[0], baseType[0].getTypeImpl
 
-  collectFieldsFromRecList fields, typeImpl[2]
+  var implFields: seq[FieldDescription]
+  collectFieldsFromRecList implFields, typeImpl[2]
+
+  let def = typeInst.objectDefinition
+  if def == nil:
+    fields.add implFields
+    return
+
+  var defFields: seq[FieldDescription]
+  collectFieldsFromRecList defFields, def[2]
+  for i in 0 ..< implFields.len:
+    fields.add defFields.definedField(implFields[i])
 
 func recordFields*(typ: NimNode): seq[FieldDescription] =
   var fields: seq[FieldDescription]
@@ -222,7 +251,7 @@ func recordFields*(typ: NimNode): seq[FieldDescription] =
 
   case typ.kind
   of nnkSym, nnkBracketExpr:
-    collectFieldsFromType(fields, typ.getTypeImpl)
+    collectFieldsFromType(fields, typ, typ.getTypeImpl)
     return fields
   of nnkRefTy, nnkPtrTy:
     if typ[0].kind == nnkSym:
@@ -232,7 +261,7 @@ func recordFields*(typ: NimNode): seq[FieldDescription] =
     if recList.kind == nnkRecList and recList.len > 0:
       let firstField = recList[0]
       if firstField.kind == nnkIdentDefs and firstField[0].kind == nnkSym:
-        collectFieldsFromType(fields, typ)
+        collectFieldsFromType(fields, typ.getTypeInst, typ)
         return fields
   else:
     discard
