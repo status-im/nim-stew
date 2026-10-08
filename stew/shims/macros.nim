@@ -215,19 +215,22 @@ func isSameCaseField(a, b: FieldDescription): bool =
   else:
     aName.isSameName(bName)
 
-func definedField(
-    defFields: seq[FieldDescription],
-    field: FieldDescription): FieldDescription =
+func isDefinitionOf(defField, field: FieldDescription): bool =
   # The compiler has no link from a field symbol back to its definition node,
   # select the correct definition on a best-effort basis.
   # https://github.com/nim-lang/Nim/issues/26373
+  defField.name.isSameName(field.name) and
+  defField.isSameCaseField(field) and
+  defField.name.lineInfoObj == field.name.lineInfoObj
+
+func definedField(
+    defFields: seq[FieldDescription],
+    field: FieldDescription): FieldDescription =
   var match = -1
   template matchField: FieldDescription = defFields[match]
   for i in 0 ..< defFields.len:
     template defField: FieldDescription = defFields[i]
-    if defField.name.isSameName(field.name) and
-        defField.isSameCaseField(field) and
-        defField.name.lineInfoObj == field.name.lineInfoObj:
+    if defField.isDefinitionOf(field):
       if match == -1:
         match = i
       elif defField.isPublic != matchField.isPublic or
