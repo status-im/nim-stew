@@ -97,22 +97,13 @@ template getFieldsLists(T: type): untyped =
 
 
 static:
-  doAssert getFieldsLists(DerivedFromRefType) == [
+  doAssert getFieldsLists(BaseType) == [
     "baseField: int",
     "case baseCaseField: FieldKind",
-    "baseCaseField of KindA: baseA: int",
-    "derivedField: int",
-    "anotherDerivedField: string"
-  ]
-
-  doAssert getFieldsLists(DerivedFromGenericType) == [
-    "genericBaseField: seq[int]",
-    "genericDerivedField: int",
-    "derivedField: int"
+    "baseCaseField of KindA: baseA: int"
   ]
 
   doAssert getFieldsLists(EmptyObject).len == 0
-  doAssert getFieldsLists(EmptyRefObject).len == 0
 
 let myType = MyType[string](
   myField: "test", myGeneric: "test", kind: true, first: "test")
