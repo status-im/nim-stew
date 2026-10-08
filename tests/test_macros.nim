@@ -167,6 +167,27 @@ template whenCaseType(typeName, sameField: untyped) =
 
 whenCaseType(WhenCaseType, sameField)
 
+template gensymBaseType(typeName: untyped) =
+  type
+    GensymBaseType = object of RootObj
+      gensymBaseField {.zero.}: int
+    typeName = object of GensymBaseType
+
+gensymBaseType(DerivedFromGensymType)
+
+macro macroType(): untyped =
+  let
+    pragmas = nnkPragma.newTree(ident "zero")
+    field = nnkIdentDefs.newTree(
+      nnkPragmaExpr.newTree(ident "macroField", pragmas),
+      ident "int", newEmptyNode())
+    objectType = nnkObjectTy.newTree(
+      newEmptyNode(), newEmptyNode(), nnkRecList.newTree(field))
+  nnkTypeSection.newTree(
+    nnkTypeDef.newTree(ident "MacroType", newEmptyNode(), objectType))
+
+macroType()
+
 func fieldsList(typeImpl: NimNode): NimNode =
   let fields = newTree(nnkBracket)
   for f in recordFields(typeImpl):
@@ -321,6 +342,14 @@ static:
   doAssert getFieldsLists(WhenCaseType) == [
     "case second: bool",
     "second of true: sameField: string {.one(\"second\").}"
+  ]
+
+  doAssert getFieldsLists(DerivedFromGensymType) == [
+    "gensymBaseField: int {.zero.}"
+  ]
+
+  doAssert getFieldsLists(MacroType) == [
+    "macroField: int {.zero.}"
   ]
 
   doAssert getFieldsLists(PublicType) == [
