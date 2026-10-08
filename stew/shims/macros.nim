@@ -163,6 +163,26 @@ func collectFieldsFromRecList(
   else:
     raiseAssert "Unexpected nodes in recordFields:\n" & n.treeRepr
 
+func objectDefinition(typeInst: NimNode): NimNode =
+  var typeSym = if typeInst.kind == nnkBracketExpr: typeInst[0] else: typeInst
+  while typeSym.kind == nnkSym:
+    let typeDef = getImpl(typeSym)
+    if typeDef.kind != nnkTypeDef:
+      break
+    var body = typeDef[2]
+    if body.kind in {nnkRefTy, nnkPtrTy}:
+      body = body[0]
+    case body.kind
+    of nnkObjectTy:
+      return body
+    of nnkSym:
+      typeSym = body
+    of nnkBracketExpr:
+      typeSym = body[0]
+    else:
+      break
+  nil
+
 func collectFieldsInHierarchy(
     fields: var seq[FieldDescription], objectType: NimNode) =
   var objectType = objectType
@@ -174,18 +194,13 @@ func collectFieldsInHierarchy(
 
   objectType.expectKind nnkObjectTy
 
-  var baseType = objectType[1]
+  let baseType = objectType[1]
   if baseType.kind != nnkEmpty:
     baseType.expectKind nnkOfInherit
-    baseType = baseType[0]
-    if baseType.kind == nnkBracketExpr:
-      baseType = baseType[0]
-    baseType.expectKind nnkSym
-    baseType = getImpl(baseType)
-    baseType.expectKind nnkTypeDef
-    baseType = baseType[2]
-    baseType.expectKind {nnkObjectTy, nnkRefTy, nnkPtrTy}
-    collectFieldsInHierarchy fields, baseType
+    let baseDef = baseType[0].objectDefinition
+    if baseDef == nil:
+      macros.error("object type expected", baseType[0])
+    collectFieldsInHierarchy fields, baseDef
 
   let recList = objectType[2]
   collectFieldsFromRecList fields, recList
@@ -242,26 +257,6 @@ func definedField(
   var defField = matchField
   defField.typ = field.typ
   defField
-
-func objectDefinition(typeInst: NimNode): NimNode =
-  var typeSym = if typeInst.kind == nnkBracketExpr: typeInst[0] else: typeInst
-  while typeSym.kind == nnkSym:
-    let typeDef = getImpl(typeSym)
-    if typeDef.kind != nnkTypeDef:
-      break
-    var body = typeDef[2]
-    if body.kind in {nnkRefTy, nnkPtrTy}:
-      body = body[0]
-    case body.kind
-    of nnkObjectTy:
-      return body
-    of nnkSym:
-      typeSym = body
-    of nnkBracketExpr:
-      typeSym = body[0]
-    else:
-      break
-  nil
 
 func collectFieldsFromType(
     fields: var seq[FieldDescription], typeInst, typeImpl: NimNode) =

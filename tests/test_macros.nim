@@ -269,6 +269,12 @@ macro quotedPtrFieldsLists(): untyped =
       quotedField {.zero.}: int
   untypedFieldsLists(typeSection[0])
 
+macro quotedRefFieldsLists(): untyped =
+  let typeSection = quote do:
+    type U = ref object of RefBaseType
+      quotedField {.zero.}: int
+  untypedFieldsLists(typeSection[0])
+
 func zeroFields(T: type): seq[string] =
   var fields: seq[string]
   for name, _ in default(T).fieldPairs:
@@ -459,6 +465,12 @@ static:
 
   doAssert quotedPtrFieldsLists() == [
     "ptrBaseField: int {.zero.}",
+    "quotedField: int {.zero.}"
+  ]
+
+  doAssert quotedRefFieldsLists() == [
+    "case refBaseKind: bool {.zero.}",
+    "refBaseKind of true: refBaseField: int {.one(\"ref\").}",
     "quotedField: int {.zero.}"
   ]
 
