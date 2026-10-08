@@ -243,14 +243,24 @@ func definedField(
   defField
 
 func objectDefinition(typeInst: NimNode): NimNode =
-  let typeSym = if typeInst.kind == nnkBracketExpr: typeInst[0] else: typeInst
-  let typeDef = getImpl(typeSym)
-  if typeDef.kind != nnkTypeDef:
-    return nil
-  var body = typeDef[2]
-  if body.kind in {nnkRefTy, nnkPtrTy}:
-    body = body[0]
-  if body.kind == nnkObjectTy: body else: nil
+  var typeSym = if typeInst.kind == nnkBracketExpr: typeInst[0] else: typeInst
+  while typeSym.kind == nnkSym:
+    let typeDef = getImpl(typeSym)
+    if typeDef.kind != nnkTypeDef:
+      break
+    var body = typeDef[2]
+    if body.kind in {nnkRefTy, nnkPtrTy}:
+      body = body[0]
+    case body.kind
+    of nnkObjectTy:
+      return body
+    of nnkSym:
+      typeSym = body
+    of nnkBracketExpr:
+      typeSym = body[0]
+    else:
+      break
+  nil
 
 func collectFieldsFromType(
     fields: var seq[FieldDescription], typeInst, typeImpl: NimNode) =

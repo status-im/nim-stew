@@ -44,7 +44,7 @@ type
     anotherDerivedField: string
 
   GenericBaseType[T] = object of RootObj
-    genericBaseField: T
+    genericBaseField {.zero.}: T
 
   GenericDerivedType[T] = object of GenericBaseType[seq[T]]
     genericDerivedField: T
@@ -169,23 +169,23 @@ static:
   ]
 
   doAssert getFieldsLists(GenericDerivedType[int]) == [
-    "genericBaseField: seq[int]",
+    "genericBaseField: seq[int] {.zero.}",
     "genericDerivedField: int"
   ]
 
   doAssert getFieldsLists(DerivedFromGenericType) == [
-    "genericBaseField: seq[int]",
+    "genericBaseField: seq[int] {.zero.}",
     "genericDerivedField: int",
     "derivedField: int"
   ]
 
   doAssert getFieldsLists(DerivedFromAliasType) == [
-    "genericBaseField: int",
+    "genericBaseField: int {.zero.}",
     "aliasDerivedField: int"
   ]
 
   doAssert getFieldsLists(TypeofAliasType) == [
-    "genericBaseField: int",
+    "genericBaseField: int {.zero.}",
     "aliasDerivedField: int"
   ]
 
@@ -203,12 +203,12 @@ static:
   ]
 
   doAssert getFieldsLists(PublicType) == [
-    "genericBaseField: int",
+    "genericBaseField: int {.zero.}",
     "publicField*: int {.zero.}"
   ]
 
   doAssert getFieldsLists(PtrType) == [
-    "genericBaseField: int",
+    "genericBaseField: int {.zero.}",
     "ptrField: int {.zero.}"
   ]
 
