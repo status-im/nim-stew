@@ -366,19 +366,20 @@ func getPragma(
   error "The type " & $typ & " doesn't have a field named " & lookedUpField
 
 macro getCustomPragmaFixed*(T: type, field: static string, pragma: typed{nkSym}): untyped =
-  result = nil
   let p = getPragma(T, field, pragma)
+  if p == nil or p.len == 0:
+    return nil
+  if p.len == 2:
+    return p[1]
 
-  if p != nil and p.len > 0:
-    if p.len == 2:
-      result = p[1]
-    else:
-      let def = p[0].getImpl[3]
-      result = newTree(nnkPar)
-      for i in 1 ..< def.len:
-        let key = def[i][0]
-        let val = p[i]
-        result.add newTree(nnkExprColonExpr, key, val)
+  let
+    def = p[0].getImpl[3]
+    args = newTree(nnkPar)
+  for i in 1 ..< def.len:
+    let key = def[i][0]
+    let val = p[i]
+    args.add newTree(nnkExprColonExpr, key, val)
+  args
 
 macro hasCustomPragmaFixed*(T: type, field: static string, pragma: typed{nkSym}): untyped =
   newLit(getPragma(T, field, pragma) != nil)
