@@ -112,6 +112,11 @@ type
 
   PublicType* {.zero.} = ref object of GenericBaseType[int]
     publicField* {.zero.}: int
+    case publicKind* {.zero.}: bool
+    of true:
+      publicBranch*: int
+    of false:
+      discard
 
   PtrType = ptr object of GenericBaseType[int]
     ptrField {.zero.}: int
@@ -127,6 +132,19 @@ type
       quotedBranch {.zero.}: int
     of false:
       discard
+
+  SharedIdentDefsType = object
+    sharedA, sharedB {.zero.}: int
+    sharedC* {.one("c").}, sharedD: string
+
+  NestedCaseType = object
+    case outerKind: FieldKind
+    of KindA, KindB:
+      case innerKind {.zero.}: range[0 .. 3]
+      of 1 .. 2:
+        nestedField {.one("nested").}: int
+      else:
+        discard
 
   EmptyObject = object
   EmptyRefObject = ref object
@@ -307,7 +325,9 @@ static:
 
   doAssert getFieldsLists(PublicType) == [
     "genericBaseField: int {.zero.}",
-    "publicField*: int {.zero.}"
+    "publicField*: int {.zero.}",
+    "case publicKind*: bool {.zero.}",
+    "publicKind* of true: publicBranch*: int"
   ]
 
   doAssert getFieldsLists(PtrType) == [
@@ -320,6 +340,19 @@ static:
     "`type`: int",
     "case `quoted kind`: bool",
     "quotedkind of true: quotedBranch: int {.zero.}"
+  ]
+
+  doAssert getFieldsLists(SharedIdentDefsType) == [
+    "sharedA: int",
+    "sharedB: int {.zero.}",
+    "sharedC*: string {.one(\"c\").}",
+    "sharedD: string"
+  ]
+
+  doAssert getFieldsLists(NestedCaseType) == [
+    "case outerKind: FieldKind",
+    "outerKind of KindA, KindB: case innerKind: range[0 .. 3] {.zero.}",
+    "innerKind of 1 .. 2: nestedField: int {.one(\"nested\").}"
   ]
 
   doAssert getFieldsLists(EmptyObject).len == 0
