@@ -52,6 +52,10 @@ type
   DerivedFromGenericType = object of GenericDerivedType[int]
     derivedField: int
 
+  QuotedType = object
+    `quoted field` {.one("quoted").}: int
+    `type`: int
+
   EmptyObject = object
   EmptyRefObject = ref object
 
@@ -135,6 +139,9 @@ suite "Macros":
       myType.type.hasCustomPragmaFixed("first", zero)
       myType.type.hasCustomPragmaFixed("second", zero)
 
+      QuotedType.hasCustomPragmaFixed("quotedField", one)
+      not QuotedType.hasCustomPragmaFixed("type", one)
+
   test "getCustomPragmaFixed":
     check:
       myType.type.getCustomPragmaFixed("myField", unknown).isNil
@@ -146,3 +153,5 @@ suite "Macros":
       myType.type.getCustomPragmaFixed("kind", zero).isNil
       myType.type.getCustomPragmaFixed("first", zero).isNil
       myType.type.getCustomPragmaFixed("second", zero).isNil
+
+      QuotedType.getCustomPragmaFixed("quotedField", one) == "quoted"

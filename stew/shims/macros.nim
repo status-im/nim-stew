@@ -192,6 +192,12 @@ func collectFieldsInHierarchy(
   let recList = objectType[2]
   collectFieldsFromRecList fields, recList
 
+func isSameName(declaredName, name: NimNode): bool =
+  if declaredName.kind == nnkAccQuoted and declaredName.len > 1:
+    eqIdent($declaredName, name)  # https://github.com/nim-lang/Nim/issues/26383
+  else:
+    eqIdent(declaredName, name)
+
 func collectFieldsFromType(
     fields: var seq[FieldDescription], typeImpl: NimNode) =
   var typeImpl = typeImpl
@@ -254,12 +260,11 @@ proc getPragma(T: NimNode, lookedUpField: string, pragma: NimNode): NimNode =
 
   # Index into fields rather than iterate across elements to work around
   # https://github.com/nim-lang/Nim/issues/26273
-  let fields = recordFields(Tresolved.getImpl)
+  let
+    fields = recordFields(Tresolved.getImpl)
+    fieldName = ident(lookedUpField)
   for i in 0 ..< fields.len:
-    var fieldName = fields[i].name
-    # TODO: Fix this in eqIdent
-    if fieldName.kind == nnkAccQuoted: fieldName = fieldName[0]
-    if eqIdent(fieldName, lookedUpField):
+    if fields[i].name.isSameName(fieldName):
       return fields[i].pragmas.findPragma(pragma)
 
   error "The type " & $Tresolved & " doesn't have a field named " & lookedUpField
