@@ -14,6 +14,7 @@ template unknown() {.pragma.}
 template zero() {.pragma.}
 template one(one: string) {.pragma.}
 template two(one: string, two: string) {.pragma.}
+{.pragma: zeroAlias, zero.}
 
 type
   MyType[T] = object
@@ -54,6 +55,9 @@ type
 
   DerivedFromRefBaseType = ref object of RefBaseType
     refBaseDerivedField {.zero.}: int
+
+  ErrorType = object of CatchableError
+    errorField {.zero.}: int
 
   GenericBaseType[T] = object of RootObj
     genericBaseField {.zero.}: T
@@ -145,6 +149,9 @@ type
         nestedField {.one("nested").}: int
       else:
         discard
+
+  PragmaAliasType = object
+    aliasField {.zeroAlias.}: int
 
   EmptyObject = object
   EmptyRefObject = ref object
@@ -282,6 +289,8 @@ static:
     "refBaseDerivedField: int {.zero.}"
   ]
 
+  doAssert getFieldsLists(ErrorType)[^1] == "errorField: int {.zero.}"
+
   doAssert getFieldsLists(GenericDerivedType[int]) == [
     "genericBaseField: seq[int] {.zero.}",
     "genericDerivedField: int"
@@ -384,6 +393,10 @@ static:
     "innerKind of 1 .. 2: nestedField: int {.one(\"nested\").}"
   ]
 
+  doAssert getFieldsLists(PragmaAliasType) == [
+    "aliasField: int {.zero.}"
+  ]
+
   doAssert getFieldsLists(EmptyObject).len == 0
   doAssert getFieldsLists(EmptyRefObject).len == 0
 
@@ -406,6 +419,13 @@ static:
       untypedField {.zero.}: int
   doAssert untypedPtrFieldsLists == [
     "untypedField: int {.zero.}"
+  ]
+
+  const untypedGenericFieldsLists = getUntypedFieldsLists:
+    type U[T] = object
+      untypedField {.zero.}: T
+  doAssert untypedGenericFieldsLists == [
+    "untypedField: T {.zero.}"
   ]
 
   doAssert quotedPtrFieldsLists() == [
