@@ -54,6 +54,7 @@ type
 
   IntBaseType = GenericBaseType[int]
   AliasBaseType = IntBaseType
+  RefIntBaseType = ref GenericBaseType[int]
 
   DerivedFromAliasType = object of AliasBaseType
     aliasDerivedField {.zero.}: int
@@ -209,6 +210,10 @@ static:
   doAssert getFieldsLists(DerivedFromAliasType) == [
     "genericBaseField: int {.zero.}",
     "aliasDerivedField: int {.zero.}"
+  ]
+
+  doAssert getFieldsLists(RefIntBaseType) == [
+    "genericBaseField: int {.zero.}"
   ]
 
   doAssert getFieldsLists(TypeofAliasType) == [
