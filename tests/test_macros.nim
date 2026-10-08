@@ -64,6 +64,13 @@ type
   DerivedFromGenericType = object of GenericDerivedType[int]
     derivedField: int
 
+  MultiBaseType[A, B] = object of RootObj
+    multiBaseField {.two("multi", "base").}: A
+    multiOtherField: B
+
+  MultiDerivedType[A, B] = object of MultiBaseType[B, A]
+    multiDerivedField: A
+
   IntBaseType = GenericBaseType[int]
   AliasBaseType = IntBaseType
   RefIntBaseType = ref GenericBaseType[int]
@@ -87,6 +94,21 @@ type
   # `WhenRefType[T] = ref object`: https://github.com/nim-lang/Nim/issues/26374
 
   DerivedFromWhenType = object of WhenBaseType[string]
+
+  StaticType[N: static int] = object
+    staticField {.zero.}: array[N, byte]
+    when N > 1:
+      staticWhenField {.one("big").}: int
+
+  WhenInCaseType[T] = object
+    case whenInCaseKind: bool
+    of true:
+      when T is int:
+        whenInCaseField {.zero.}: int
+      else:
+        whenInCaseField {.one("else").}: string
+    of false:
+      discard
 
   PublicType* {.zero.} = ref object of GenericBaseType[int]
     publicField* {.zero.}: int
@@ -232,6 +254,12 @@ static:
     "derivedField: int"
   ]
 
+  doAssert getFieldsLists(MultiDerivedType[int, string]) == [
+    "multiBaseField: string {.two(\"multi\", \"base\").}",
+    "multiOtherField: int",
+    "multiDerivedField: int"
+  ]
+
   doAssert getFieldsLists(DerivedFromAliasType) == [
     "genericBaseField: int {.zero.}",
     "aliasDerivedField: int {.zero.}"
@@ -260,6 +288,16 @@ static:
 
   doAssert getFieldsLists(DerivedFromWhenType) == [
     "whenField: string {.one(\"else\").}"
+  ]
+
+  doAssert getFieldsLists(StaticType[2]) == [
+    "staticField: array[0 .. 1, byte] {.zero.}",
+    "staticWhenField: int {.one(\"big\").}"
+  ]
+
+  doAssert getFieldsLists(WhenInCaseType[string]) == [
+    "case whenInCaseKind: bool",
+    "whenInCaseKind of true: whenInCaseField: string {.one(\"else\").}"
   ]
 
   doAssert getFieldsLists(WhenCaseType) == [
