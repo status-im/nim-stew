@@ -10,6 +10,8 @@ import
   unittest2,
   ../stew/shims/macros
 
+from ./test_macros_helpers import helperZero, HelperBaseType
+
 template unknown() {.pragma.}
 template zero() {.pragma.}
 template one(one: string) {.pragma.}
@@ -58,6 +60,9 @@ type
 
   ErrorType = object of CatchableError
     errorField {.zero.}: int
+
+  DerivedFromHelperType = object of HelperBaseType
+    helperDerivedField: int
 
   GenericBaseType[T] = object of RootObj
     genericBaseField {.zero.}: T
@@ -303,6 +308,16 @@ static:
 
   doAssert getFieldsLists(ErrorType)[^1] == "errorField: int {.zero.}"
 
+  doAssert getFieldsLists(test_macros_helpers.MyType) == [
+    "helperField*: int {.helperZero.}"
+  ]
+
+  doAssert getFieldsLists(DerivedFromHelperType) == [
+    "helperBaseField*: int {.helperZero.}",
+    "helperPrivateField: int {.helperZero.}",
+    "helperDerivedField: int"
+  ]
+
   doAssert getFieldsLists(GenericDerivedType[int]) == [
     "genericBaseField: seq[int] {.zero.}",
     "genericDerivedField: int"
@@ -464,10 +479,14 @@ suite "Macros":
       myType.type.hasCustomPragmaFixed("kind", zero)
       myType.type.hasCustomPragmaFixed("first", zero)
       myType.type.hasCustomPragmaFixed("second", zero)
+      not myType.type.hasCustomPragmaFixed("myField", helperZero)
 
       DerivedFromRefBaseType.hasCustomPragmaFixed("refBaseKind", zero)
       ErrorType.hasCustomPragmaFixed("errorField", zero)
       not ErrorType.hasCustomPragmaFixed("msg", zero)
+      test_macros_helpers.MyType.hasCustomPragmaFixed("helperField", helperZero)
+      not test_macros_helpers.MyType.hasCustomPragmaFixed("helperField", zero)
+      DerivedFromHelperType.hasCustomPragmaFixed("helperBaseField", helperZero)
       MultiDerivedType[int, string].hasCustomPragmaFixed("multiBaseField", two)
       not WhenBaseType[string].hasCustomPragmaFixed("whenField", zero)
       WhenBaseType[string].hasCustomPragmaFixed("whenField", one)
