@@ -19,7 +19,7 @@ type
 const
   nnkPragmaCallKinds = {nnkExprColonExpr, nnkCall, nnkCallStrLit}
 
-proc hash*(x: LineInfo): Hash =
+func hash*(x: LineInfo): Hash =
   !$(hash(x.filename) !& hash(x.line) !& hash(x.column))
 
 var
@@ -73,21 +73,19 @@ func findPragma*(pragmas: NimNode, pragmaSym: NimNode): NimNode =
     if p.kind in nnkPragmaCallKinds and p.len > 0 and eqIdent(p[0], pragmaSym):
       return p
 
-func isTuple*(t: NimNode): bool =
-  t.kind == nnkBracketExpr and t[0].kind == nnkSym and eqIdent(t[0], "tuple")
+func isTuple*(typ: NimNode): bool =
+  typ.kind == nnkBracketExpr and
+  typ[0].kind == nnkSym and
+  eqIdent(typ[0], "tuple")
 
 macro isTuple*(T: type): untyped =
   newLit(isTuple(getType(T)[1]))
 
-func skipRef*(T: NimNode): NimNode =
-  result = T
-  if T.kind == nnkBracketExpr and eqIdent(T[0], "ref"):
-    result = T[1]
+func skipRef*(typ: NimNode): NimNode =
+  if typ.kind == nnkBracketExpr and eqIdent(typ[0], "ref"): typ[1] else: typ
 
-func skipPtr*(T: NimNode): NimNode =
-  result = T
-  if T.kind == nnkBracketExpr and eqIdent(T[0], "ptr"):
-    result = T[1]
+func skipPtr*(typ: NimNode): NimNode =
+  if typ.kind == nnkBracketExpr and eqIdent(typ[0], "ptr"): typ[1] else: typ
 
 template readPragma*(
     field: FieldDescription, pragmaName: static string): NimNode =
@@ -346,25 +344,26 @@ func recordFields*(typ: NimNode): seq[FieldDescription] =
 macro field*(obj: typed, fieldName: static string): untyped =
   newDotExpr(obj, ident fieldName)
 
-proc skipPragma*(n: NimNode): NimNode =
+func skipPragma*(n: NimNode): NimNode =
   if n.kind == nnkPragmaExpr: n[0]
   else: n
 
-proc getPragma(T: NimNode, lookedUpField: string, pragma: NimNode): NimNode =
-  let Tresolved = getType(T)[1]
-  if isTuple(Tresolved):
+func getPragma(
+    typedescNode: NimNode, lookedUpField: string, pragma: NimNode): NimNode =
+  let typ = getType(typedescNode)[1]
+  if isTuple(typ):
     return nil
 
   # Index into fields rather than iterate across elements to work around
   # https://github.com/nim-lang/Nim/issues/26273
   let
-    fields = recordFields(Tresolved.getImpl)
+    fields = recordFields(typ.getImpl)
     fieldName = ident(lookedUpField)
   for i in 0 ..< fields.len:
     if fields[i].name.isSameName(fieldName):
       return fields[i].pragmas.findPragma(pragma)
 
-  error "The type " & $Tresolved & " doesn't have a field named " & lookedUpField
+  error "The type " & $typ & " doesn't have a field named " & lookedUpField
 
 macro getCustomPragmaFixed*(T: type, field: static string, pragma: typed{nkSym}): untyped =
   result = nil
@@ -384,80 +383,80 @@ macro getCustomPragmaFixed*(T: type, field: static string, pragma: typed{nkSym})
 macro hasCustomPragmaFixed*(T: type, field: static string, pragma: typed{nkSym}): untyped =
   newLit(getPragma(T, field, pragma) != nil)
 
-proc humaneTypeName*(typedescNode: NimNode): string =
-  var t = getType(typedescNode)[1]
-  if t.kind != nnkBracketExpr:
-    let tImpl = t.getImpl
-    if tImpl != nil and tImpl.kind notin {nnkEmpty, nnkNilLit}:
-      t = tImpl
+func humaneTypeName*(typedescNode: NimNode): string =
+  var typ = getType(typedescNode)[1]
+  if typ.kind != nnkBracketExpr:
+    let typeDef = typ.getImpl
+    if typeDef != nil and typeDef.kind notin {nnkEmpty, nnkNilLit}:
+      typ = typeDef
 
-  repr(t)
+  repr(typ)
 
 macro inspectType*(T: typed): untyped =
   echo "Inspect type: ", humaneTypeName(T)
 
 # FIXED NewLit
 
-proc newLitFixed*(c: char): NimNode {.compileTime.} =
+func newLitFixed*(c: char): NimNode {.compileTime.} =
   ## Produces a new character literal node.
   result = newNimNode(nnkCharLit)
   result.intVal = ord(c)
 
-proc newLitFixed*(i: int): NimNode {.compileTime.} =
+func newLitFixed*(i: int): NimNode {.compileTime.} =
   ## Produces a new integer literal node.
   result = newNimNode(nnkIntLit)
   result.intVal = i
 
-proc newLitFixed*(i: int8): NimNode {.compileTime.} =
+func newLitFixed*(i: int8): NimNode {.compileTime.} =
   ## Produces a new integer literal node.
   result = newNimNode(nnkInt8Lit)
   result.intVal = i
 
-proc newLitFixed*(i: int16): NimNode {.compileTime.} =
+func newLitFixed*(i: int16): NimNode {.compileTime.} =
   ## Produces a new integer literal node.
   result = newNimNode(nnkInt16Lit)
   result.intVal = i
 
-proc newLitFixed*(i: int32): NimNode {.compileTime.} =
+func newLitFixed*(i: int32): NimNode {.compileTime.} =
   ## Produces a new integer literal node.
   result = newNimNode(nnkInt32Lit)
   result.intVal = i
 
-proc newLitFixed*(i: int64): NimNode {.compileTime.} =
+func newLitFixed*(i: int64): NimNode {.compileTime.} =
   ## Produces a new integer literal node.
   result = newNimNode(nnkInt64Lit)
   result.intVal = i
 
-proc newLitFixed*(i: uint): NimNode {.compileTime.} =
+func newLitFixed*(i: uint): NimNode {.compileTime.} =
   ## Produces a new unsigned integer literal node.
   result = newNimNode(nnkUIntLit)
   result.intVal = BiggestInt(i)
 
-proc newLitFixed*(i: uint8): NimNode {.compileTime.} =
+func newLitFixed*(i: uint8): NimNode {.compileTime.} =
   ## Produces a new unsigned integer literal node.
   result = newNimNode(nnkUInt8Lit)
   result.intVal = BiggestInt(i)
 
-proc newLitFixed*(i: uint16): NimNode {.compileTime.} =
+func newLitFixed*(i: uint16): NimNode {.compileTime.} =
   ## Produces a new unsigned integer literal node.
   result = newNimNode(nnkUInt16Lit)
   result.intVal = BiggestInt(i)
 
-proc newLitFixed*(i: uint32): NimNode {.compileTime.} =
+func newLitFixed*(i: uint32): NimNode {.compileTime.} =
   ## Produces a new unsigned integer literal node.
   result = newNimNode(nnkUInt32Lit)
   result.intVal = BiggestInt(i)
 
-proc newLitFixed*(i: uint64): NimNode {.compileTime.} =
+func newLitFixed*(i: uint64): NimNode {.compileTime.} =
   ## Produces a new unsigned integer literal node.
   result = newNimNode(nnkUInt64Lit)
   result.intVal = BiggestInt(i)
 
-proc newLitFixed*(b: bool): NimNode {.compileTime.} =
+func newLitFixed*(b: bool): NimNode {.compileTime.} =
   ## Produces a new boolean literal node.
   result = if b: bindSym"true" else: bindSym"false"
 
-proc newLitFixed*(s: string): NimNode {.compileTime.} =
+func newLitFixed*(s: string): NimNode {.compileTime.} =
   ## Produces a new string literal node.
   result = newNimNode(nnkStrLit)
   result.strVal = s
@@ -469,12 +468,12 @@ when false:
     result = newNimNode(nnkFloatLit)
     result.floatVal = f
 
-proc newLitFixed*(f: float32): NimNode {.compileTime.} =
+func newLitFixed*(f: float32): NimNode {.compileTime.} =
   ## Produces a new float literal node.
   result = newNimNode(nnkFloat32Lit)
   result.floatVal = f
 
-proc newLitFixed*(f: float64): NimNode {.compileTime.} =
+func newLitFixed*(f: float64): NimNode {.compileTime.} =
   ## Produces a new float literal node.
   result = newNimNode(nnkFloat64Lit)
   result.floatVal = f
@@ -485,34 +484,34 @@ when declared(float128):
     result = newNimNode(nnkFloat128Lit)
     result.floatVal = f
 
-proc newLitFixed*(arg: enum): NimNode {.compileTime.} =
+func newLitFixed*(arg: enum): NimNode {.compileTime.} =
   result = newCall(
     arg.type.getTypeInst[1],
     newLitFixed(int(arg))
   )
 
-proc newLitFixed*[N,T](arg: array[N,T]): NimNode {.compileTime.}
-proc newLitFixed*[T](arg: seq[T]): NimNode {.compileTime.}
-proc newLitFixed*[T](s: set[T]): NimNode {.compileTime.}
-proc newLitFixed*(arg: tuple): NimNode {.compileTime.}
+func newLitFixed*[N,T](arg: array[N,T]): NimNode {.compileTime.}
+func newLitFixed*[T](arg: seq[T]): NimNode {.compileTime.}
+func newLitFixed*[T](s: set[T]): NimNode {.compileTime.}
+func newLitFixed*(arg: tuple): NimNode {.compileTime.}
 
-proc newLitFixed*(arg: object): NimNode {.compileTime.} =
+func newLitFixed*(arg: object): NimNode {.compileTime.} =
   result = nnkObjConstr.newTree(arg.type.getTypeInst[1])
   for a, b in arg.fieldPairs:
     result.add nnkExprColonExpr.newTree( newIdentNode(a), newLitFixed(b) )
 
-proc newLitFixed*(arg: ref object): NimNode {.compileTime.} =
+func newLitFixed*(arg: ref object): NimNode {.compileTime.} =
   ## produces a new ref type literal node.
   result = nnkObjConstr.newTree(arg.type.getTypeInst[1])
   for a, b in fieldPairs(arg[]):
     result.add nnkExprColonExpr.newTree(newIdentNode(a), newLitFixed(b))
 
-proc newLitFixed*[N,T](arg: array[N,T]): NimNode {.compileTime.} =
+func newLitFixed*[N,T](arg: array[N,T]): NimNode {.compileTime.} =
   result = nnkBracket.newTree
   for x in arg:
     result.add newLitFixed(x)
 
-proc newLitFixed*[T](arg: seq[T]): NimNode {.compileTime.} =
+func newLitFixed*[T](arg: seq[T]): NimNode {.compileTime.} =
   let bracket = nnkBracket.newTree
   for x in arg:
     bracket.add newLitFixed(x)
@@ -525,17 +524,17 @@ proc newLitFixed*[T](arg: seq[T]): NimNode {.compileTime.} =
     var typ = getTypeInst(typeof(arg))[1]
     result = newCall(typ,result)
 
-proc newLitFixed*[T](s: set[T]): NimNode {.compileTime.} =
+func newLitFixed*[T](s: set[T]): NimNode {.compileTime.} =
   result = nnkCurly.newTree
   for x in s:
     result.add newLitFixed(x)
 
-proc newLitFixed*(arg: tuple): NimNode {.compileTime.} =
+func newLitFixed*(arg: tuple): NimNode {.compileTime.} =
   result = nnkPar.newTree
   for a,b in arg.fieldPairs:
     result.add nnkExprColonExpr.newTree(newIdentNode(a), newLitFixed(b))
 
-proc newLitFixed*(arg: distinct): NimNode {.compileTime.} =
+func newLitFixed*(arg: distinct): NimNode {.compileTime.} =
   result = newLitFixed distinctBase(arg)
   var typ = getTypeInst(typeof(arg))[1]
   result = newCall(typ,result)
