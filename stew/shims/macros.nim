@@ -283,6 +283,8 @@ func collectFieldsFromType(
     def = typeImpl.getTypeInst.objectDefinition
   if def == nil:
     # https://github.com/nim-lang/Nim/issues/22937
+    warning("definition of " & typeInst.repr &
+      " not found, its field pragmas are ignored", typeInst)
     for i in 0 ..< implFields.len:
       var field = implFields[i]
       field.isPublic = field.name.isExported
