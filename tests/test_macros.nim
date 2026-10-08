@@ -43,6 +43,18 @@ type
   DerivedFromRefType = ref object of DerivedType
     anotherDerivedField: string
 
+  RefBaseObject = object of RootObj
+    case refBaseKind {.zero.}: bool
+    of true:
+      refBaseField {.one("ref").}: int
+    of false:
+      discard
+
+  RefBaseType = ref RefBaseObject
+
+  DerivedFromRefBaseType = ref object of RefBaseType
+    refBaseDerivedField {.zero.}: int
+
   GenericBaseType[T] = object of RootObj
     genericBaseField {.zero.}: T
 
@@ -194,6 +206,19 @@ static:
     "baseCaseField of KindA: baseA: int",
     "derivedField: int",
     "anotherDerivedField: string"
+  ]
+
+  doAssert getFieldsLists(RefBaseType) == [
+    "case refBaseKind: bool {.zero.}",
+    "refBaseKind of true: refBaseField: int {.one(\"ref\").}"
+  ]
+
+  doAssert getFieldsLists(ptr RefBaseObject) == getFieldsLists(RefBaseType)
+
+  doAssert getFieldsLists(DerivedFromRefBaseType) == [
+    "case refBaseKind: bool {.zero.}",
+    "refBaseKind of true: refBaseField: int {.one(\"ref\").}",
+    "refBaseDerivedField: int {.zero.}"
   ]
 
   doAssert getFieldsLists(GenericDerivedType[int]) == [
