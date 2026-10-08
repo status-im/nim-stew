@@ -114,6 +114,9 @@ type
     of false:
       discard
 
+  GenericRefType[T] = ref object
+    genericRefField {.zero.}: T
+
   PublicType* {.zero.} = ref object of GenericBaseType[int]
     publicField* {.zero.}: int
     case publicKind* {.zero.}: bool
@@ -449,6 +452,14 @@ suite "Macros":
       myType.type.hasCustomPragmaFixed("first", zero)
       myType.type.hasCustomPragmaFixed("second", zero)
 
+      DerivedFromRefBaseType.hasCustomPragmaFixed("refBaseKind", zero)
+      not WhenBaseType[string].hasCustomPragmaFixed("whenField", zero)
+      WhenBaseType[string].hasCustomPragmaFixed("whenField", one)
+      not WhenInCaseType[string].hasCustomPragmaFixed("whenInCaseField", zero)
+      GenericRefType[int].hasCustomPragmaFixed("genericRefField", zero)
+      PublicType.hasCustomPragmaFixed("publicField", zero)
+      PublicType.hasCustomPragmaFixed("publicKind", zero)
+      PtrType.hasCustomPragmaFixed("ptrField", zero)
       QuotedType.hasCustomPragmaFixed("quotedField", one)
       not QuotedType.hasCustomPragmaFixed("type", one)
 
@@ -464,4 +475,8 @@ suite "Macros":
       myType.type.getCustomPragmaFixed("first", zero).isNil
       myType.type.getCustomPragmaFixed("second", zero).isNil
 
+      DerivedFromRefBaseType.getCustomPragmaFixed("refBaseField", one) == "ref"
+      WhenBaseType[string].getCustomPragmaFixed("whenField", one) == "else"
+      WhenInCaseType[string].getCustomPragmaFixed(
+        "whenInCaseField", one) == "else"
       QuotedType.getCustomPragmaFixed("quotedField", one) == "quoted"

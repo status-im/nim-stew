@@ -357,7 +357,7 @@ func getPragma(
   # Index into fields rather than iterate across elements to work around
   # https://github.com/nim-lang/Nim/issues/26273
   let
-    fields = recordFields(typ.getImpl)
+    fields = recordFields(typ)
     fieldName = ident(lookedUpField)
   for i in 0 ..< fields.len:
     if fields[i].name.isSameName(fieldName):
