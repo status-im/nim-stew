@@ -105,6 +105,11 @@ static:
     "anotherDerivedField: string"
   ]
 
+  doAssert getFieldsLists(GenericDerivedType[int]) == [
+    "genericBaseField: seq[int]",
+    "genericDerivedField: int"
+  ]
+
   doAssert getFieldsLists(DerivedFromGenericType) == [
     "genericBaseField: seq[int]",
     "genericDerivedField: int",

@@ -215,7 +215,7 @@ func recordFields*(typeImpl: NimNode): seq[FieldDescription] =
     return fields
 
   case typeImpl.kind
-  of nnkSym:
+  of nnkSym, nnkBracketExpr:
     collectFieldsFromType(fields, typeImpl.getTypeImpl)
     return fields
   of nnkRefTy, nnkPtrTy:
