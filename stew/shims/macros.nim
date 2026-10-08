@@ -328,7 +328,8 @@ func recordFields*(typ: NimNode): seq[FieldDescription] =
       name = name[1]
     if name.kind == nnkSym and typ[1].kind == nnkEmpty and
         name.getImpl.kind == nnkTypeDef:
-      collectFieldsFromType(fields, name, name.getTypeImpl)
+      # https://github.com/nim-lang/Nim/issues/26399
+      collectFieldsFromType(fields, name, name.getTypeInst.getTypeImpl)
       return fields
   else:
     discard

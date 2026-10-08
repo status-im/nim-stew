@@ -221,6 +221,10 @@ static:
     "aliasDerivedField: int {.zero.}"
   ]
 
+  doAssert getFieldsLists(PublicBaseType[int]) == [
+    "publicBaseField*: int"
+  ]
+
   doAssert getFieldsLists(DerivedFromTypeofGenericType) == [
     "publicBaseField*: int"
   ]
