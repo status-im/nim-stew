@@ -212,36 +212,36 @@ func collectFieldsFromType(
 
   collectFieldsFromRecList fields, typeImpl[2]
 
-func recordFields*(typeImpl: NimNode): seq[FieldDescription] =
+func recordFields*(typ: NimNode): seq[FieldDescription] =
   var fields: seq[FieldDescription]
-  if typeImpl.isTuple:
-    for i in 1 ..< typeImpl.len:
+  if typ.isTuple:
+    for i in 1 ..< typ.len:
       fields.add FieldDescription(
-        typ: typeImpl[i], name: ident("Field" & $(i - 1)))
+        typ: typ[i], name: ident("Field" & $(i - 1)))
     return fields
 
-  case typeImpl.kind
+  case typ.kind
   of nnkSym, nnkBracketExpr:
-    collectFieldsFromType(fields, typeImpl.getTypeImpl)
+    collectFieldsFromType(fields, typ.getTypeImpl)
     return fields
   of nnkRefTy, nnkPtrTy:
-    if typeImpl[0].kind == nnkSym:
-      return recordFields(typeImpl[0])
+    if typ[0].kind == nnkSym:
+      return recordFields(typ[0])
   of nnkObjectTy:
-    let recList = typeImpl[2]
+    let recList = typ[2]
     if recList.kind == nnkRecList and recList.len > 0:
       let firstField = recList[0]
       if firstField.kind == nnkIdentDefs and firstField[0].kind == nnkSym:
-        collectFieldsFromType(fields, typeImpl)
+        collectFieldsFromType(fields, typ)
         return fields
   else:
     discard
 
-  let objectType = case typeImpl.kind
-    of nnkObjectTy: typeImpl
-    of nnkTypeDef: typeImpl[2]
+  let objectType = case typ.kind
+    of nnkObjectTy: typ
+    of nnkTypeDef: typ[2]
     else:
-      macros.error("object type expected", typeImpl)
+      macros.error("object type expected", typ)
 
   collectFieldsInHierarchy(fields, objectType)
   fields
