@@ -194,6 +194,9 @@ func collectFieldsInHierarchy(
 
 func collectFieldsFromType(
     fields: var seq[FieldDescription], typeImpl: NimNode) =
+  var typeImpl = typeImpl
+  while typeImpl.kind in {nnkRefTy, nnkPtrTy}:
+    typeImpl = typeImpl[0].getTypeImpl
   typeImpl.expectKind nnkObjectTy
 
   let baseType = typeImpl[1]
@@ -215,6 +218,9 @@ func recordFields*(typeImpl: NimNode): seq[FieldDescription] =
   of nnkSym:
     collectFieldsFromType(fields, typeImpl.getTypeImpl)
     return fields
+  of nnkRefTy, nnkPtrTy:
+    if typeImpl[0].kind == nnkSym:
+      return recordFields(typeImpl[0])
   else:
     discard
 
