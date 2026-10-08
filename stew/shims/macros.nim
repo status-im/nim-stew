@@ -66,7 +66,7 @@ macro dumpMacroResults*: untyped =
   except IOError as exc:
     doAssert(false, exc.msg)
 
-proc findPragma*(pragmas: NimNode, pragmaSym: NimNode): NimNode =
+func findPragma*(pragmas: NimNode, pragmaSym: NimNode): NimNode =
   for p in pragmas:
     if p.kind in {nnkSym, nnkIdent} and eqIdent(p, pragmaSym):
       return p
@@ -79,12 +79,12 @@ func isTuple*(t: NimNode): bool =
 macro isTuple*(T: type): untyped =
   newLit(isTuple(getType(T)[1]))
 
-proc skipRef*(T: NimNode): NimNode =
+func skipRef*(T: NimNode): NimNode =
   result = T
   if T.kind == nnkBracketExpr and eqIdent(T[0], "ref"):
     result = T[1]
 
-proc skipPtr*(T: NimNode): NimNode =
+func skipPtr*(T: NimNode): NimNode =
   result = T
   if T.kind == nnkBracketExpr and eqIdent(T[0], "ptr"):
     result = T[1]
@@ -94,30 +94,29 @@ template readPragma*(
   let p = findPragma(field.pragmas, bindSym(pragmaName))
   if p != nil and p.len == 2: p[1] else: p
 
-proc collectFieldsFromRecList(result: var seq[FieldDescription],
-                              n: NimNode,
-                              parentCaseField: NimNode = nil,
-                              parentCaseBranch: NimNode = nil,
-                              isDiscriminator = false) =
+func collectFieldsFromRecList(
+    fields: var seq[FieldDescription], n: NimNode,
+    parentCaseField: NimNode = nil, parentCaseBranch: NimNode = nil,
+    isDiscriminator = false) =
   case n.kind
   of nnkRecList:
     for entry in n:
-      collectFieldsFromRecList result, entry,
+      collectFieldsFromRecList fields, entry,
                                parentCaseField, parentCaseBranch
   of nnkRecWhen:
     for branch in n:
       case branch.kind:
       of nnkElifBranch:
-        collectFieldsFromRecList result, branch[1],
+        collectFieldsFromRecList fields, branch[1],
                                  parentCaseField, parentCaseBranch
       of nnkElse:
-        collectFieldsFromRecList result, branch[0],
+        collectFieldsFromRecList fields, branch[0],
                                  parentCaseField, parentCaseBranch
       else:
         doAssert false
 
   of nnkRecCase:
-    collectFieldsFromRecList result, n[0],
+    collectFieldsFromRecList fields, n[0],
                              parentCaseField,
                              parentCaseBranch,
                              isDiscriminator = true
@@ -126,9 +125,9 @@ proc collectFieldsFromRecList(result: var seq[FieldDescription],
       let branch = n[i]
       case branch.kind
       of nnkOfBranch:
-        collectFieldsFromRecList result, branch[^1], n[0], branch
+        collectFieldsFromRecList fields, branch[^1], n[0], branch
       of nnkElse:
-        collectFieldsFromRecList result, branch[0], n[0], branch
+        collectFieldsFromRecList fields, branch[0], n[0], branch
       else:
         doAssert false
 
@@ -150,10 +149,10 @@ proc collectFieldsFromRecList(result: var seq[FieldDescription],
         field.isPublic = true
         field.name = field.name[1]
 
-      result.add field
+      fields.add field
 
   of nnkSym:
-    result.add FieldDescription(
+    fields.add FieldDescription(
       name: n,
       typ: getType(n),
       caseField: parentCaseField,
@@ -164,10 +163,10 @@ proc collectFieldsFromRecList(result: var seq[FieldDescription],
     discard
 
   else:
-    doAssert false, "Unexpected nodes in recordFields:\n" & n.treeRepr
+    raiseAssert "Unexpected nodes in recordFields:\n" & n.treeRepr
 
-proc collectFieldsInHierarchy(result: var seq[FieldDescription],
-                              objectType: NimNode) =
+func collectFieldsInHierarchy(
+    fields: var seq[FieldDescription], objectType: NimNode) =
   var objectType = objectType
 
   objectType.expectKind {nnkObjectTy, nnkRefTy}
@@ -188,21 +187,21 @@ proc collectFieldsInHierarchy(result: var seq[FieldDescription],
     baseType.expectKind nnkTypeDef
     baseType = baseType[2]
     baseType.expectKind {nnkObjectTy, nnkRefTy}
-    collectFieldsInHierarchy result, baseType
+    collectFieldsInHierarchy fields, baseType
 
   let recList = objectType[2]
-  collectFieldsFromRecList result, recList
+  collectFieldsFromRecList fields, recList
 
 func collectFieldsFromType(
-    result: var seq[FieldDescription], typeImpl: NimNode) =
+    fields: var seq[FieldDescription], typeImpl: NimNode) =
   typeImpl.expectKind nnkObjectTy
 
   let baseType = typeImpl[1]
   if baseType.kind != nnkEmpty:
     baseType.expectKind nnkOfInherit
-    collectFieldsFromType result, baseType[0].getTypeImpl
+    collectFieldsFromType fields, baseType[0].getTypeImpl
 
-  collectFieldsFromRecList result, typeImpl[2]
+  collectFieldsFromRecList fields, typeImpl[2]
 
 func recordFields*(typeImpl: NimNode): seq[FieldDescription] =
   var fields: seq[FieldDescription]
