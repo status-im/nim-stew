@@ -60,6 +60,12 @@ type
 
   TypeofAliasType = typeof(DerivedFromAliasType())
 
+  PublicBaseType[T] = object of RootObj
+    publicBaseField*: T
+  TypeofGenericType = typeof(PublicBaseType[int]())
+
+  DerivedFromTypeofGenericType = object of TypeofGenericType
+
   WhenBaseType[T] = object of RootObj
     when T is int:
       whenField {.zero.}: int
@@ -208,6 +214,10 @@ static:
   doAssert getFieldsLists(TypeofAliasType) == [
     "genericBaseField: int {.zero.}",
     "aliasDerivedField: int {.zero.}"
+  ]
+
+  doAssert getFieldsLists(DerivedFromTypeofGenericType) == [
+    "publicBaseField*: int"
   ]
 
   doAssert getFieldsLists(WhenBaseType[int]) == [

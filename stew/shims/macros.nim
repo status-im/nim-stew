@@ -281,7 +281,11 @@ func collectFieldsFromType(
   if def == nil:
     def = typeImpl.getTypeInst.objectDefinition
   if def == nil:
-    fields.add implFields
+    # https://github.com/nim-lang/Nim/issues/22937
+    for i in 0 ..< implFields.len:
+      var field = implFields[i]
+      field.isPublic = field.name.isExported
+      fields.add field
     return
 
   var defFields: seq[FieldDescription]
