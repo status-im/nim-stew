@@ -60,6 +60,12 @@ type
 
   TypeofAliasType = typeof(DerivedFromAliasType())
 
+  PublicType* {.zero.} = ref object of GenericBaseType[int]
+    publicField* {.zero.}: int
+
+  PtrType = ptr object of GenericBaseType[int]
+    ptrField {.zero.}: int
+
   QuotedType = object
     `quoted field` {.one("quoted").}: int
     `type`: int
@@ -150,6 +156,16 @@ static:
   doAssert getFieldsLists(TypeofAliasType) == [
     "genericBaseField: int",
     "aliasDerivedField: int"
+  ]
+
+  doAssert getFieldsLists(PublicType) == [
+    "genericBaseField: int",
+    "publicField*: int {.zero.}"
+  ]
+
+  doAssert getFieldsLists(PtrType) == [
+    "genericBaseField: int",
+    "ptrField: int {.zero.}"
   ]
 
   doAssert getFieldsLists(QuotedType) == [

@@ -213,7 +213,9 @@ func objectDefinition(typeInst: NimNode): NimNode =
   let typeDef = getImpl(typeSym)
   if typeDef.kind != nnkTypeDef:
     return nil
-  let body = typeDef[2]
+  var body = typeDef[2]
+  if body.kind in {nnkRefTy, nnkPtrTy}:
+    body = body[0]
   if body.kind == nnkObjectTy: body else: nil
 
 func collectFieldsFromType(
