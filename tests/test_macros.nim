@@ -75,6 +75,9 @@ type
   PtrType = ptr object of GenericBaseType[int]
     ptrField {.zero.}: int
 
+  PtrBaseType = ptr object of RootObj
+    ptrBaseField {.zero.}: int
+
   QuotedType = object
     `quoted field` {.one("quoted").}: int
     `type`: int
@@ -152,14 +155,22 @@ template getFieldsLists(T: type): untyped =
     doAssert typeDefFieldsLists(T) == res
     res
 
-macro getUntypedFieldsLists(typeSection: untyped): untyped =
-  let typeDef = typeSection[0][0]
+func untypedFieldsLists(typeDef: NimNode): NimNode =
   let genSymTypeDef = typeDef.copyNimTree
   genSymTypeDef[0] = genSym(nskType, $typeDef[0])
   let res = fieldsList(typeDef)
   doAssert fieldsList(typeDef[2]) == res
   doAssert fieldsList(genSymTypeDef) == res
   res
+
+macro getUntypedFieldsLists(typeSection: untyped): untyped =
+  untypedFieldsLists(typeSection[0][0])
+
+macro quotedPtrFieldsLists(): untyped =
+  let typeSection = quote do:
+    type U = ptr object of PtrBaseType
+      quotedField {.zero.}: int
+  untypedFieldsLists(typeSection[0])
 
 static:
   doAssert getFieldsLists(MyType[string]) == [
@@ -251,6 +262,11 @@ static:
       untypedField {.zero.}: int
   doAssert untypedPtrFieldsLists == [
     "untypedField: int {.zero.}"
+  ]
+
+  doAssert quotedPtrFieldsLists() == [
+    "ptrBaseField: int {.zero.}",
+    "quotedField: int {.zero.}"
   ]
 
 let myType = MyType[string](

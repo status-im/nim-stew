@@ -186,7 +186,7 @@ func collectFieldsInHierarchy(
     baseType = getImpl(baseType)
     baseType.expectKind nnkTypeDef
     baseType = baseType[2]
-    baseType.expectKind {nnkObjectTy, nnkRefTy}
+    baseType.expectKind {nnkObjectTy, nnkRefTy, nnkPtrTy}
     collectFieldsInHierarchy fields, baseType
 
   let recList = objectType[2]
