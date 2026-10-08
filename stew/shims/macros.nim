@@ -198,6 +198,25 @@ func isSameName(defName, name: NimNode): bool =
   else:
     eqIdent(defName, name)
 
+func caseFieldName(field: FieldDescription): NimNode =
+  if field.caseField == nil:
+    return nil
+  var name = field.caseField[0]
+  if name.kind == nnkPragmaExpr:
+    name = name[0]
+  if name.kind == nnkPostfix:
+    name = name[1]
+  name
+
+func isSameCaseField(a, b: FieldDescription): bool =
+  let
+    aName = a.caseFieldName
+    bName = b.caseFieldName
+  if aName == nil or bName == nil:
+    aName == nil and bName == nil
+  else:
+    aName.eqIdent(bName)
+
 func definedField(
     defFields: seq[FieldDescription],
     field: FieldDescription): FieldDescription =
@@ -209,6 +228,7 @@ func definedField(
   for i in 0 ..< defFields.len:
     template defField: FieldDescription = defFields[i]
     if defField.name.isSameName(field.name) and
+        defField.isSameCaseField(field) and
         defField.name.lineInfoObj == field.name.lineInfoObj:
       if match == -1:
         match = i
@@ -275,7 +295,9 @@ func recordFields*(typ: NimNode): seq[FieldDescription] =
   of nnkObjectTy:
     let recList = typ[2]
     if recList.kind == nnkRecList and recList.len > 0:
-      let firstField = recList[0]
+      var firstField = recList[0]
+      if firstField.kind == nnkRecCase:
+        firstField = firstField[0]
       if firstField.kind == nnkIdentDefs and firstField[0].kind == nnkSym:
         collectFieldsFromType(fields, typ.getTypeInst, typ)
         return fields

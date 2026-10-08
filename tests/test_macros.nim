@@ -65,10 +65,9 @@ type
       whenField {.zero.}: int
     else:
       whenField {.one("else").}: string
+  # `WhenRefType[T] = ref object`: https://github.com/nim-lang/Nim/issues/26374
 
   DerivedFromWhenType = object of WhenBaseType[string]
-
-  # `WhenRefType[T] = ref object`: https://github.com/nim-lang/Nim/issues/26374
 
   PublicType* {.zero.} = ref object of GenericBaseType[int]
     publicField* {.zero.}: int
@@ -82,6 +81,24 @@ type
 
   EmptyObject = object
   EmptyRefObject = ref object
+
+template whenCaseType(typeName, sameField: untyped) =
+  type typeName = object
+    when false:
+      case first: bool
+      of true:
+        sameField {.zero.}: int
+      of false:
+        discard
+    else:
+      case second: bool
+      of true:
+        sameField {.one("second").}: string
+      of false:
+        discard
+# Using same field without `case`: https://github.com/nim-lang/Nim/issues/26373
+
+whenCaseType(WhenCaseType, sameField)
 
 func fieldsList(typeImpl: NimNode): NimNode =
   let fields = newTree(nnkBracket)
@@ -174,6 +191,11 @@ static:
 
   doAssert getFieldsLists(DerivedFromWhenType) == [
     "whenField: string {.one(\"else\").}"
+  ]
+
+  doAssert getFieldsLists(WhenCaseType) == [
+    "case second: bool",
+    "second of true: sameField: string {.one(\"second\").}"
   ]
 
   doAssert getFieldsLists(PublicType) == [
