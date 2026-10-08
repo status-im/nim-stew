@@ -277,7 +277,9 @@ func collectFieldsFromType(
   var implFields: seq[FieldDescription]
   collectFieldsFromRecList implFields, typeImpl[2]
 
-  let def = typeInst.objectDefinition
+  var def = typeInst.objectDefinition
+  if def == nil:
+    def = typeImpl.getTypeInst.objectDefinition
   if def == nil:
     fields.add implFields
     return
