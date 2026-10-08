@@ -308,13 +308,13 @@ static:
     "multiDerivedField: int"
   ]
 
+  doAssert getFieldsLists(RefIntBaseType) == [
+    "genericBaseField: int {.zero.}"
+  ]
+
   doAssert getFieldsLists(DerivedFromAliasType) == [
     "genericBaseField: int {.zero.}",
     "aliasDerivedField: int {.zero.}"
-  ]
-
-  doAssert getFieldsLists(RefIntBaseType) == [
-    "genericBaseField: int {.zero.}"
   ]
 
   doAssert getFieldsLists(TypeofAliasType) == [
@@ -346,19 +346,6 @@ static:
   doAssert getFieldsLists(WhenInCaseType[string]) == [
     "case whenInCaseKind: bool",
     "whenInCaseKind of true: whenInCaseField: string {.one(\"else\").}"
-  ]
-
-  doAssert getFieldsLists(WhenCaseType) == [
-    "case second: bool",
-    "second of true: sameField: string {.one(\"second\").}"
-  ]
-
-  doAssert getFieldsLists(DerivedFromGensymType) == [
-    "gensymBaseField: int {.zero.}"
-  ]
-
-  doAssert getFieldsLists(MacroType) == [
-    "macroField: int {.zero.}"
   ]
 
   doAssert getFieldsLists(PublicType) == [
@@ -399,6 +386,19 @@ static:
 
   doAssert getFieldsLists(EmptyObject).len == 0
   doAssert getFieldsLists(EmptyRefObject).len == 0
+
+  doAssert getFieldsLists(WhenCaseType) == [
+    "case second: bool",
+    "second of true: sameField: string {.one(\"second\").}"
+  ]
+
+  doAssert getFieldsLists(DerivedFromGensymType) == [
+    "gensymBaseField: int {.zero.}"
+  ]
+
+  doAssert getFieldsLists(MacroType) == [
+    "macroField: int {.zero.}"
+  ]
 
   const untypedFieldsLists = getUntypedFieldsLists:
     type U = object
