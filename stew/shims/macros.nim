@@ -201,13 +201,26 @@ func isSameName(defName, name: NimNode): bool =
 func definedField(
     defFields: seq[FieldDescription],
     field: FieldDescription): FieldDescription =
+  # The compiler has no link from a field symbol back to its definition node,
+  # select the correct definition on a best-effort basis.
+  # https://github.com/nim-lang/Nim/issues/26373
+  var match = -1
+  template matchField: FieldDescription = defFields[match]
   for i in 0 ..< defFields.len:
-    if defFields[i].name.isSameName(field.name) and
-        defFields[i].name.lineInfoObj == field.name.lineInfoObj:
-      var definedField = defFields[i]
-      definedField.typ = field.typ
-      return definedField
-  macros.error("no definition found for field " & $field.name, field.name)
+    template defField: FieldDescription = defFields[i]
+    if defField.name.isSameName(field.name) and
+        defField.name.lineInfoObj == field.name.lineInfoObj:
+      if match == -1:
+        match = i
+      elif defField.isPublic != matchField.isPublic or
+          defField.pragmas != matchField.pragmas or
+          defField.caseBranch != matchField.caseBranch:
+        macros.error("ambiguous definition of field " & $field.name, field.name)
+  if match == -1:
+    macros.error("no definition found for field " & $field.name, field.name)
+  var defField = matchField
+  defField.typ = field.typ
+  defField
 
 func objectDefinition(typeInst: NimNode): NimNode =
   let typeSym = if typeInst.kind == nnkBracketExpr: typeInst[0] else: typeInst
