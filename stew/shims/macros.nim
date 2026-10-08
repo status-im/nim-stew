@@ -193,7 +193,7 @@ proc collectFieldsInHierarchy(result: var seq[FieldDescription],
   let recList = objectType[2]
   collectFieldsFromRecList result, recList
 
-proc recordFields*(typeImpl: NimNode): seq[FieldDescription] =
+func recordFields*(typeImpl: NimNode): seq[FieldDescription] =
   var fields: seq[FieldDescription]
   if typeImpl.isTuple:
     for i in 1 ..< typeImpl.len:
@@ -205,7 +205,7 @@ proc recordFields*(typeImpl: NimNode): seq[FieldDescription] =
     of nnkObjectTy: typeImpl
     of nnkTypeDef: typeImpl[2]
     else:
-      macros.error("object type expected", typeImpl)
+      macros.error("object type expected: " & typeImpl.treeRepr, typeImpl)
 
   collectFieldsInHierarchy(fields, objectType)
   fields
