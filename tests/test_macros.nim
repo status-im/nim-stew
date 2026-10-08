@@ -60,6 +60,16 @@ type
 
   TypeofAliasType = typeof(DerivedFromAliasType())
 
+  WhenBaseType[T] = object of RootObj
+    when T is int:
+      whenField {.zero.}: int
+    else:
+      whenField {.one("else").}: string
+
+  DerivedFromWhenType = object of WhenBaseType[string]
+
+  # `WhenRefType[T] = ref object`: https://github.com/nim-lang/Nim/issues/26374
+
   PublicType* {.zero.} = ref object of GenericBaseType[int]
     publicField* {.zero.}: int
 
@@ -156,6 +166,14 @@ static:
   doAssert getFieldsLists(TypeofAliasType) == [
     "genericBaseField: int",
     "aliasDerivedField: int"
+  ]
+
+  doAssert getFieldsLists(WhenBaseType[int]) == [
+    "whenField: int {.zero.}"
+  ]
+
+  doAssert getFieldsLists(DerivedFromWhenType) == [
+    "whenField: string {.one(\"else\").}"
   ]
 
   doAssert getFieldsLists(PublicType) == [

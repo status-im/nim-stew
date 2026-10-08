@@ -202,7 +202,8 @@ func definedField(
     defFields: seq[FieldDescription],
     field: FieldDescription): FieldDescription =
   for i in 0 ..< defFields.len:
-    if defFields[i].name.isSameName(field.name):
+    if defFields[i].name.isSameName(field.name) and
+        defFields[i].name.lineInfoObj == field.name.lineInfoObj:
       var definedField = defFields[i]
       definedField.typ = field.typ
       return definedField
@@ -265,6 +266,8 @@ func recordFields*(typ: NimNode): seq[FieldDescription] =
       if firstField.kind == nnkIdentDefs and firstField[0].kind == nnkSym:
         collectFieldsFromType(fields, typ.getTypeInst, typ)
         return fields
+    elif typ[1].kind == nnkOfInherit:
+      return recordFields(typ[1][0])
   else:
     discard
 
