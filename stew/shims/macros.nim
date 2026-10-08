@@ -221,6 +221,13 @@ func recordFields*(typeImpl: NimNode): seq[FieldDescription] =
   of nnkRefTy, nnkPtrTy:
     if typeImpl[0].kind == nnkSym:
       return recordFields(typeImpl[0])
+  of nnkObjectTy:
+    let recList = typeImpl[2]
+    if recList.kind == nnkRecList and recList.len > 0:
+      let firstField = recList[0]
+      if firstField.kind == nnkIdentDefs and firstField[0].kind == nnkSym:
+        collectFieldsFromType(fields, typeImpl)
+        return fields
   else:
     discard
 
