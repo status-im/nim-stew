@@ -287,7 +287,8 @@ func recordFields*(typ: NimNode): seq[FieldDescription] =
 
   case typ.kind
   of nnkSym, nnkBracketExpr:
-    collectFieldsFromType(fields, typ, typ.getTypeImpl)
+    let typeInst = skipPtr skipRef typ
+    collectFieldsFromType(fields, typeInst, typeInst.getTypeImpl)
     return fields
   of nnkRefTy, nnkPtrTy:
     if typ[0].kind == nnkSym:

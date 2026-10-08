@@ -126,16 +126,20 @@ func fieldsList(typeImpl: NimNode): NimNode =
   else:
     quote do: array[0, string](`fields`)
 
-macro typeFieldsLists(T: type): untyped =
+macro typeInstFieldsLists(T: type): untyped =
   fieldsList(T.getTypeInst[1])
 
 macro typeImplFieldsLists(T: type): untyped =
   fieldsList(T.getTypeInst[1].getTypeImpl)
 
+macro typeFieldsLists(T: type): untyped =
+  fieldsList(T.getType[1])
+
 template getFieldsLists(T: type): untyped =
   block:
-    const res = typeFieldsLists(T)
+    const res = typeInstFieldsLists(T)
     doAssert typeImplFieldsLists(T) == res
+    doAssert typeFieldsLists(T) == res
     res
 
 macro getUntypedFieldsLists(typeSection: untyped): untyped =
