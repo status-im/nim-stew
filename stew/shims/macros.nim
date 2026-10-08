@@ -328,7 +328,7 @@ func recordFields*(typ: NimNode): seq[FieldDescription] =
     discard
 
   let objectType = case typ.kind
-    of nnkObjectTy: typ
+    of nnkObjectTy, nnkRefTy: typ
     of nnkTypeDef: typ[2]
     else:
       macros.error("object type expected", typ)

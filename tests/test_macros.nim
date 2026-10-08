@@ -232,6 +232,13 @@ static:
     "untypedField: int {.zero.}"
   ]
 
+  const untypedRefFieldsLists = getUntypedFieldsLists:
+    type U = ref object
+      untypedField {.zero.}: int
+  doAssert untypedRefFieldsLists == [
+    "untypedField: int {.zero.}"
+  ]
+
 let myType = MyType[string](
   myField: "test", myGeneric: "test", kind: true, first: "test")
 
