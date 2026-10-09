@@ -65,6 +65,8 @@ macro initCaseObjectBranch(
     T: type, tgt, src: untyped, names: static seq[string]): untyped =
   let
     res = newStmtList()
+    # Construct with the resolved type rather than `T` to work around
+    # https://github.com/nim-lang/Nim/issues/26417
     value = nnkObjConstr.newTree(T.getTypeInst[1])
   for name in names:
     let discriminator = nskLet.genSym(name)
