@@ -1,19 +1,21 @@
-type CppVar[T] = distinct ptr T
+# stew
+# Copyright 2026 Status Research & Development GmbH
+# Licensed under either of
+#
+#  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+#  * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+#
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
 
-iterator evalTemplateParamOnceImpl[T](x: T): lent T =
+{.push raises: [].}
+
+import ./lentutils
+
+iterator evalTemplateParamOnceImpl[T](x: T): maybeLent T =
   yield x
 
-when defined(cpp):
-  # TODO `nim cpp` miscompiles iterators returning `var`,
-  #      so we need to emulate them in terms of pointers:
-  iterator evalTemplateParamOnceImpl[T](x: var T): CppVar[T] =
-    yield CppVar[T](addr(x))
-
-  template stripCppVar[T](p: CppVar[T]): var T =
-    ((ptr T)(p))[]
-else:
-  iterator evalTemplateParamOnceImpl[T](x: var T): var T =
-    yield x
+iterator evalTemplateParamOnceImpl[T](x: var T): var T =
+  yield x
 
 template evalTemplateParamOnce*(templateParam, newName, blk: untyped) =
   ## This can be used in templates to avoid the problem of multiple
@@ -43,11 +45,5 @@ template evalTemplateParamOnce*(templateParam, newName, blk: untyped) =
   ##  Both limitations will be lifted in a future implementation based on
   ##  view types.
   block:
-    for paramAddr in evalTemplateParamOnceImpl(templateParam):
-      template newName: auto =
-        when paramAddr is CppVar:
-          stripCppVar(paramAddr)
-        else:
-          paramAddr
-
+    for newName in evalTemplateParamOnceImpl(templateParam):
       blk

@@ -35,16 +35,16 @@
 ##    var rc = sl.ge(100)
 ##    while rc.isOk:
 ##      echo "*** item ", rc.value.key, " ",  rc.value.data
-##      w = sl.gt(w.value.key)
+##      rc = sl.gt(w.value.key)
 ##
 ##  # print all key/value entries in natrual key order
 ##  block:
 ##    var
 ##      walk = SortedSetWalkRef[K,V].init(sl)
-##      rc = w.first
+##      rc = walk.first
 ##    while rc.isOk:
 ##      echo "*** item ", rc.value.key, " ",  rc.value.data
-##      rc = w.next
+##      rc = walk.next
 ##    # optional clean up, see comments on the destroy() directive
 ##    walk.destroy
 
@@ -71,6 +71,9 @@ export
   results
 
 type
+  SlstCmp*[K] = proc(x, y: K): int {.noSideEffect, gcsafe, raises: [].}
+    ## Custom key comparison function type (unless `cmp()` is working)
+
   SortedSetItemRef*[K,V] = ref object ##\
     ## Data value container as stored in the list/database
     key: K                    ## Sorter key, read-only
@@ -98,13 +101,14 @@ type
 func slstCmp[K,V](casket: SortedSetItemRef[K,V]; key: K): int =
   casket.key.cmp(key)
 
+func slstCmp[K,V](casket: SortedSetItemRef[K,V]; key: K; cmq: SlstCmp[K]): int =
+  casket.key.cmq(key)
+
 func slstMkc[K,V](key: K): SortedSetItemRef[K,V] =
   SortedSetItemRef[K,V](key: key)
 
-func slstClup[K,V](c: var SortedSetItemRef[K,V]) =
-  # ... some smart stuff here?
-  c = nil     # GC hint (if any, todo?)
-
+proc slstClup[K,V](c: var SortedSetItemRef[K,V]) =
+  c = nil                                           # GC hint (if any, todo?)
 
 func slstLt[K,V](a, b: SortedSetItemRef[K,V]): bool =
   ## Debugging only
@@ -124,9 +128,19 @@ func init*[K,V](sl: var SortedSet[K,V]) =
     cmp = proc(c: SortedSetItemRef[K,V]; k: K): int = c.slstCmp(k),
     mkc = proc(k: K): SortedSetItemRef[K,V] = slstMkc[K,V](k))
 
+func init*[K,V](sl: var SortedSet[K,V]; cmp: SlstCmp[K]) =
+  ## Constructor for sorted list with key type `K` and data type `V`
+  sl.tree = newRbTreeRef[SortedSetItemRef[K,V],K](
+    cmp = proc(c: SortedSetItemRef[K,V]; k: K): int = c.slstCmp(k, cmp),
+    mkc = proc(k: K): SortedSetItemRef[K,V] = slstMkc[K,V](k))
+
 func init*[K,V](T: type SortedSet[K,V]): T =
   ## Variant of `init()`
   result.init
+
+func init*[K,V](T: type SortedSet[K,V]; cmp: SlstCmp[K]): T =
+  ## Variant of `init()`
+  result.init cmp
 
 func move*[K,V](sl: var SortedSet[K,V]): SortedSet[K,V] =
   ## Return a shallow copy of the argument list `sl`, then reset `sl`.

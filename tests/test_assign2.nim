@@ -14,7 +14,7 @@ proc makeCopy(a: array[2, byte]): array[2, byte] =
   assign(result, a)
 
 suite "assign2":
-  test "basic":
+  dualTest "basic":
     type X = distinct int
     var
       a = 5
@@ -36,8 +36,7 @@ suite "assign2":
     assign(d, "there!")
     check: d == "there!"
 
-    var
-      dis = X(53)
+    var dis = X(53)
 
     assign(dis, X(55))
 
@@ -46,3 +45,9 @@ suite "assign2":
     const x = makeCopy([byte 0, 2]) # compile-time evaluation
     check x[1] == 2
 
+  test "Overlaps":
+    # This does not work correctly at compile time
+    var s = @[byte 0, 1, 2, 3, 0, 0, 0, 0]
+    assign(s.toOpenArray(1, s.high), s.toOpenArray(0, s.high - 1))
+    check:
+      s == [byte 0, 0, 1, 2, 3, 0, 0, 0]

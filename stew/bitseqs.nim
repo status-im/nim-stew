@@ -1,4 +1,4 @@
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   bitops2, ptrops
@@ -59,7 +59,7 @@ func add*(s: var BitSeq, value: bool) =
     s.Bytes.add byte(1)
 
 func loadLEBytes(WordType: type, bytes: openArray[byte]): WordType =
-  # TODO: this is a temporary proc until the endians API is improved
+  # TODO: this is a temporary func until the endians API is improved
   var shift = 0
   for b in bytes:
     result = result or (WordType(b) shl shift)
@@ -72,7 +72,7 @@ func storeLEBytes(value: SomeUnsignedInt, dst: var openArray[byte]) =
       result[i] = byte((v shr shift) and 0xff)
       shift += 8
   else:
-    copyMem(addr dst[0], unsafeAddr value, dst.len)
+    copyMem(addr dst[0], addr value, dst.len)
 
 template loopOverWords(lhs, rhs: BitSeq,
                        lhsIsVar, rhsIsVar: static bool,
@@ -138,10 +138,10 @@ template loopOverWords(lhs, rhs: BitSeq,
         let rhsEndResult = (rhsWord and mask) or markerBit
         storeLEBytes(rhsEndResult, lastWordBytes(rhs))
 
-  var lhsCurrAddr = cast[ptr WordType](unsafeAddr Bytes(lhs)[0])
+  var lhsCurrAddr = cast[ptr WordType](addr Bytes(lhs)[0])
   let lhsEndAddr = offset(lhsCurrAddr, fullWordsCount)
   when hasRhs:
-    var rhsCurrAddr = cast[ptr WordType](unsafeAddr Bytes(rhs)[0])
+    var rhsCurrAddr = cast[ptr WordType](addr Bytes(rhs)[0])
 
   while lhsCurrAddr < lhsEndAddr:
     template lhsBits: auto = lhsCurrAddr[]
@@ -252,19 +252,7 @@ func isSubsetOf*(a, b: BitSeq): bool =
       return false
   true
 
-proc isZeros*(x: BitSeq): bool =
+func isZeros*(x: BitSeq): bool =
   for w in words(x):
     if w != 0: return false
-  return true
-
-template raiseBit*(s: var BitSeq, pos: Natural) {.deprecated: "setBit".} =
-  setBit(s, pos)
-
-template lowerBit*(s: var BitSeq, pos: Natural) {.deprecated: "clearBit".} =
-  clearBit(s, pos)
-
-template raiseBit*(a: var BitArray, pos: Natural) {.deprecated: "setBit".} =
-  setBit(a, pos)
-
-template lowerBit*(a: var BitArray, pos: Natural) {.deprecated: "lowerBit".} =
-  clearBit(a, pos)
+  true

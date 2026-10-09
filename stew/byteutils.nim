@@ -199,44 +199,35 @@ func hexToSeqByte*(hexStr: string): seq[byte]
   for i in 0 ..< N:
     result[i] = hexStr[2*i + skip].readHexChar shl 4 or hexStr[2*i + 1 + skip].readHexChar
 
-func toHexAux(ba: openArray[byte], with0x: static bool): string =
-  ## Convert a byte-array to its hex representation
-  ## Output is in lowercase
-  ## No "endianness" reordering is done.
-  const hexChars = "0123456789abcdef"
-
-  let extra = when with0x: 2 else: 0
-  result = newStringOfCap(2 * ba.len + extra)
-  when with0x:
-    result.add("0x")
-
+iterator toHex*(ba: openArray[byte]): char =
+  const hexChars =
+    ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd','e', 'f']
   for b in ba:
-    result.add(hexChars[int(b shr 4 and 0x0f'u8)])
-    result.add(hexChars[int(b and 0x0f'u8)])
+    yield hexChars[int(b shr 4 and 0x0f'u8)]
+    yield hexChars[int(b and 0x0f'u8)]
+
+iterator to0xHex*(ba: openArray[byte]): char =
+  yield '0'
+  yield 'x'
+
+  for b in toHex(ba):
+    yield b
 
 func toHex*(ba: openArray[byte]): string {.inline.} =
   ## Convert a byte-array to its hex representation
   ## Output is in lowercase
   ## No "endianness" reordering is done.
-  toHexAux(ba, false)
-
-func toHex*[N: static[int]](ba: array[N, byte]): string {.inline.} =
-  ## Convert a big endian byte-array to its hex representation
-  ## Output is in lowercase
-  ## No "endianness" reordering is done.
-  toHexAux(ba, false)
+  result = newStringOfCap(2 * ba.len)
+  for c in toHex(ba):
+    result.add c
 
 func to0xHex*(ba: openArray[byte]): string {.inline.} =
   ## Convert a byte-array to its hex representation
   ## Output is in lowercase
   ## No "endianness" reordering is done.
-  toHexAux(ba, true)
-
-func to0xHex*[N: static[int]](ba: array[N, byte]): string {.inline.} =
-  ## Convert a big endian byte-array to its hex representation
-  ## Output is in lowercase
-  ## No "endianness" reordering is done.
-  toHexAux(ba, true)
+  result = newStringOfCap(2 * ba.len + 2)
+  for c in to0xHex(ba):
+    result.add c
 
 func toBytes*(s: openArray[char]): seq[byte] =
   ## Convert a char array to the corresponding byte sequence - since strings in
@@ -257,7 +248,7 @@ func fromBytes*(T: type string, v: openArray[byte]): string =
       for i, c in v:
         result[i] = cast[char](c)
     else:
-      copyMem(addr result[0], unsafeAddr v[0], v.len)
+      copyMem(addr result[0], addr v[0], v.len)
 
 func `<`*(a, b: openArray[byte]): bool =
   ## Lexicographical compare of two byte arrays
