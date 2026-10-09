@@ -163,6 +163,14 @@ func collectFieldsFromRecList(
   else:
     raiseAssert "Unexpected nodes in recordFields:\n" & n.treeRepr
 
+func collectFieldsFromTuple(fields: var seq[FieldDescription], n: NimNode) =
+  if n.kind == nnkTupleConstr:
+    for i in 0 ..< n.len:
+      fields.add FieldDescription(typ: n[i], name: ident("Field" & $i))
+  else:
+    for entry in n:
+      collectFieldsFromRecList fields, entry
+
 func objectDefinition(typeInst: NimNode): NimNode =
   var typeSym = if typeInst.kind == nnkBracketExpr: typeInst[0] else: typeInst
   while typeSym.kind == nnkSym:
@@ -211,7 +219,7 @@ func isSameName(defName, name: NimNode): bool =
   else:
     eqIdent(defName, name)
 
-func caseFieldName(field: FieldDescription): NimNode =
+func caseFieldName*(field: FieldDescription): NimNode =
   if field.caseField == nil:
     return nil
   var name = field.caseField[0]
@@ -291,6 +299,9 @@ func collectFieldsFromType(
   var typeImpl = typeImpl
   while typeImpl.kind in {nnkRefTy, nnkPtrTy}:
     typeImpl = typeImpl[0].getTypeImpl
+  if typeImpl.kind in {nnkTupleTy, nnkTupleConstr}:
+    collectFieldsFromTuple(fields, typeImpl)
+    return
   typeImpl.expectKind nnkObjectTy
 
   let baseType = typeImpl[1]
@@ -331,8 +342,12 @@ func recordFields*(typ: NimNode): seq[FieldDescription] =
 
   case typ.kind
   of nnkSym, nnkBracketExpr:
-    let typeInst = skipPtr skipRef typ
-    collectFieldsFromType(fields, typeInst, typeInst.getTypeImpl)
+    let
+      typeInst = skipPtr skipRef typ
+      typeImpl = typeInst.getTypeImpl
+    if typeImpl.typeKind == ntyTypeDesc:
+      return recordFields(typ.getTypeInst[1])
+    collectFieldsFromType(fields, typeInst, typeImpl)
     return fields
   of nnkRefTy, nnkPtrTy:
     if typ[0].kind in {nnkSym, nnkBracketExpr}:
@@ -363,12 +378,15 @@ func recordFields*(typ: NimNode): seq[FieldDescription] =
     discard
 
   let objectType = case typ.kind
-    of nnkObjectTy, nnkRefTy, nnkPtrTy: typ
+    of nnkObjectTy, nnkRefTy, nnkPtrTy, nnkTupleTy, nnkTupleConstr: typ
     of nnkTypeDef: typ[2]
     else:
-      macros.error("object type expected", typ)
+      macros.error("object or tuple type expected", typ)
 
-  collectFieldsInHierarchy(fields, objectType)
+  if objectType.kind in {nnkTupleTy, nnkTupleConstr}:
+    collectFieldsFromTuple(fields, objectType)
+  else:
+    collectFieldsInHierarchy(fields, objectType)
   fields
 
 macro field*(obj: typed, fieldName: static string): untyped =
