@@ -15,8 +15,41 @@ proc makeCopy(a: array[2, byte]): array[2, byte] =
 
 suite "assign2":
   dualTest "basic":
+    type X = distinct int
+    var
+      a = 5
+      b = [2, 3]
+      c = @[5, 6]
+      d = "hello"
+      e = [@[7], @[8, 9]]
+
+    assign(c, b)
+    check: c == b
+    assign(b, [4, 5])
+    check: b == [4, 5]
+    assign(e, [@[1], @[2, 3]])
+    check: e == [@[1], @[2, 3]]
+
+    assign(a, 6)
+    check: a == 6
+
+    assign(c.toOpenArray(0, 1), [2, 2])
+    check: c == [2, 2]
+
+    assign(d, "there!")
+    check: d == "there!"
+
+    var dis = X(53)
+
+    assign(dis, X(55))
+
+    check: int(dis) == 55
+
+    const x = makeCopy([byte 0, 2]) # compile-time evaluation
+    check x[1] == 2
+
+  dualTest "case objects":
     type
-      X = distinct int
       Y = object
         case kind: bool
         of false:
@@ -53,32 +86,6 @@ suite "assign2":
           f: uint8
         else:
           t: seq[int]
-    var
-      a = 5
-      b = [2, 3]
-      c = @[5, 6]
-      d = "hello"
-      e = [@[7], @[8, 9]]
-
-    assign(c, b)
-    check: c == b
-    assign(b, [4, 5])
-    check: b == [4, 5]
-    assign(e, [@[1], @[2, 3]])
-    check: e == [@[1], @[2, 3]]
-
-    assign(a, 6)
-    check: a == 6
-
-    assign(c.toOpenArray(0, 1), [2, 2])
-    check: c == [2, 2]
-
-    assign(d, "there!")
-    check: d == "there!"
-
-    var dis = X(53)
-    assign(dis, X(55))
-    check: int(dis) == 55
 
     var obj = Y(kind: true, t: @[2])
     for value in [Y(kind: false, f: 3), Y(kind: true, t: @[4, 5]),
@@ -106,9 +113,6 @@ suite "assign2":
       check:
         uint8(tag.kind) == uint8(value.kind)
         $tag == $value
-
-    const x = makeCopy([byte 0, 2]) # compile-time evaluation
-    check x[1] == 2
 
   test "Overlaps":
     # This does not work correctly at compile time
