@@ -371,6 +371,24 @@ func recordFields*(typ: NimNode): seq[FieldDescription] =
   collectFieldsInHierarchy(fields, objectType)
   fields
 
+func recordFields*(T: type): seq[FieldDescription] {.compileTime.} =
+  recordFields(getTypeInst(T))
+
+func isCaseObject*(typ: NimNode): bool =
+  # Index into fields rather than iterate across elements to work around
+  # https://github.com/nim-lang/Nim/issues/26273
+  let fields = recordFields(typ)
+  for i in 0 ..< fields.len:
+    if fields[i].isDiscriminator:
+      return true
+  false
+
+func isCaseObject*(T: type): bool {.compileTime.} =
+  when T is tuple:
+    false
+  else:
+    isCaseObject(getTypeInst(T))
+
 macro field*(obj: typed, fieldName: static string): untyped =
   newDotExpr(obj, ident fieldName)
 

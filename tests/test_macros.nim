@@ -214,9 +214,9 @@ macro macroType(): untyped =
 
 macroType()
 
-func fieldsList(typeImpl: NimNode): NimNode =
-  let fields = newTree(nnkBracket)
-  for f in recordFields(typeImpl):
+func fieldDescriptions(fields: seq[FieldDescription]): seq[string] =
+  var res: seq[string]
+  for f in fields:
     var field = ""
     if f.caseField != nil:
       field.add $f.caseField[0].skipPragma
@@ -234,6 +234,12 @@ func fieldsList(typeImpl: NimNode): NimNode =
     field.add ": " & f.typ.repr
     if f.pragmas != nil:
       field.add f.pragmas.repr
+    res.add field
+  res
+
+func fieldsList(typeImpl: NimNode): NimNode =
+  let fields = newTree(nnkBracket)
+  for field in fieldDescriptions(recordFields(typeImpl)):
     fields.add newLit(field)
   if fields.len > 0:
     fields
@@ -253,12 +259,16 @@ macro typeDefFieldsLists(T: type): untyped =
   let typ = T.getTypeInst[1]
   fieldsList(if typ.kind == nnkSym: typ.getImpl else: typ)
 
+func typedescFieldsLists(T: type): seq[string] {.compileTime.} =
+  fieldDescriptions(recordFields(T))
+
 template getFieldsLists(T: type): untyped =
   block:
     const res = typeInstFieldsLists(T)
     doAssert typeImplFieldsLists(T) == res
     doAssert typeFieldsLists(T) == res
     doAssert typeDefFieldsLists(T) == res
+    doAssert typedescFieldsLists(T) == @res
     res
 
 func untypedFieldsLists(typeDef: NimNode): NimNode =
@@ -490,6 +500,12 @@ static:
     "refBaseKind of true: refBaseField: int {.one(\"ref\").}",
     "quotedField: int {.zero.}"
   ]
+
+  doAssert isCaseObject(MyType[string])
+  doAssert isCaseObject(RefBaseType)
+  doAssert isCaseObject(NestedCaseType)
+  doAssert not isCaseObject(EmptyObject)
+  doAssert not isCaseObject((int, string))
 
 let myType = MyType[string](
   myField: "test", myGeneric: "test", kind: true, first: "test")
