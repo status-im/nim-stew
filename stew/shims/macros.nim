@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  std/[hashes, macros, tables, typetraits]
+  std/[hashes, macrocache, macros, tables, typetraits]
 
 export
   macros
@@ -378,20 +378,35 @@ func skipPragma*(n: NimNode): NimNode =
   if n.kind == nnkPragmaExpr: n[0]
   else: n
 
+func fieldPragmas(typedescNode, typ: NimNode): NimNode =
+  let cache = CacheSeq("stew.shims.macros.fieldPragmas." & typ.repr)
+  for entry in cache:
+    if sameType(typedescNode, entry[0]):
+      return entry[1]
+
+  # Index into fields rather than iterate across elements to work around
+  # https://github.com/nim-lang/Nim/issues/26273
+  let
+    fields = recordFields(typ)
+    res = newNimNode(nnkBracket)
+  for i in 0 ..< fields.len:
+    let
+      name = fields[i].name
+      p = if fields[i].pragmas == nil: newEmptyNode() else: fields[i].pragmas
+    res.add quote do: (`name`, `p`)
+  cache.add quote do: (`typedescNode`, `res`)
+  res
+
 func getPragma(
     typedescNode: NimNode, lookedUpField: string, pragma: NimNode): NimNode =
   let typ = getType(typedescNode)[1]
   if isTuple(typ):
     return nil
 
-  # Index into fields rather than iterate across elements to work around
-  # https://github.com/nim-lang/Nim/issues/26273
-  let
-    fields = recordFields(typ)
-    fieldName = ident(lookedUpField)
-  for i in 0 ..< fields.len:
-    if fields[i].name.isSameName(fieldName):
-      return fields[i].pragmas.findPragma(pragma)
+  let fieldName = ident(lookedUpField)
+  for field in fieldPragmas(typedescNode, typ):
+    if field[0].isSameName(fieldName):
+      return field[1].findPragma(pragma).copyNimTree
 
   error "The type " & $typ & " doesn't have a field named " & lookedUpField
 
