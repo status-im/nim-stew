@@ -90,10 +90,15 @@ type
   TypeofAliasType = typeof(DerivedFromAliasType())
 
   PublicBaseType[T] = object of RootObj
-    publicBaseField*: T
+    pubBaseField* {.zero.}: T
+
   TypeofGenericType = typeof(PublicBaseType[int]())
 
   DerivedFromTypeofGenericType = object of TypeofGenericType
+
+  DefaultGenericType = typeof(default(PublicBaseType[string]))
+
+  DerivedFromDefaultGenericType = object of DefaultGenericType
 
   WhenBaseType[T] = object of RootObj
     when T is int:
@@ -103,6 +108,10 @@ type
   # `WhenRefType[T] = ref object`: https://github.com/nim-lang/Nim/issues/26374
 
   DerivedFromWhenType = object of WhenBaseType[string]
+
+  TypeofWhenType = typeof(WhenBaseType[int]())
+
+  DerivedFromTypeofWhenType = object of TypeofWhenType
 
   StaticType[N: static int] = object
     staticField {.zero.}: array[N, byte]
@@ -358,11 +367,15 @@ static:
   ]
 
   doAssert getFieldsLists(PublicBaseType[int]) == [
-    "publicBaseField*: int"
+    "pubBaseField*: int {.zero.}"
   ]
 
   doAssert getFieldsLists(DerivedFromTypeofGenericType) == [
-    "publicBaseField*: int"
+    "pubBaseField*: int {.zero.}"
+  ]
+
+  doAssert getFieldsLists(DerivedFromDefaultGenericType) == [
+    "pubBaseField*: string {.zero.}"
   ]
 
   doAssert getFieldsLists(WhenBaseType[int]) == [
@@ -371,6 +384,10 @@ static:
 
   doAssert getFieldsLists(DerivedFromWhenType) == [
     "whenField: string {.one(\"else\").}"
+  ]
+
+  doAssert getFieldsLists(DerivedFromTypeofWhenType) == [
+    "whenField: int {.zero.}"
   ]
 
   doAssert getFieldsLists(StaticType[2]) == [
@@ -500,10 +517,13 @@ suite "Macros":
       not test_macros_helpers.MyType.hasCustomPragmaFixed("helperField", zero)
       DerivedFromHelperType.hasCustomPragmaFixed("helperBaseField", helperZero)
       MultiDerivedType[int, string].hasCustomPragmaFixed("multiBaseField", two)
+      DerivedFromTypeofGenericType.hasCustomPragmaFixed("pubBaseField", zero)
+      DerivedFromDefaultGenericType.hasCustomPragmaFixed("pubBaseField", zero)
       not WhenBaseType[string].hasCustomPragmaFixed("whenField", zero)
       WhenBaseType[string].hasCustomPragmaFixed("whenField", one)
       not DerivedFromWhenType.hasCustomPragmaFixed("whenField", zero)
       DerivedFromWhenType.hasCustomPragmaFixed("whenField", one)
+      DerivedFromTypeofWhenType.hasCustomPragmaFixed("whenField", zero)
       StaticType[2].hasCustomPragmaFixed("staticWhenField", one)
       WhenInCaseType[int].hasCustomPragmaFixed("whenInCaseField", zero)
       not WhenInCaseType[string].hasCustomPragmaFixed("whenInCaseField", zero)

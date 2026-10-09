@@ -258,6 +258,34 @@ func definedField(
   defField.typ = field.typ
   defField
 
+func areAllFieldsDefined(def: NimNode, fields: seq[FieldDescription]): bool =
+  var defFields: seq[FieldDescription]
+  collectFieldsFromRecList defFields, def[2]
+  for i in 0 ..< fields.len:
+    var found = false
+    for j in 0 ..< defFields.len:
+      if defFields[j].isDefinitionOf(fields[i]):
+        found = true
+        break
+    if not found:
+      return false
+  true
+
+func aliasedDefinition(node: NimNode, fields: seq[FieldDescription]): NimNode =
+  let def = node.objectDefinition
+  if def != nil:
+    return if def.areAllFieldsDefined(fields): def else: nil
+  if node.kind == nnkSym:
+    let typeDef = node.getImpl
+    if typeDef.kind == nnkTypeDef:
+      return typeDef[2].aliasedDefinition(fields)
+    return nil
+  for child in node:
+    let def = child.aliasedDefinition(fields)
+    if def != nil:
+      return def
+  nil
+
 func collectFieldsFromType(
     fields: var seq[FieldDescription], typeInst, typeImpl: NimNode) =
   var typeImpl = typeImpl
@@ -276,6 +304,8 @@ func collectFieldsFromType(
   var def = typeInst.objectDefinition
   if def == nil:
     def = typeImpl.getTypeInst.objectDefinition
+  if def == nil:
+    def = typeInst.aliasedDefinition(implFields)
   if def == nil:
     # https://github.com/nim-lang/Nim/issues/22937
     warning("definition of " & typeInst.repr &
