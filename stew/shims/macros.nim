@@ -178,7 +178,7 @@ func objectDefinition(typeInst: NimNode): NimNode =
     if typeDef.kind != nnkTypeDef:
       break
     var body = typeDef[2]
-    if body.kind in {nnkRefTy, nnkPtrTy}:
+    while body.kind in {nnkRefTy, nnkPtrTy}:
       body = body[0]
     case body.kind
     of nnkObjectTy:
@@ -193,13 +193,6 @@ func objectDefinition(typeInst: NimNode): NimNode =
 
 func collectFieldsInHierarchy(
     fields: var seq[FieldDescription], objectType: NimNode) =
-  var objectType = objectType
-
-  objectType.expectKind {nnkObjectTy, nnkRefTy, nnkPtrTy}
-
-  if objectType.kind in {nnkRefTy, nnkPtrTy}:
-    objectType = objectType[0]
-
   objectType.expectKind nnkObjectTy
 
   let baseType = objectType[1]
@@ -349,9 +342,6 @@ func recordFields*(typ: NimNode): seq[FieldDescription] =
       return recordFields(typ.getTypeInst[1])
     collectFieldsFromType(fields, typeInst, typeImpl)
     return fields
-  of nnkRefTy, nnkPtrTy:
-    if typ[0].kind in {nnkSym, nnkBracketExpr}:
-      return recordFields(typ[0])
   of nnkObjectTy:
     let recList = typ[2]
     if recList.kind == nnkRecList and recList.len > 0:
@@ -377,12 +367,16 @@ func recordFields*(typ: NimNode): seq[FieldDescription] =
   else:
     discard
 
-  let objectType = case typ.kind
+  var objectType = case typ.kind
     of nnkObjectTy, nnkRefTy, nnkPtrTy, nnkTupleTy, nnkTupleConstr: typ
     of nnkTypeDef: typ[2]
     else:
       macros.error("object or tuple type expected", typ)
 
+  while objectType.kind in {nnkRefTy, nnkPtrTy}:
+    objectType = objectType[0]
+  if objectType.kind in {nnkSym, nnkBracketExpr}:
+    return recordFields(objectType)
   if objectType.kind in {nnkTupleTy, nnkTupleConstr}:
     collectFieldsFromTuple(fields, objectType)
   else:
