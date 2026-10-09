@@ -506,6 +506,9 @@ static:
   doAssert isCaseObject(NestedCaseType)
   doAssert not isCaseObject(EmptyObject)
   doAssert not isCaseObject((int, string))
+  doAssert not isCaseObject(int)
+  doAssert not isCaseObject(seq[int])
+  doAssert not isCaseObject(ref int)
 
 let myType = MyType[string](
   myField: "test", myGeneric: "test", kind: true, first: "test")

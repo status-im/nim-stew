@@ -80,7 +80,7 @@ template assignCaseObject(tgt, src: untyped, names: static seq[string]) =
     when name in names:
       for sourceName, s in system.fieldPairs(src):
         when sourceName == name:
-          if t != s:
+          if distinctBase(t) != distinctBase(s):
             areSameKind = false
   if not areSameKind:
     when defined(gcDestructors) or  # orc: `=copy` hook, no slow genericAssign

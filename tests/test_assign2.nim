@@ -46,6 +46,13 @@ suite "assign2":
           s: string
         else:
           discard
+      U = distinct uint8
+      W = object
+        case kind: U
+        of U(0):
+          f: uint8
+        else:
+          t: seq[int]
     var
       a = 5
       b = [2, 3]
@@ -91,6 +98,14 @@ suite "assign2":
         V(a: 2, t: @[5], b: 'x', s: "6"), V(a: 1, t: @[7], b: 'y')]:
       assign(sib, value)
       check: $sib == $value
+
+    var tag = W(kind: U(1), t: @[2])
+    for value in [W(kind: U(0), f: 3), W(kind: U(2), t: @[4]),
+        W(kind: U(1), t: @[5])]:
+      assign(tag, value)
+      check:
+        uint8(tag.kind) == uint8(value.kind)
+        $tag == $value
 
     const x = makeCopy([byte 0, 2]) # compile-time evaluation
     check x[1] == 2

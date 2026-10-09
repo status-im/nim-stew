@@ -384,10 +384,15 @@ func isCaseObject*(typ: NimNode): bool =
   false
 
 func isCaseObject*(T: type): bool {.compileTime.} =
-  when T is tuple:
-    false
-  else:
+  when T is object:
     isCaseObject(getTypeInst(T))
+  elif T is ref | ptr:
+    when typeof(default(T)[]) is object:
+      isCaseObject(getTypeInst(T))
+    else:
+      false
+  else:
+    false
 
 macro field*(obj: typed, fieldName: static string): untyped =
   newDotExpr(obj, ident fieldName)
