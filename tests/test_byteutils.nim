@@ -135,6 +135,18 @@ suite "Byte utils":
       let a = hexToPaddedByteArray[32]("0x68656c6c6f20776f726c64")
       check a.toHex == "00000000000000000000000000000000000000000068656c6c6f20776f726c64"
     block:
+      let a = hexToPaddedByteArray[2]("0x01234")
+      check a.toHex == "1234"
+    block:
+      let a = hexToPaddedByteArray[2]("01234")
+      check a.toHex == "1234"
+    block:
+      let a = hexToPaddedByteArray[1]("")
+      check a.toHex == "00"
+    block:
+      let a = hexToPaddedByteArray[0]("")
+      check a.toHex == ""
+    block:
       expect ValueError:
         discard hexToPaddedByteArray[2]("0x12345")
 
