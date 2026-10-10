@@ -142,6 +142,8 @@ type
   PtrType = ptr object of GenericBaseType[int]
     ptrField {.zero.}: int
 
+  RefPtrType = ref PtrType
+
   PtrBaseType = ptr object of RootObj
     ptrBaseField {.zero.}: int
 
@@ -171,6 +173,11 @@ type
     aliasField {.zeroAlias.}: int
 
   TupleType = tuple[tupleField: int]
+  UnnamedTupleType = (int, string)
+  RefTupleType = ref tuple[refTupleField: int]
+  PtrUnnamedTupleType = ptr (int, string)
+  PtrRefTupleType = ptr ref TupleType
+  RefPtrUnnamedTupleType = ref ptr UnnamedTupleType
 
   EmptyObject = object
   EmptyRefObject = ref object
@@ -219,7 +226,7 @@ func fieldDescriptions(fields: seq[FieldDescription]): seq[string] =
   for f in fields:
     var field = ""
     if f.caseField != nil:
-      field.add $f.caseField[0].skipPragma
+      field.add $f.caseFieldName
       if f.caseBranch.kind == nnkElse:
         field.add " else"
       for i in 0 ..< f.caseBranch.len - 1:
@@ -259,16 +266,21 @@ macro typeDefFieldsLists(T: type): untyped =
   let typ = T.getTypeInst[1]
   fieldsList(if typ.kind == nnkSym: typ.getImpl else: typ)
 
-func typedescFieldsLists(T: type): seq[string] {.compileTime.} =
+macro typeParamFieldsLists(T: type): untyped =
+  fieldsList(T)
+
+func typeDescFieldsLists(T: type): seq[string] {.compileTime.} =
   fieldDescriptions(recordFields(T))
 
 template getFieldsLists(T: type): untyped =
   block:
     const res = typeInstFieldsLists(T)
     doAssert typeImplFieldsLists(T) == res
-    doAssert typeFieldsLists(T) == res
+    when T isnot tuple:  # getType has no tuple field names
+      doAssert typeFieldsLists(T) == res
     doAssert typeDefFieldsLists(T) == res
-    doAssert typedescFieldsLists(T) == @res
+    doAssert typeParamFieldsLists(T) == res
+    doAssert typeDescFieldsLists(T) == @res
     res
 
 func untypedFieldsLists(typeDef: NimNode): NimNode =
@@ -414,13 +426,15 @@ static:
     "genericBaseField: int {.zero.}",
     "publicField*: int {.zero.}",
     "case publicKind*: bool {.zero.}",
-    "publicKind* of true: publicBranch*: int"
+    "publicKind of true: publicBranch*: int"
   ]
 
   doAssert getFieldsLists(PtrType) == [
     "genericBaseField: int {.zero.}",
     "ptrField: int {.zero.}"
   ]
+
+  doAssert getFieldsLists(RefPtrType) == getFieldsLists(PtrType)
 
   doAssert getFieldsLists(QuotedType) == [
     "`quoted field`: int {.one(\"quoted\").}",
@@ -448,6 +462,28 @@ static:
 
   doAssert getFieldsLists(EmptyObject).len == 0
   doAssert getFieldsLists(EmptyRefObject).len == 0
+
+  doAssert getFieldsLists(TupleType) == [
+    "tupleField: int"
+  ]
+
+  doAssert getFieldsLists(UnnamedTupleType) == [
+    "Field0: int",
+    "Field1: string"
+  ]
+
+  doAssert getFieldsLists(RefTupleType) == [
+    "refTupleField: int"
+  ]
+
+  doAssert getFieldsLists(PtrUnnamedTupleType) == [
+    "Field0: int",
+    "Field1: string"
+  ]
+
+  doAssert getFieldsLists(PtrRefTupleType) == getFieldsLists(TupleType)
+  doAssert getFieldsLists(RefPtrUnnamedTupleType) ==
+      getFieldsLists(UnnamedTupleType)
 
   doAssert getFieldsLists(WhenCaseType) == [
     "case second: bool",
@@ -489,6 +525,41 @@ static:
   doAssert untypedGenericFieldsLists == [
     "untypedField: T {.zero.}"
   ]
+
+  const untypedTupleFieldsLists = getUntypedFieldsLists:
+    type U = tuple[untypedField: int]
+  doAssert untypedTupleFieldsLists == [
+    "untypedField: int"
+  ]
+
+  const untypedUnnamedTupleFieldsLists = getUntypedFieldsLists:
+    type U = (int, string)
+  doAssert untypedUnnamedTupleFieldsLists == [
+    "Field0: int",
+    "Field1: string"
+  ]
+
+  const untypedRefTupleFieldsLists = getUntypedFieldsLists:
+    type U = ref tuple[untypedField: int]
+  doAssert untypedRefTupleFieldsLists == [
+    "untypedField: int"
+  ]
+
+  const untypedPtrUnnamedTupleFieldsLists = getUntypedFieldsLists:
+    type U = ptr (int, string)
+  doAssert untypedPtrUnnamedTupleFieldsLists == [
+    "Field0: int",
+    "Field1: string"
+  ]
+
+  const untypedPtrRefTupleFieldsLists = getUntypedFieldsLists:
+    type U = ptr ref tuple[untypedField: int]
+  doAssert untypedPtrRefTupleFieldsLists == untypedTupleFieldsLists
+
+  const untypedRefPtrUnnamedTupleFieldsLists = getUntypedFieldsLists:
+    type U = ref ptr (int, string)
+  doAssert untypedRefPtrUnnamedTupleFieldsLists ==
+      untypedUnnamedTupleFieldsLists
 
   doAssert quotedPtrFieldsLists() == [
     "ptrBaseField: int {.zero.}",

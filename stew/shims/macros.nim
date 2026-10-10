@@ -163,6 +163,14 @@ func collectFieldsFromRecList(
   else:
     raiseAssert "Unexpected nodes in recordFields:\n" & n.treeRepr
 
+func collectFieldsFromTuple(fields: var seq[FieldDescription], n: NimNode) =
+  if n.kind == nnkTupleConstr:
+    for i in 0 ..< n.len:
+      fields.add FieldDescription(typ: n[i], name: ident("Field" & $i))
+  else:
+    for entry in n:
+      collectFieldsFromRecList fields, entry
+
 func objectDefinition(typeInst: NimNode): NimNode =
   var typeSym = if typeInst.kind == nnkBracketExpr: typeInst[0] else: typeInst
   while typeSym.kind == nnkSym:
@@ -170,7 +178,7 @@ func objectDefinition(typeInst: NimNode): NimNode =
     if typeDef.kind != nnkTypeDef:
       break
     var body = typeDef[2]
-    if body.kind in {nnkRefTy, nnkPtrTy}:
+    while body.kind in {nnkRefTy, nnkPtrTy}:
       body = body[0]
     case body.kind
     of nnkObjectTy:
@@ -185,13 +193,6 @@ func objectDefinition(typeInst: NimNode): NimNode =
 
 func collectFieldsInHierarchy(
     fields: var seq[FieldDescription], objectType: NimNode) =
-  var objectType = objectType
-
-  objectType.expectKind {nnkObjectTy, nnkRefTy, nnkPtrTy}
-
-  if objectType.kind in {nnkRefTy, nnkPtrTy}:
-    objectType = objectType[0]
-
   objectType.expectKind nnkObjectTy
 
   let baseType = objectType[1]
@@ -211,7 +212,7 @@ func isSameName(defName, name: NimNode): bool =
   else:
     eqIdent(defName, name)
 
-func caseFieldName(field: FieldDescription): NimNode =
+func caseFieldName*(field: FieldDescription): NimNode =
   if field.caseField == nil:
     return nil
   var name = field.caseField[0]
@@ -291,6 +292,9 @@ func collectFieldsFromType(
   var typeImpl = typeImpl
   while typeImpl.kind in {nnkRefTy, nnkPtrTy}:
     typeImpl = typeImpl[0].getTypeImpl
+  if typeImpl.kind in {nnkTupleTy, nnkTupleConstr}:
+    collectFieldsFromTuple(fields, typeImpl)
+    return
   typeImpl.expectKind nnkObjectTy
 
   let baseType = typeImpl[1]
@@ -331,12 +335,13 @@ func recordFields*(typ: NimNode): seq[FieldDescription] =
 
   case typ.kind
   of nnkSym, nnkBracketExpr:
-    let typeInst = skipPtr skipRef typ
-    collectFieldsFromType(fields, typeInst, typeInst.getTypeImpl)
+    let
+      typeInst = skipPtr skipRef typ
+      typeImpl = typeInst.getTypeImpl
+    if typeImpl.typeKind == ntyTypeDesc:
+      return recordFields(typ.getTypeInst[1])
+    collectFieldsFromType(fields, typeInst, typeImpl)
     return fields
-  of nnkRefTy, nnkPtrTy:
-    if typ[0].kind in {nnkSym, nnkBracketExpr}:
-      return recordFields(typ[0])
   of nnkObjectTy:
     let recList = typ[2]
     if recList.kind == nnkRecList and recList.len > 0:
@@ -362,13 +367,20 @@ func recordFields*(typ: NimNode): seq[FieldDescription] =
   else:
     discard
 
-  let objectType = case typ.kind
-    of nnkObjectTy, nnkRefTy, nnkPtrTy: typ
+  var objectType = case typ.kind
+    of nnkObjectTy, nnkRefTy, nnkPtrTy, nnkTupleTy, nnkTupleConstr: typ
     of nnkTypeDef: typ[2]
     else:
-      macros.error("object type expected", typ)
+      macros.error("object or tuple type expected", typ)
 
-  collectFieldsInHierarchy(fields, objectType)
+  while objectType.kind in {nnkRefTy, nnkPtrTy}:
+    objectType = objectType[0]
+  if objectType.kind in {nnkSym, nnkBracketExpr}:
+    return recordFields(objectType)
+  if objectType.kind in {nnkTupleTy, nnkTupleConstr}:
+    collectFieldsFromTuple(fields, objectType)
+  else:
+    collectFieldsInHierarchy(fields, objectType)
   fields
 
 func recordFields*(T: type): seq[FieldDescription] {.compileTime.} =
