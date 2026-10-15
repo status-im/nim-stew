@@ -239,6 +239,13 @@ func isDefinitionOf(defField, field: FieldDescription): bool =
   defField.isSameCaseField(field) and
   defField.name.lineInfoObj == field.name.lineInfoObj
 
+func withLineInfoOf(n, src: NimNode): NimNode =
+  let res = copyNimNode(n)
+  res.copyLineInfo(src)
+  for child in n:
+    res.add child.withLineInfoOf(src)
+  res
+
 func definedField(
     defFields: seq[FieldDescription],
     field: FieldDescription): FieldDescription =
@@ -256,7 +263,8 @@ func definedField(
   if match == -1:
     macros.error("no definition found for field " & $field.name, field.name)
   var defField = matchField
-  defField.typ = field.typ
+  # XXX https://github.com/nim-lang/Nim/issues/26464
+  defField.typ = field.typ.withLineInfoOf(defField.typ)
   defField
 
 func areAllFieldsDefined(def: NimNode, fields: seq[FieldDescription]): bool =

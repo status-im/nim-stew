@@ -581,6 +581,28 @@ static:
   doAssert not isCaseObject(seq[int])
   doAssert not isCaseObject(ref int)
 
+type
+  CaseKind = enum
+    caseA
+    caseB
+
+  # Test for https://github.com/nim-lang/Nim/issues/26464
+  StyleCaseType = object
+    case caseKind: CaseKind
+    of caseA:
+      styleField: int
+    of caseB:
+      discard
+
+macro useFieldTypes(T: type): untyped =
+  result = newStmtList()
+  for field in recordFields(T.getTypeInst[1]):
+    let typ = newTree(nnkTypeOfExpr, field.typ)
+    result.add quote do:
+      static: doAssert `typ` is typedesc
+
+useFieldTypes(StyleCaseType)
+
 let myType = MyType[string](
   myField: "test", myGeneric: "test", kind: true, first: "test")
 
