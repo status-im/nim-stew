@@ -74,6 +74,8 @@ func findPragma*(pragmas: NimNode, pragmaSym: NimNode): NimNode =
       return p
 
 func isTuple*(typ: NimNode): bool =
+  if typ.typeKind == ntyTypeDesc:
+    return isTuple(getType(typ)[1])
   typ.kind == nnkBracketExpr and
   typ[0].kind == nnkSym and
   eqIdent(typ[0], "tuple")

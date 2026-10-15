@@ -299,6 +299,9 @@ macro typeDefFieldsLists(T: type): untyped =
 macro typeParamFieldsLists(T: type): untyped =
   fieldsList(T)
 
+macro typeParamIsTuple(T: type): untyped =
+  newLit(T.isTuple)
+
 func typeDescFieldsLists(T: type): seq[string] {.compileTime.} =
   fieldDescriptions(recordFields(T))
 
@@ -645,6 +648,13 @@ static:
   doAssert not isCaseObject(int)
   doAssert not isCaseObject(seq[int])
   doAssert not isCaseObject(ref int)
+
+  doAssert typeParamIsTuple(TupleType)
+  doAssert typeParamIsTuple(UnnamedTupleType)
+  doAssert typeParamIsTuple(typeof((1, "a")))
+  doAssert not typeParamIsTuple(RefTupleType)
+  doAssert not typeParamIsTuple(EmptyObject)
+  doAssert not typeParamIsTuple(int)
 
 # Test for https://github.com/nim-lang/Nim/issues/26464
 block:
