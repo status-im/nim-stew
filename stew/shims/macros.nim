@@ -60,10 +60,6 @@ proc storeMacroResult*(callSite: LineInfo,
     # echo macroResult.repr
     writeMacroResultsNow()
 
-proc storeMacroResult*(macroResult: NimNode, writeOutputImmediately = false) {.raises: [IOError].} =
-  let usageSite = callsite().lineInfoObj
-  storeMacroResult(usageSite, macroResult, writeOutputImmediately)
-
 macro dumpMacroResults*: untyped =
   try:
     writeMacroResultsNow()
