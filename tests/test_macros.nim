@@ -470,6 +470,16 @@ template bindHasOverloadedPragma(): untyped =
   hasOverloadedPragma:
     proc bindProc() {.overloadedPragma.}
 
+macro readBoundOverloadedPragma(): untyped =
+  let
+    pragma = bindSym "overloadedPragma"
+    field = nnkIdentDefs.newTree(
+      nnkPragmaExpr.newTree(ident "boundField", nnkPragma.newTree(pragma)),
+      ident "int", newEmptyNode())
+    objectType = nnkObjectTy.newTree(
+      newEmptyNode(), newEmptyNode(), nnkRecList.newTree(field))
+  newLit(recordFields(objectType)[0].readPragma("overloadedPragma") == pragma)
+
 static:
   doAssert getFieldsLists(MyType[string]) == [
     "myField: string {.zero, one(\"foo\"), two(\"foo\", \"bar\").}",
@@ -861,6 +871,9 @@ suite "Macros":
       untypedHasOverloadedPragma
       templateHasOverloadedPragma()
       bindHasOverloadedPragma()
+
+  test "readPragma":
+    check readBoundOverloadedPragma()
 
   test "hasCustomPragmaFixed":
     type LocalType = object

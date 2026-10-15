@@ -103,7 +103,7 @@ macro isTuple*(T: type): untyped =
 template readPragma*(
     field: FieldDescription, pragmaName: static string): NimNode =
   let p = findPragma(field.pragmas, bindSym(pragmaName))
-  if p != nil and p.len == 2: p[1] else: p
+  if p != nil and p.kind in nnkPragmaCallKinds and p.len == 2: p[1] else: p
 
 func branchValues(recCase: NimNode, i: int): NimNode =
   let discriminator = recCase[0]
