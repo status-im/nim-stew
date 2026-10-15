@@ -16,6 +16,10 @@ type
     caseField*: NimNode
     caseBranch*: NimNode
 
+  EnumFieldDescription* = object
+    name*: NimNode
+    value*: NimNode
+
 const
   nnkPragmaCallKinds = {nnkExprColonExpr, nnkCall, nnkCallStrLit}
 
@@ -431,6 +435,28 @@ func isCaseObject*(T: type): bool {.compileTime.} =
       false
   else:
     false
+
+func enumFields*(typ: NimNode): seq[EnumFieldDescription] =
+  if typ.typeKind == ntyTypeDesc:
+    return enumFields(typ.getTypeInst[1])
+  let typeDef = if typ.kind == nnkSym: typ.getImpl else: typ
+  if typeDef.kind != nnkTypeDef:
+    macros.error("enum type expected", typ)
+  case typeDef[2].kind
+  of nnkSym:
+    enumFields(typeDef[2])
+  of nnkEnumTy:
+    var fields: seq[EnumFieldDescription]
+    for i in 1 ..< typeDef[2].len:
+      let field = typeDef[2][i]
+      fields.add(
+        if field.kind == nnkEnumFieldDef:
+          EnumFieldDescription(name: field[0], value: field[1])
+        else:
+          EnumFieldDescription(name: field))
+    fields
+  else:
+    macros.error("enum type expected", typ)
 
 macro field*(obj: typed, fieldName: static string): untyped =
   newDotExpr(obj, ident fieldName)

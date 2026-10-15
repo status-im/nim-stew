@@ -29,15 +29,25 @@ type
         second {.zero.}: string
 
   FieldKind = enum
-    KindA
-    KindB
+    kindA
+    kindB
+
+  HoleyKind = enum
+    holeyA = 5
+    holeyB = 20
+
+  HoleyKindAlias = HoleyKind
+
+  DescribedKind = enum
+    describedA = "first"
+    describedB
 
   BaseType = object of RootObj
     baseField: int
     case baseCaseField: FieldKind
-    of KindA:
+    of kindA:
       baseA: int
-    of KindB:
+    of kindB:
       discard
 
   DerivedType = ref object of BaseType
@@ -162,7 +172,7 @@ type
 
   NestedCaseType = object
     case outerKind: FieldKind
-    of KindA, KindB:
+    of kindA, kindB:
       case innerKind {.zero.}: range[0 .. 3]
       of 1 .. 2:
         nestedField {.one("nested").}: int
@@ -302,6 +312,27 @@ macro typeParamFieldsLists(T: type): untyped =
 macro typeParamIsTuple(T: type): untyped =
   newLit(T.isTuple)
 
+func enumFieldsList(typ: NimNode): NimNode =
+  var res: seq[string]
+  for field in enumFields(typ):
+    var description = $field.name
+    if field.value != nil:
+      description.add " = " & field.value.repr
+    res.add description
+  newLit res
+
+macro typeInstEnumFieldsList(T: type): untyped =
+  enumFieldsList(T.getTypeInst[1])
+
+macro typeParamEnumFieldsList(T: type): untyped =
+  enumFieldsList(T)
+
+template getEnumFieldsList(T: type): untyped =
+  block:
+    const res = typeInstEnumFieldsList(T)
+    doAssert typeParamEnumFieldsList(T) == res
+    res
+
 func typeDescFieldsLists(T: type): seq[string] {.compileTime.} =
   fieldDescriptions(recordFields(T))
 
@@ -358,7 +389,7 @@ static:
   doAssert getFieldsLists(DerivedFromRefType) == [
     "baseField: int",
     "case baseCaseField: FieldKind",
-    "baseCaseField of KindA: baseA: int",
+    "baseCaseField of kindA: baseA: int",
     "derivedField: int",
     "anotherDerivedField: string"
   ]
@@ -490,7 +521,7 @@ static:
 
   doAssert getFieldsLists(NestedCaseType) == [
     "case outerKind: FieldKind",
-    "outerKind of KindA, KindB: case innerKind: range[0 .. 3] {.zero.}",
+    "outerKind of kindA, kindB: case innerKind: range[0 .. 3] {.zero.}",
     "innerKind of 1 .. 2: nestedField: int {.one(\"nested\").}"
   ]
 
@@ -655,6 +686,26 @@ static:
   doAssert not typeParamIsTuple(RefTupleType)
   doAssert not typeParamIsTuple(EmptyObject)
   doAssert not typeParamIsTuple(int)
+
+  doAssert getEnumFieldsList(FieldKind) == @[
+    "kindA",
+    "kindB"
+  ]
+
+  doAssert getEnumFieldsList(HoleyKind) == @[
+    "holeyA = 5",
+    "holeyB = 20"
+  ]
+
+  doAssert getEnumFieldsList(HoleyKindAlias) == @[
+    "holeyA = 5",
+    "holeyB = 20"
+  ]
+
+  doAssert getEnumFieldsList(DescribedKind) == @[
+    "describedA = \"first\"",
+    "describedB"
+  ]
 
 # Test for https://github.com/nim-lang/Nim/issues/26464
 block:
