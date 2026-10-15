@@ -80,20 +80,28 @@ func findPragma*(pragmas: NimNode, pragmaSym: NimNode): NimNode =
         return p
 
 func isTuple*(typ: NimNode): bool =
-  if typ.typeKind == ntyTypeDesc:
-    return isTuple(getType(typ)[1])
-  typ.kind == nnkBracketExpr and
-  typ[0].kind == nnkSym and
-  eqIdent(typ[0], "tuple")
+  case typ.typeKind
+  of ntyTypeDesc:
+    isTuple(getType(typ)[1])
+  of ntyTuple:
+    true
+  of ntyGenericInst, ntyAlias:
+    typ.getTypeImpl.kind in {nnkTupleTy, nnkTupleConstr}
+  of ntyNone:
+    case typ.kind
+    of nnkTupleTy, nnkTupleConstr:
+      true
+    of nnkBracketExpr:
+      typ[0].kind == nnkSym and eqIdent(typ[0], "tuple")
+    of nnkTypeDef:
+      isTuple(typ[2])
+    else:
+      false
+  else:
+    false
 
 macro isTuple*(T: type): untyped =
   newLit(isTuple(getType(T)[1]))
-
-func skipRef*(typ: NimNode): NimNode =
-  if typ.kind == nnkBracketExpr and eqIdent(typ[0], "ref"): typ[1] else: typ
-
-func skipPtr*(typ: NimNode): NimNode =
-  if typ.kind == nnkBracketExpr and eqIdent(typ[0], "ptr"): typ[1] else: typ
 
 template readPragma*(
     field: FieldDescription, pragmaName: static string): NimNode =
@@ -363,7 +371,8 @@ func recordFields*(typ: NimNode): seq[FieldDescription] =
     return recordFields(typ.getTypeInst[1])
 
   var fields: seq[FieldDescription]
-  if typ.isTuple:
+  if typ.kind == nnkBracketExpr and typ[0].kind == nnkSym and
+      eqIdent(typ[0], "tuple"):
     for i in 1 ..< typ.len:
       fields.add FieldDescription(
         typ: typ[i], name: ident("Field" & $(i - 1)))
@@ -371,7 +380,10 @@ func recordFields*(typ: NimNode): seq[FieldDescription] =
 
   case typ.kind
   of nnkSym, nnkBracketExpr:
-    let typeInst = skipPtr skipRef typ
+    var typeInst = typ
+    while typeInst.kind == nnkBracketExpr and
+        (eqIdent(typeInst[0], "ref") or eqIdent(typeInst[0], "ptr")):
+      typeInst = typeInst[1]
     collectFieldsFromType(fields, typeInst, typeInst.getTypeImpl)
     return fields
   of nnkObjectTy:
@@ -548,7 +560,9 @@ macro hasCustomPragmaFixed*(T: type, pragma: typed{nkSym}): untyped =
 
 func humaneTypeName*(typedescNode: NimNode): string =
   var typ = getType(typedescNode)[1]
-  if typ.kind != nnkBracketExpr:
+  if typ.kind == nnkEnumTy:
+    typ = getTypeInst(typedescNode)[1]
+  if typ.kind == nnkSym:
     let typeDef = typ.getImpl
     if typeDef != nil and typeDef.kind notin {nnkEmpty, nnkNilLit}:
       typ = typeDef

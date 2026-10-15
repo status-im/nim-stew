@@ -190,6 +190,8 @@ type
   PtrUnnamedTupleType = ptr (int, string)
   PtrRefTupleType = ptr ref TupleType
   RefPtrUnnamedTupleType = ref ptr UnnamedTupleType
+  GenericTupleType[T] = tuple[genericTupleField: T]
+  GenericTupleAliasType = GenericTupleType[int]
 
   EmptyObject = object
   EmptyRefObject = ref object
@@ -311,8 +313,33 @@ macro typeDefFieldsLists(T: type): untyped =
 macro typeParamFieldsLists(T: type): untyped =
   fieldsList(T)
 
+macro typeInstIsTuple(T: type): untyped =
+  newLit(T.getTypeInst[1].isTuple)
+
+macro typeImplIsTuple(T: type): untyped =
+  newLit(T.getTypeInst[1].getTypeImpl.isTuple)
+
+macro typeIsTuple(T: type): untyped =
+  newLit(T.getType[1].isTuple)
+
+macro typeDefIsTuple(T: type): untyped =
+  let typ = T.getTypeInst[1]
+  newLit(isTuple(if typ.kind == nnkSym: typ.getImpl else: typ))
+
 macro typeParamIsTuple(T: type): untyped =
   newLit(T.isTuple)
+
+template getIsTuple(T: type): untyped =
+  block:
+    const res = typeInstIsTuple(T)
+    doAssert typeImplIsTuple(T) == res
+    doAssert typeIsTuple(T) == res
+    doAssert typeDefIsTuple(T) == res
+    doAssert typeParamIsTuple(T) == res
+    res
+
+macro typeHumaneName(T: type): untyped =
+  newLit(humaneTypeName(T))
 
 func enumFieldsList(typ: NimNode): NimNode =
   var res: seq[string]
@@ -697,12 +724,16 @@ static:
   doAssert not isCaseObject(seq[int])
   doAssert not isCaseObject(ref int)
 
-  doAssert typeParamIsTuple(TupleType)
-  doAssert typeParamIsTuple(UnnamedTupleType)
-  doAssert typeParamIsTuple(typeof((1, "a")))
-  doAssert not typeParamIsTuple(RefTupleType)
-  doAssert not typeParamIsTuple(EmptyObject)
-  doAssert not typeParamIsTuple(int)
+  doAssert getIsTuple(TupleType)
+  doAssert getIsTuple(UnnamedTupleType)
+  doAssert getIsTuple(typeof((1, "a")))
+  doAssert getIsTuple(GenericTupleType[int])
+  doAssert getIsTuple(GenericTupleAliasType)
+  doAssert not getIsTuple(RefTupleType)
+  doAssert not getIsTuple(EmptyObject)
+  doAssert not getIsTuple(int)
+
+  doAssert typeHumaneName(FieldKind) == "FieldKind = enum\n  kindA, kindB"
 
   doAssert getEnumFieldsList(FieldKind) == @[
     "kindA",
