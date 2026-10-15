@@ -588,10 +588,13 @@ block:
       caseA
       caseB
 
+    StyleKind = enum
+      styleA
+
     StyleCaseType = object
       case caseKind: CaseKind
       of caseA:
-        styleField: int
+        styleKind: seq[StyleKind]
       of caseB:
         discard
 
