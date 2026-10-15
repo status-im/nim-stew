@@ -263,7 +263,7 @@ func definedField(
   if match == -1:
     macros.error("no definition found for field " & $field.name, field.name)
   var defField = matchField
-  # XXX https://github.com/nim-lang/Nim/issues/26464
+  # https://github.com/nim-lang/Nim/issues/26464
   defField.typ = field.typ.withLineInfoOf(defField.typ)
   defField
 
