@@ -13,29 +13,41 @@ import unittest2, ../stew/enums
 
 suite "enumStyle":
   test "OrdinalEnum":
-    type EnumTest = enum
-      x0
-      x1
-      x2
+    type
+      EnumTest = enum
+        x0
+        x1
+        x2
+      EnumTestAlias = EnumTest
 
-    check EnumTest.enumStyle == EnumStyle.Numeric
+    check:
+      EnumTest.enumStyle == EnumStyle.Numeric
+      EnumTestAlias.enumStyle == EnumStyle.Numeric
 
   test "HoleyEnum":
-    type EnumTest = enum
-      y1 = 1
-      y3 = 3
-      y4
-      y6 = 6
+    type
+      EnumTest = enum
+        y1 = 1
+        y3 = 3
+        y4
+        y6 = 6
+      EnumTestAlias = EnumTest
 
-    check EnumTest.enumStyle == EnumStyle.Numeric
+    check:
+      EnumTest.enumStyle == EnumStyle.Numeric
+      EnumTestAlias.enumStyle == EnumStyle.Numeric
 
   test "StringEnum":
-    type EnumTest = enum
-      z1 = "aaa"
-      z2 = "bbb"
-      z3 = "ccc"
+    type
+      EnumTest = enum
+        z1 = "aaa"
+        z2 = "bbb"
+        z3 = "ccc"
+      EnumTestAlias = EnumTest
 
-    check EnumTest.enumStyle == EnumStyle.AssociatedStrings
+    check:
+      EnumTest.enumStyle == EnumStyle.AssociatedStrings
+      EnumTestAlias.enumStyle == EnumStyle.AssociatedStrings
 
 suite "enums":
   test "enumRangeInt64":
