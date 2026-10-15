@@ -401,8 +401,10 @@ static:
     "aliasDerivedField: int {.zero.}"
   ]
 
-  doAssert getFieldsLists(typeof(DerivedFromAliasType())) ==
-      getFieldsLists(TypeofAliasType)
+  doAssert getFieldsLists(typeof(DerivedFromAliasType())) == [
+    "genericBaseField: int {.zero.}",
+    "aliasDerivedField: int {.zero.}"
+  ]
 
   doAssert getFieldsLists(PublicBaseType[int]) == [
     "pubBaseField*: int {.zero.}"
@@ -497,9 +499,14 @@ static:
     "Field1: string"
   ]
 
-  doAssert getFieldsLists(PtrRefTupleType) == getFieldsLists(TupleType)
-  doAssert getFieldsLists(RefPtrUnnamedTupleType) ==
-      getFieldsLists(UnnamedTupleType)
+  doAssert getFieldsLists(PtrRefTupleType) == [
+    "tupleField: int"
+  ]
+
+  doAssert getFieldsLists(RefPtrUnnamedTupleType) == [
+    "Field0: int",
+    "Field1: string"
+  ]
 
   doAssert getFieldsLists(WhenCaseType) == [
     "case second: bool",
@@ -522,8 +529,9 @@ static:
     "callField: int {.zero.}"
   ]
 
-  doAssert getFieldsLists(templateCallType(int)) ==
-      getFieldsLists(TemplateCallAliasType)
+  doAssert getFieldsLists(templateCallType(int)) == [
+    "callField: int {.zero.}"
+  ]
 
   doAssert getFieldsLists(DotTemplateCallAliasType) == [
     "callField: string {.zero.}"
