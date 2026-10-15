@@ -9,7 +9,7 @@
 
 {.push raises: [].}
 
-import std/[macros, options, sequtils, typetraits]
+import std/[options, sequtils, typetraits], ./shims/macros
 
 type EnumStyle* {.pure.} = enum
   Numeric
@@ -24,28 +24,20 @@ func setMode(style: var Option[EnumStyle], s: EnumStyle, typ: auto) =
     discard
 
 macro enumStyle*(t: typedesc[enum]): untyped =
-  let
-    typ = t.getTypeInst[1]
-    impl = typ.getImpl[2]
-  expectKind impl, nnkEnumTy
+  let typ = t.getTypeInst[1]
 
   var style: Option[EnumStyle]
-  for f in impl:
-    case f.kind
-    of nnkEmpty:
-      continue
-    of nnkIdent:
-      error("Unexpected enum node for deserialization: " & $f.kind)
-    of nnkSym:
+  for field in typ.enumFields:
+    if field.value == nil:
       style.setMode(EnumStyle.Numeric, typ)
-    of nnkEnumFieldDef:
-      case f[1].kind
+    else:
+      case field.value.kind
       of nnkIntLit:
         style.setMode(EnumStyle.Numeric, typ)
       of nnkStrLit:
         style.setMode(EnumStyle.AssociatedStrings, typ)
-      else: error("Unexpected enum tuple for deserialization: " & $f[1].kind)
-    else: error("Unexpected enum node for deserialization: " & $f.kind)
+      else:
+        error("Unexpected enum tuple for deserialization: " & $field.value.kind)
 
   if style.isNone:
     error("Cannot determine enum style for deserialization: " & $typ)
