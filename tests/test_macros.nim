@@ -401,6 +401,9 @@ static:
     "aliasDerivedField: int {.zero.}"
   ]
 
+  doAssert getFieldsLists(typeof(DerivedFromAliasType())) ==
+      getFieldsLists(TypeofAliasType)
+
   doAssert getFieldsLists(PublicBaseType[int]) == [
     "pubBaseField*: int {.zero.}"
   ]
@@ -518,6 +521,9 @@ static:
   doAssert getFieldsLists(TemplateCallAliasType) == [
     "callField: int {.zero.}"
   ]
+
+  doAssert getFieldsLists(templateCallType(int)) ==
+      getFieldsLists(TemplateCallAliasType)
 
   doAssert getFieldsLists(DotTemplateCallAliasType) == [
     "callField: string {.zero.}"

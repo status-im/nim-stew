@@ -347,6 +347,9 @@ func collectFieldsFromType(
     fields.add defFields.definedField(implFields[i])
 
 func recordFields*(typ: NimNode): seq[FieldDescription] =
+  if typ.typeKind == ntyTypeDesc:
+    return recordFields(typ.getTypeInst[1])
+
   var fields: seq[FieldDescription]
   if typ.isTuple:
     for i in 1 ..< typ.len:
@@ -356,12 +359,8 @@ func recordFields*(typ: NimNode): seq[FieldDescription] =
 
   case typ.kind
   of nnkSym, nnkBracketExpr:
-    let
-      typeInst = skipPtr skipRef typ
-      typeImpl = typeInst.getTypeImpl
-    if typeImpl.typeKind == ntyTypeDesc:
-      return recordFields(typ.getTypeInst[1])
-    collectFieldsFromType(fields, typeInst, typeImpl)
+    let typeInst = skipPtr skipRef typ
+    collectFieldsFromType(fields, typeInst, typeInst.getTypeImpl)
     return fields
   of nnkObjectTy:
     let recList = typ[2]
