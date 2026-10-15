@@ -141,13 +141,15 @@ type
   GenericRefType[T] = ref object
     genericRefField {.zero.}: T
 
-  PublicType* {.zero.} = ref object of GenericBaseType[int]
+  PublicType* {.zero, one("public").} = ref object of GenericBaseType[int]
     publicField* {.zero.}: int
     case publicKind* {.zero.}: bool
     of true:
       publicBranch*: int
     of false:
       discard
+
+  PublicAliasType = PublicType
 
   PtrType = ptr object of GenericBaseType[int]
     ptrField {.zero.}: int
@@ -809,6 +811,7 @@ suite "Macros":
       LocalType.hasCustomPragmaFixed("localField", zero)
 
       PublicType.hasCustomPragmaFixed(zero)
+      PublicAliasType.hasCustomPragmaFixed(zero)
       GenericBaseType[int].hasCustomPragmaFixed(one)
       IntBaseType.hasCustomPragmaFixed(one)
       AliasBaseType.hasCustomPragmaFixed(one)
@@ -819,6 +822,7 @@ suite "Macros":
       MacroCallAliasType.hasCustomPragmaFixed(one)
       not EmptyObject.hasCustomPragmaFixed(zero)
       not (int, string).hasCustomPragmaFixed(zero)
+      not (ref GenericBaseType[int]).hasCustomPragmaFixed(one)
     when compiles(MyType[string].hasCustomPragmaFixed("unknownField", zero)):
       check false
 
@@ -849,6 +853,8 @@ suite "Macros":
       (int, string).getCustomPragmaFixed("Field0", zero).isNil
 
       PublicType.getCustomPragmaFixed(zero).isNil
+      PublicType.getCustomPragmaFixed(one) == "public"
+      PublicAliasType.getCustomPragmaFixed(one) == "public"
       GenericBaseType[int].getCustomPragmaFixed(one) == "generic"
       IntBaseType.getCustomPragmaFixed(one) == "generic"
       AliasBaseType.getCustomPragmaFixed(one) == "generic"
@@ -858,5 +864,6 @@ suite "Macros":
       MacroCallAliasType.getCustomPragmaFixed(one) == "call"
       EmptyObject.getCustomPragmaFixed(zero).isNil
       (int, string).getCustomPragmaFixed(zero).isNil
+      (ref GenericBaseType[int]).getCustomPragmaFixed(one).isNil
     when compiles(MyType[string].getCustomPragmaFixed("unknownField", zero)):
       check false
