@@ -105,6 +105,29 @@ template readPragma*(
   let p = findPragma(field.pragmas, bindSym(pragmaName))
   if p != nil and p.len == 2: p[1] else: p
 
+func branchValues(recCase: NimNode, i: int): NimNode =
+  let discriminator = recCase[0]
+  if discriminator.kind != nnkSym and discriminator[0].kind != nnkSym:
+    return nil
+
+  let branch = recCase[i]
+  if branch.kind == nnkOfBranch:
+    let values = newNimNode(nnkCurly)
+    for j in 0 ..< branch.len - 1:
+      values.add branch[j].copyNimTree
+    return values
+
+  var ofValues = newNimNode(nnkCurly)
+  for j in 1 ..< i:
+    for k in 0 ..< recCase[j].len - 1:
+      ofValues.add recCase[j][k]
+  if ofValues.len == 0:
+    let discriminatorType =
+      if discriminator.kind == nnkIdentDefs: discriminator[1]
+      else: discriminator.getTypeInst
+    ofValues = quote do: set[`discriminatorType`]({})
+  quote do: complement(`ofValues`)
+
 func collectFieldsFromRecList(
     fields: var seq[FieldDescription], n: NimNode,
     parentCaseField: NimNode = nil, parentCaseBranch: NimNode = nil,
@@ -141,23 +164,13 @@ func collectFieldsFromRecList(
                              isDiscriminator = true
 
     for i in 1 ..< n.len:
-      let branch = n[i]
+      let
+        branch = n[i]
+        values = n.branchValues(i)
       case branch.kind
       of nnkOfBranch:
-        let values = newNimNode(nnkCurly)
-        for j in 0 ..< branch.len - 1:
-          values.add branch[j].copyNimTree
         collectFieldsFromRecList fields, branch[^1], n[0], branch, values
       of nnkElse:
-        var ofValues = newNimNode(nnkCurly)
-        for j in 1 ..< i:
-          for k in 0 ..< n[j].len - 1:
-            ofValues.add n[j][k]
-        if ofValues.len == 0:
-          let discriminatorType =
-            if n[0].kind == nnkIdentDefs: n[0][1] else: n[0].getTypeInst
-          ofValues = quote do: set[`discriminatorType`]({})
-        let values = quote do: complement(`ofValues`)
         collectFieldsFromRecList fields, branch[0], n[0], branch, values
       else:
         doAssert false

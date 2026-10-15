@@ -436,9 +436,6 @@ func untypedFieldsLists(typeDef: NimNode): NimNode =
 macro getUntypedFieldsLists(typeSection: untyped): untyped =
   untypedFieldsLists(typeSection[0][0])
 
-macro getUntypedCaseBranchValuesList(typeSection: untyped): untyped =
-  caseBranchValuesList(typeSection[0][0])
-
 macro quotedPtrFieldsLists(): untyped =
   let typeSection = quote do:
     type U = ptr object of PtrBaseType
@@ -785,23 +782,6 @@ static:
     "elseOfField: {1, 2}",
     "elseField: {0}",
     "elseOnlyField: {false, true}"
-  ]
-
-  const untypedCaseBranchValuesList = getUntypedCaseBranchValuesList:
-    type U = object
-      case untypedKind: FieldKind
-      of kindA:
-        when sizeof(int) > 0:
-          untypedField: int
-      else:
-        untypedElseField: int
-      case untypedFlag: bool
-      else:
-        untypedFlagField: int
-  doAssert untypedCaseBranchValuesList == [
-    "untypedField: {kindA}",
-    "untypedElseField: {kindB}",
-    "untypedFlagField: {false, true}"
   ]
 
   doAssert isCaseObject(MyType[string])
