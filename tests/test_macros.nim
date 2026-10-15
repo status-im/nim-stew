@@ -18,6 +18,8 @@ template one(one: string) {.pragma.}
 template two(one: string, two: string) {.pragma.}
 {.pragma: zeroAlias, zero.}
 
+const elseOfKinds = {1, 2}
+
 type
   MyType[T] = object
     myField {.zero, one("foo"), two("foo", "bar")}: string
@@ -180,6 +182,18 @@ type
         nestedField {.one("nested").}: int
       else:
         discard
+
+  ElseCaseType = object
+    case elseKind: range[0 .. 3]
+    of elseOfKinds:
+      elseOfField: int
+    of 3:
+      discard
+    else:
+      elseField: int
+    case elseOnlyKind: bool
+    else:
+      elseOnlyField: int
 
   PragmaAliasType = object
     aliasField {.zeroAlias.}: int
@@ -376,6 +390,41 @@ template getFieldsLists(T: type): untyped =
     doAssert typeDescFieldsLists(T) == @res
     res
 
+func caseBranchValuesList(typ: NimNode): NimNode =
+  let values = newTree(nnkBracket)
+  for field in recordFields(typ):
+    if field.caseBranchValues != nil:
+      let
+        name = newLit(field.name.repr)
+        branchValues = field.caseBranchValues
+      values.add quote do: `name` & ": " & $`branchValues`
+  values
+
+macro typeInstCaseBranchValuesList(T: type): untyped =
+  caseBranchValuesList(T.getTypeInst[1])
+
+macro typeImplCaseBranchValuesList(T: type): untyped =
+  caseBranchValuesList(T.getTypeInst[1].getTypeImpl)
+
+macro typeCaseBranchValuesList(T: type): untyped =
+  caseBranchValuesList(T.getType[1])
+
+macro typeDefCaseBranchValuesList(T: type): untyped =
+  let typ = T.getTypeInst[1]
+  caseBranchValuesList(if typ.kind == nnkSym: typ.getImpl else: typ)
+
+macro typeParamCaseBranchValuesList(T: type): untyped =
+  caseBranchValuesList(T)
+
+template getCaseBranchValuesList(T: type): untyped =
+  block:
+    const res = typeInstCaseBranchValuesList(T)
+    doAssert typeImplCaseBranchValuesList(T) == res
+    doAssert typeCaseBranchValuesList(T) == res
+    doAssert typeDefCaseBranchValuesList(T) == res
+    doAssert typeParamCaseBranchValuesList(T) == res
+    res
+
 func untypedFieldsLists(typeDef: NimNode): NimNode =
   let genSymTypeDef = typeDef.copyNimTree
   genSymTypeDef[0] = genSym(nskType, $typeDef[0])
@@ -386,6 +435,9 @@ func untypedFieldsLists(typeDef: NimNode): NimNode =
 
 macro getUntypedFieldsLists(typeSection: untyped): untyped =
   untypedFieldsLists(typeSection[0][0])
+
+macro getUntypedCaseBranchValuesList(typeSection: untyped): untyped =
+  caseBranchValuesList(typeSection[0][0])
 
 macro quotedPtrFieldsLists(): untyped =
   let typeSection = quote do:
@@ -713,6 +765,43 @@ static:
     "case refBaseKind: bool {.zero.}",
     "refBaseKind of true: refBaseField: int {.one(\"ref\").}",
     "quotedField: int {.zero.}"
+  ]
+
+  doAssert getCaseBranchValuesList(MyType[string]) == [
+    "first: {true}",
+    "second: {false}"
+  ]
+
+  doAssert getCaseBranchValuesList(DerivedFromRefType) == [
+    "baseA: {kindA}"
+  ]
+
+  doAssert getCaseBranchValuesList(NestedCaseType) == [
+    "innerKind: {kindA, kindB}",
+    "nestedField: {1, 2}"
+  ]
+
+  doAssert getCaseBranchValuesList(ElseCaseType) == [
+    "elseOfField: {1, 2}",
+    "elseField: {0}",
+    "elseOnlyField: {false, true}"
+  ]
+
+  const untypedCaseBranchValuesList = getUntypedCaseBranchValuesList:
+    type U = object
+      case untypedKind: FieldKind
+      of kindA:
+        when sizeof(int) > 0:
+          untypedField: int
+      else:
+        untypedElseField: int
+      case untypedFlag: bool
+      else:
+        untypedFlagField: int
+  doAssert untypedCaseBranchValuesList == [
+    "untypedField: {kindA}",
+    "untypedElseField: {kindB}",
+    "untypedFlagField: {false, true}"
   ]
 
   doAssert isCaseObject(MyType[string])

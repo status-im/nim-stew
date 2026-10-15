@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  std/[hashes, macrocache, macros, tables, typetraits]
+  std/[hashes, macrocache, macros, setutils, tables, typetraits]
 
 export
   macros
@@ -15,6 +15,7 @@ type
     pragmas*: NimNode
     caseField*: NimNode
     caseBranch*: NimNode
+    caseBranchValues*: NimNode
 
   EnumFieldDescription* = object
     name*: NimNode
@@ -107,12 +108,13 @@ template readPragma*(
 func collectFieldsFromRecList(
     fields: var seq[FieldDescription], n: NimNode,
     parentCaseField: NimNode = nil, parentCaseBranch: NimNode = nil,
-    isDiscriminator = false) =
+    parentCaseBranchValues: NimNode = nil, isDiscriminator = false) =
   case n.kind
   of nnkRecList:
     for entry in n:
       collectFieldsFromRecList fields, entry,
-                               parentCaseField, parentCaseBranch
+                               parentCaseField, parentCaseBranch,
+                               parentCaseBranchValues
   of nnkRecWhen:
     for branch in n:
       case branch.kind:
@@ -120,12 +122,14 @@ func collectFieldsFromRecList(
         if branch[0].kind == nnkSym and eqIdent(branch[0], "false"):
           continue
         collectFieldsFromRecList fields, branch[1],
-                                 parentCaseField, parentCaseBranch
+                                 parentCaseField, parentCaseBranch,
+                                 parentCaseBranchValues
         if branch[0].kind == nnkSym and eqIdent(branch[0], "true"):
           break
       of nnkElse:
         collectFieldsFromRecList fields, branch[0],
-                                 parentCaseField, parentCaseBranch
+                                 parentCaseField, parentCaseBranch,
+                                 parentCaseBranchValues
       else:
         doAssert false
 
@@ -133,15 +137,28 @@ func collectFieldsFromRecList(
     collectFieldsFromRecList fields, n[0],
                              parentCaseField,
                              parentCaseBranch,
+                             parentCaseBranchValues,
                              isDiscriminator = true
 
     for i in 1 ..< n.len:
       let branch = n[i]
       case branch.kind
       of nnkOfBranch:
-        collectFieldsFromRecList fields, branch[^1], n[0], branch
+        let values = newNimNode(nnkCurly)
+        for j in 0 ..< branch.len - 1:
+          values.add branch[j].copyNimTree
+        collectFieldsFromRecList fields, branch[^1], n[0], branch, values
       of nnkElse:
-        collectFieldsFromRecList fields, branch[0], n[0], branch
+        var ofValues = newNimNode(nnkCurly)
+        for j in 1 ..< i:
+          for k in 0 ..< n[j].len - 1:
+            ofValues.add n[j][k]
+        if ofValues.len == 0:
+          let discriminatorType =
+            if n[0].kind == nnkIdentDefs: n[0][1] else: n[0].getTypeInst
+          ofValues = quote do: set[`discriminatorType`]({})
+        let values = quote do: complement(`ofValues`)
+        collectFieldsFromRecList fields, branch[0], n[0], branch, values
       else:
         doAssert false
 
@@ -153,6 +170,7 @@ func collectFieldsFromRecList(
       field.typ = fieldType
       field.caseField = parentCaseField
       field.caseBranch = parentCaseBranch
+      field.caseBranchValues = parentCaseBranchValues
       field.isDiscriminator = isDiscriminator
 
       if field.name.kind == nnkPragmaExpr:
@@ -171,6 +189,7 @@ func collectFieldsFromRecList(
       typ: getType(n),
       caseField: parentCaseField,
       caseBranch: parentCaseBranch,
+      caseBranchValues: parentCaseBranchValues,
       isDiscriminator: isDiscriminator)
 
   of nnkNilLit, nnkDiscardStmt, nnkCommentStmt, nnkEmpty:
@@ -289,6 +308,7 @@ func definedField(
   var defField = matchField
   # https://github.com/nim-lang/Nim/issues/26464
   defField.typ = field.typ.withLineInfoOf(defField.typ)
+  defField.caseBranchValues = field.caseBranchValues
   defField
 
 func areAllFieldsDefined(def: NimNode, fields: seq[FieldDescription]): bool =
