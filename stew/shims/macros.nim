@@ -105,8 +105,12 @@ func collectFieldsFromRecList(
     for branch in n:
       case branch.kind:
       of nnkElifBranch:
+        if branch[0].kind == nnkSym and eqIdent(branch[0], "false"):
+          continue
         collectFieldsFromRecList fields, branch[1],
                                  parentCaseField, parentCaseBranch
+        if branch[0].kind == nnkSym and eqIdent(branch[0], "true"):
+          break
       of nnkElse:
         collectFieldsFromRecList fields, branch[0],
                                  parentCaseField, parentCaseBranch

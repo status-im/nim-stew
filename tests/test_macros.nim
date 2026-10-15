@@ -224,6 +224,23 @@ macro macroType(): untyped =
 
 macroType()
 
+macro whenSharedCaseType(): untyped =
+  let typeSection = quote do:
+    type WhenSharedCaseType {.inject.} = object
+      when sizeof(int) > 0:
+        case whenSharedKind: bool
+        of true:
+          whenSharedField {.zero.}: int
+        of false:
+          discard
+      else:
+        discard
+  let recWhen = typeSection[0][2][2][0]
+  recWhen[1][0] = recWhen[0][1].copyNimTree
+  typeSection
+
+whenSharedCaseType()
+
 template templateCallType(T: type): untyped = CallGenericType[T]
 
 macro macroCallType(T: type): untyped =
@@ -519,6 +536,11 @@ static:
 
   doAssert getFieldsLists(MacroType) == [
     "macroField: int {.zero.}"
+  ]
+
+  doAssert getFieldsLists(WhenSharedCaseType) == [
+    "case whenSharedKind: bool",
+    "whenSharedKind of true: whenSharedField: int {.zero.}"
   ]
 
   doAssert getFieldsLists(CallGenericType[int]) == [
