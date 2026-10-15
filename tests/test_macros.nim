@@ -377,6 +377,21 @@ func zeroFields(T: type): seq[string] =
       fields.add name
   fields
 
+macro overloadedPragma(body: untyped): untyped = body
+macro overloadedPragma(arg, body: untyped): untyped = body
+
+macro hasOverloadedPragma(procSection: untyped): untyped =
+  newLit(procSection[0].pragma.findPragma(ident "overloadedPragma") != nil)
+
+template templateHasOverloadedPragma(): untyped =
+  hasOverloadedPragma:
+    proc templateProc() {.overloadedPragma.}
+
+template bindHasOverloadedPragma(): untyped =
+  bind overloadedPragma
+  hasOverloadedPragma:
+    proc bindProc() {.overloadedPragma.}
+
 static:
   doAssert getFieldsLists(MyType[string]) == [
     "myField: string {.zero, one(\"foo\"), two(\"foo\", \"bar\").}",
@@ -737,6 +752,14 @@ let myType = MyType[string](
   myField: "test", myGeneric: "test", kind: true, first: "test")
 
 suite "Macros":
+  test "findPragma":
+    const untypedHasOverloadedPragma = hasOverloadedPragma:
+      proc untypedProc() {.overloadedPragma.}
+    check:
+      untypedHasOverloadedPragma
+      templateHasOverloadedPragma()
+      bindHasOverloadedPragma()
+
   test "hasCustomPragmaFixed":
     type LocalType = object
       localField {.zero.}: int
