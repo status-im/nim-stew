@@ -182,6 +182,9 @@ type
   EmptyObject = object
   EmptyRefObject = ref object
 
+  CallGenericType[T] = object
+    callField {.zero.}: T
+
 template whenCaseType(typeName, sameField: untyped) =
   type typeName = object
     when false:
@@ -220,6 +223,16 @@ macro macroType(): untyped =
     nnkTypeDef.newTree(ident "MacroType", newEmptyNode(), objectType))
 
 macroType()
+
+template templateCallType(T: type): untyped = CallGenericType[T]
+
+macro macroCallType(T: type): untyped =
+  quote do: CallGenericType[`T`]
+
+type
+  TemplateCallAliasType = templateCallType(int)
+  DotTemplateCallAliasType = string.templateCallType
+  MacroCallAliasType = macroCallType(bool)
 
 func fieldDescriptions(fields: seq[FieldDescription]): seq[string] =
   var res: seq[string]
@@ -496,6 +509,22 @@ static:
 
   doAssert getFieldsLists(MacroType) == [
     "macroField: int {.zero.}"
+  ]
+
+  doAssert getFieldsLists(CallGenericType[int]) == [
+    "callField: int {.zero.}"
+  ]
+
+  doAssert getFieldsLists(TemplateCallAliasType) == [
+    "callField: int {.zero.}"
+  ]
+
+  doAssert getFieldsLists(DotTemplateCallAliasType) == [
+    "callField: string {.zero.}"
+  ]
+
+  doAssert getFieldsLists(MacroCallAliasType) == [
+    "callField: bool {.zero.}"
   ]
 
   const untypedFieldsLists = getUntypedFieldsLists:

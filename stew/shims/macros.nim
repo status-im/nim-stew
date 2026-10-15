@@ -187,6 +187,14 @@ func objectDefinition(typeInst: NimNode): NimNode =
       typeSym = body
     of nnkBracketExpr:
       typeSym = body[0]
+    of nnkCall, nnkCommand, nnkDotExpr, nnkTypeOfExpr:
+      when (NimMajor, NimMinor, NimPatch) >= (2, 2, 14):
+        let typeInst = body.getTypeInst
+        if typeInst == typeSym:
+          break
+        typeSym = if typeInst.kind == nnkBracketExpr: typeInst[0] else: typeInst
+      else:
+        break
     else:
       break
   nil
@@ -318,6 +326,11 @@ func collectFieldsFromType(
     def = typeImpl.getTypeInst.objectDefinition
   if def == nil:
     def = typeInst.aliasedDefinition(implFields)
+  when (NimMajor, NimMinor, NimPatch) < (2, 2, 14):
+    if def == nil and implFields.len > 0 and implFields[0].name.kind == nnkSym:
+      def = implFields[0].name.owner.objectDefinition
+      if def != nil and not def.areAllFieldsDefined(implFields):
+        def = nil
   if def == nil:
     # https://github.com/nim-lang/Nim/issues/22937
     warning("definition of " & typeInst.repr &
