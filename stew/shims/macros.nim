@@ -72,10 +72,12 @@ macro dumpMacroResults*: untyped =
 
 func findPragma*(pragmas: NimNode, pragmaSym: NimNode): NimNode =
   for p in pragmas:
-    if p.kind in {nnkSym, nnkIdent} and eqIdent(p, pragmaSym):
-      return p
-    if p.kind in nnkPragmaCallKinds and p.len > 0 and eqIdent(p[0], pragmaSym):
-      return p
+    if p.kind in nnkPragmaCallKinds:
+      if p.len > 0 and eqIdent(p[0], pragmaSym):
+        return p
+    else:
+      if eqIdent(p, pragmaSym):
+        return p
 
 func isTuple*(typ: NimNode): bool =
   if typ.typeKind == ntyTypeDesc:
