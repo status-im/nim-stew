@@ -499,8 +499,27 @@ func getPragma(
 
   error "The type " & $typ & " doesn't have a field named " & lookedUpField
 
-macro getCustomPragmaFixed*(T: type, field: static string, pragma: typed{nkSym}): untyped =
-  let p = getPragma(T, field, pragma)
+func getPragma(typedescNode, pragma: NimNode): NimNode =
+  for typeInst in [typedescNode.getTypeInst[1], typedescNode.getType[1]]:
+    var typeSym = if typeInst.kind == nnkBracketExpr: typeInst[0] else: typeInst
+    while typeSym.kind == nnkSym:
+      let typeDef = getImpl(typeSym)
+      if typeDef.kind != nnkTypeDef:
+        break
+      if typeDef[0].kind == nnkPragmaExpr:
+        let p = typeDef[0][1].findPragma(pragma)
+        if p != nil:
+          return p.copyNimTree
+      case typeDef[2].kind
+      of nnkSym:
+        typeSym = typeDef[2]
+      of nnkBracketExpr:
+        typeSym = typeDef[2][0]
+      else:
+        break
+  nil
+
+func pragmaValue(p: NimNode): NimNode =
   if p == nil or p.len == 0:
     return nil
   if p.len == 2:
@@ -515,8 +534,17 @@ macro getCustomPragmaFixed*(T: type, field: static string, pragma: typed{nkSym})
     args.add newTree(nnkExprColonExpr, key, val)
   args
 
+macro getCustomPragmaFixed*(T: type, field: static string, pragma: typed{nkSym}): untyped =
+  pragmaValue(getPragma(T, field, pragma))
+
+macro getCustomPragmaFixed*(T: type, pragma: typed{nkSym}): untyped =
+  pragmaValue(getPragma(T, pragma))
+
 macro hasCustomPragmaFixed*(T: type, field: static string, pragma: typed{nkSym}): untyped =
   newLit(getPragma(T, field, pragma) != nil)
+
+macro hasCustomPragmaFixed*(T: type, pragma: typed{nkSym}): untyped =
+  newLit(getPragma(T, pragma) != nil)
 
 func humaneTypeName*(typedescNode: NimNode): string =
   var typ = getType(typedescNode)[1]
