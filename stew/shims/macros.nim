@@ -486,10 +486,7 @@ func isCaseObject*(T: type): bool {.compileTime.} =
   when T is object:
     isCaseObject(getTypeInst(T))
   elif T is ref | ptr:
-    when typeof(default(T)[]) is object:
-      isCaseObject(getTypeInst(T))
-    else:
-      false
+    isCaseObject(typeof(default(T)[]))
   else:
     false
 
