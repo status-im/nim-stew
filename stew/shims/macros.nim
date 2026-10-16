@@ -536,7 +536,9 @@ func hasField*(T: type, name: static string): bool {.compileTime.} =
 func enumFields*(typ: NimNode): seq[EnumFieldDescription] =
   if typ.typeKind == ntyTypeDesc:
     return enumFields(typ.getTypeInst[1])
-  let typeDef = if typ.kind == nnkSym: typ.getImpl else: typ
+  var typeDef = if typ.kind == nnkSym: typ.getImpl else: typ
+  if typeDef.kind in {nnkEnumTy, nnkNilLit}:
+    typeDef = typ.getTypeInst.getImpl
   if typeDef.kind != nnkTypeDef:
     macros.error("enum type expected", typ)
   case typeDef[2].kind
@@ -563,6 +565,8 @@ func enumFields*(typ: NimNode): seq[EnumFieldDescription] =
             $field.name
       fields.add field
     fields
+  of nnkCall, nnkCommand, nnkDotExpr, nnkTypeOfExpr:
+    enumFields(typeDef[2].getTypeImpl)
   else:
     macros.error("enum type expected", typ)
 

@@ -290,6 +290,8 @@ whenSharedCaseType()
 
 template templateCallType(T: type): untyped = CallGenericType[T]
 
+template templateCallKind(): untyped = HoleyKind
+
 macro macroCallType(T: type): untyped =
   quote do: CallGenericType[`T`]
 
@@ -297,6 +299,8 @@ type
   TemplateCallAliasType = templateCallType(int)
   DotTemplateCallAliasType = string.templateCallType
   MacroCallAliasType = macroCallType(bool)
+  TemplateCallAliasKind = templateCallKind()
+  TypeofAliasKind = typeof(holeyA)
 
 func fieldDescriptions(fields: seq[FieldDescription]): seq[string] =
   var res: seq[string]
@@ -394,13 +398,30 @@ func enumFieldsList(typ: NimNode): NimNode =
 macro typeInstEnumFieldsList(T: type): untyped =
   enumFieldsList(T.getTypeInst[1])
 
+macro typeImplEnumFieldsList(T: type): untyped =
+  enumFieldsList(T.getTypeInst[1].getTypeImpl)
+
+macro typeEnumFieldsList(T: type): untyped =
+  enumFieldsList(T.getType[1])
+
+macro typeDefEnumFieldsList(T: type): untyped =
+  let typ = T.getTypeInst[1]
+  enumFieldsList(if typ.kind == nnkSym: typ.getImpl else: typ)
+
 macro typeParamEnumFieldsList(T: type): untyped =
   enumFieldsList(T)
+
+macro valueTypeEnumFieldsList(value: typed): untyped =
+  enumFieldsList(value.getType)
 
 template getEnumFieldsList(T: type): untyped =
   block:
     const res = typeInstEnumFieldsList(T)
+    doAssert typeImplEnumFieldsList(T) == res
+    doAssert typeEnumFieldsList(T) == res
+    doAssert typeDefEnumFieldsList(T) == res
     doAssert typeParamEnumFieldsList(T) == res
+    doAssert valueTypeEnumFieldsList(default(T)) == res
     res
 
 func tupleTypesList(typ: NimNode): NimNode =
@@ -1185,6 +1206,16 @@ static:
     "holeyB = 20: (20, \"holeyB\")"
   ]
 
+  doAssert getEnumFieldsList(TemplateCallAliasKind) == @[
+    "holeyA = 5: (5, \"holeyA\")",
+    "holeyB = 20: (20, \"holeyB\")"
+  ]
+
+  doAssert getEnumFieldsList(TypeofAliasKind) == @[
+    "holeyA = 5: (5, \"holeyA\")",
+    "holeyB = 20: (20, \"holeyB\")"
+  ]
+
   doAssert getEnumFieldsList(DescribedKind) == @[
     "describedA = \"first\": (0, \"first\")",
     "describedB: (1, \"describedB\")"
@@ -1197,6 +1228,11 @@ static:
     "valuedD = 122: (122, \"valuedD\")",
     "valuedE = (127, \"e\"): (127, \"e\")",
     "valuedF: (128, \"valuedF\")"
+  ]
+
+  doAssert getEnumFieldsList(bool) == @[
+    "false = 0: (0, \"false\")",
+    "true = 1: (1, \"true\")"
   ]
 
   doAssert getTupleTypesList(UnnamedTupleType) == @["int", "string"]
