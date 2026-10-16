@@ -250,7 +250,7 @@ func objectDefinition(typeInst: NimNode): NimNode =
     of nnkBracketExpr:
       typeSym = body[0]
     of nnkCall, nnkCommand, nnkDotExpr, nnkTypeOfExpr:
-      when (NimMajor, NimMinor, NimPatch) >= (2, 2, 14):
+      when (NimMajor, NimMinor) > (2, 2):
         let typeInst = body.getTypeInst
         if typeInst == typeSym:
           break
@@ -389,7 +389,7 @@ func collectFieldsFromType(
     def = typeImpl.getTypeInst.objectDefinition
   if def == nil:
     def = typeInst.aliasedDefinition(implFields)
-  when (NimMajor, NimMinor, NimPatch) < (2, 2, 14):
+  when (NimMajor, NimMinor) <= (2, 2):
     if def == nil and implFields.len > 0 and implFields[0].name.kind == nnkSym:
       def = implFields[0].name.owner.objectDefinition
       if def != nil and not def.areAllFieldsDefined(implFields):
