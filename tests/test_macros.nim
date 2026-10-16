@@ -586,6 +586,24 @@ func zeroFields(T: type): seq[string] =
       fields.add name
   fields
 
+func genericIsCaseObject(T: type): bool =
+  isCaseObject(T)
+
+func genericHasField(T: type, name: static string): bool =
+  hasField(T, name)
+
+func compileTimeIsCaseObject(T: type): bool {.compileTime.} =
+  isCaseObject(T)
+
+func compileTimeHasField(T: type, name: static string): bool {.compileTime.} =
+  hasField(T, name)
+
+macro macroIsCaseObject(): untyped =
+  newLit(isCaseObject(MyType[string]))
+
+macro macroHasField(): untyped =
+  newLit(hasField(MyType[string], "myField"))
+
 macro overloadedPragma(body: untyped): untyped = body
 macro overloadedPragma(arg, body: untyped): untyped = body
 
@@ -1155,6 +1173,7 @@ static:
   ]
 
   doAssert isCaseObject(MyType[string])
+  doAssert compileTimeIsCaseObject(MyType[string])
   doAssert isCaseObject(RefBaseType)
   doAssert isCaseObject(ptr RefBaseType)
   doAssert isCaseObject(NestedCaseType)
@@ -1166,6 +1185,7 @@ static:
   doAssert not isCaseObject(ref int)
 
   doAssert hasField(MyType[string], "myField")
+  doAssert compileTimeHasField(MyType[string], "myField")
   doAssert hasField(MyType[string], "second")
   doAssert hasField(DerivedFromRefType, "baseA")
   doAssert hasField(PtrType, "genericBaseField")
@@ -1393,6 +1413,35 @@ suite "Macros":
     const oneValues = getOneValues:
       proc oneProc(a {.one("a").}, b: int, c {.zero.}: string)
     check oneValues == @["a", "", ""]
+
+  test "isCaseObject":
+    const isMyTypeCaseObject = isCaseObject(MyType[string])
+    check:
+      isMyTypeCaseObject
+      isCaseObject(MyType[string])
+      isCaseObject(ptr MyType[string])
+      myType.type.isCaseObject
+      genericIsCaseObject(MyType[string])
+      macroIsCaseObject()
+      not isCaseObject(GenericDerivedType[int])
+      not isCaseObject(seq[int])
+    when not isCaseObject(MyType[string]):
+      check false
+
+  test "hasField":
+    const hasMyField = hasField(MyType[string], "myField")
+    check:
+      hasMyField
+      hasField(MyType[string], "second")
+      hasField(ref MyType[string], "myGeneric")
+      myType.type.hasField("first")
+      genericHasField(MyType[string], "kind")
+      macroHasField()
+      GenericDerivedType[int].hasField("genericBaseField")
+      not hasField(MyType[string], "unknownField")
+      not hasField(seq[int], "len")
+    when not hasField(MyType[string], "myField"):
+      check false
 
   test "identName":
     const

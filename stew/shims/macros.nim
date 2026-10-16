@@ -511,15 +511,19 @@ func isCaseObject*(typ: NimNode): bool =
       return true
   false
 
-func isCaseObject*(T: type): bool {.compileTime.} =
+func isCaseObjectImpl(T: type): bool {.compileTime.} =
   when T is object:
     isCaseObject(getTypeInst(T))
   elif T is ref | ptr:
-    isCaseObject(typeof(default(T)[]))
+    isCaseObjectImpl(T.pointerBase)
   else:
     false
 
-func hasField*(T: type, name: static string): bool {.compileTime.} =
+template isCaseObject*(T: type): bool =
+  const res = isCaseObjectImpl(T)
+  res
+
+func hasFieldImpl(T: type, name: static string): bool {.compileTime.} =
   when T is object | tuple:
     # Index into fields rather than iterate across elements to work around
     # https://github.com/nim-lang/Nim/issues/26273
@@ -529,9 +533,13 @@ func hasField*(T: type, name: static string): bool {.compileTime.} =
         return true
     false
   elif T is ref | ptr:
-    hasField(typeof(default(T)[]), name)
+    hasFieldImpl(T.pointerBase, name)
   else:
     false
+
+template hasField*(T: type, name: static string): bool =
+  const res = hasFieldImpl(T, name)
+  res
 
 func enumFields*(typ: NimNode): seq[EnumFieldDescription] =
   if typ.typeKind == ntyTypeDesc:
