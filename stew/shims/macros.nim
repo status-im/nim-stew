@@ -588,6 +588,13 @@ func tupleTypes*(typ: NimNode): seq[NimNode] =
   impl[1 .. ^1]
 
 macro field*(obj: typed, fieldName: static string): untyped =
+  var typeImpl = obj.getTypeImpl
+  while typeImpl.kind in {nnkRefTy, nnkPtrTy}:
+    typeImpl = typeImpl[0].getTypeImpl
+  if typeImpl.kind == nnkTupleConstr:
+    for i in 0 ..< typeImpl.len:
+      if eqIdent(ident("Field" & $i), fieldName):
+        return nnkBracketExpr.newTree(obj, newLit i)
   newDotExpr(obj, ident fieldName)
 
 func skipPragma*(n: NimNode): NimNode =
