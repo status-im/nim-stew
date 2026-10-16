@@ -1337,6 +1337,22 @@ static:
         continue):
     doAssert false
 
+  block:
+    template skip() = continue
+    when compiles(block:
+        for _, _ in fieldTypePairs(MyType[string]):
+          skip()):
+      doAssert false
+
+  block:
+    template stop() = break
+    var names: seq[string]
+    for name, _ in fieldTypePairs(MyType[string]):
+      if name == "kind":
+        stop()
+      names.add name
+    doAssert names == @["myField", "myGeneric"]
+
   when compiles(block:
       for _, _ in fieldTypePairs(int):
         discard):

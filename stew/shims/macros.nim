@@ -616,6 +616,11 @@ func expectNoContinue(n: NimNode) =
     for child in n:
       expectNoContinue(child)
 
+macro fieldTypePairsLoop(loop: typed): untyped =
+  loop.expectKind nnkWhileStmt
+  loop[1].expectNoContinue()
+  loop
+
 func fieldTypePair(name, field, nameVar, typeVar, body: NimNode): NimNode =
   let stmts = newStmtList()
   if not eqIdent(nameVar, "_"):
@@ -670,14 +675,17 @@ macro fieldTypePairsImpl(T: type, nameVar, typeVar, body: untyped): untyped =
       typeImpl = typeImpl[1][0].getTypeImpl
     else:
       macros.error("object or tuple type expected", T)
+  if stmts.len == 0:
+    # https://github.com/nim-lang/Nim/issues/26487
+    return newStmtList()
   stmts.add nnkBreakStmt.newTree(newEmptyNode())
-  nnkWhileStmt.newTree(newLit(true), stmts)
+  newCall(bindSym"fieldTypePairsLoop",
+    nnkWhileStmt.newTree(newLit(true), stmts))
 
 macro fieldTypePairs*(x: ForLoopStmt): untyped =
   if x.len != 4:
     macros.error("wrong number of variables", x)
   x[^2].expectLen 2
-  x[^1].expectNoContinue()
   newCall(bindSym"fieldTypePairsImpl", x[^2][1], x[0], x[1], x[^1])
 
 func skipPragma*(n: NimNode): NimNode =
