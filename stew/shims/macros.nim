@@ -87,6 +87,9 @@ func findPragma*(pragmas: NimNode, pragmaSym: NimNode): NimNode =
       if eqIdent(p, pragmaSym):
         return p
 
+func hasPragma*(pragmas: NimNode, pragmaName: string): bool =
+  findPragma(pragmas, ident(pragmaName)) != nil
+
 func isTuple*(typ: NimNode): bool =
   case typ.typeKind
   of ntyTypeDesc:
