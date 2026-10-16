@@ -20,6 +20,8 @@ type
   EnumFieldDescription* = object
     name*: NimNode
     value*: NimNode
+    ordinal*: int64
+    strValue*: string
 
   ParamDescription* = object
     name*: NimNode
@@ -502,12 +504,23 @@ func enumFields*(typ: NimNode): seq[EnumFieldDescription] =
   of nnkEnumTy:
     var fields: seq[EnumFieldDescription]
     for i in 1 ..< typeDef[2].len:
-      let field = typeDef[2][i]
-      fields.add(
-        if field.kind == nnkEnumFieldDef:
-          EnumFieldDescription(name: field[0], value: field[1])
+      let fieldDef = typeDef[2][i]
+      var field =
+        if fieldDef.kind == nnkEnumFieldDef:
+          EnumFieldDescription(name: fieldDef[0], value: fieldDef[1])
         else:
-          EnumFieldDescription(name: field))
+          EnumFieldDescription(name: fieldDef)
+      if field.name.kind == nnkPragmaExpr:
+        field.name = field.name[0]
+      if field.name.kind == nnkSym:
+        let impl = field.name.getImpl
+        field.ordinal = field.name.intVal
+        field.strValue =
+          if impl.kind in {nnkStrLit .. nnkTripleStrLit}:
+            impl.strVal
+          else:
+            $field.name
+      fields.add field
     fields
   else:
     macros.error("enum type expected", typ)
