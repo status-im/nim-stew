@@ -317,6 +317,19 @@ func caseFieldName*(field: FieldDescription): NimNode =
     name = name[1]
   name
 
+func containsOrdinal*(values: NimNode, ordinal: int64): bool =
+  if values.kind == nnkCall:
+    let contained = values[1].containsOrdinal(ordinal)
+    return if eqIdent(values[0], "complement"): not contained else: contained
+  values.expectKind nnkCurly
+  for value in values:
+    if value.kind == nnkRange:
+      if ordinal in value[0].intVal .. value[1].intVal:
+        return true
+    elif value.intVal == ordinal:
+      return true
+  false
+
 func isSameCaseField(a, b: FieldDescription): bool =
   let
     aName = a.caseFieldName

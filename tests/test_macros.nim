@@ -475,6 +475,51 @@ template getCaseBranchValuesList(T: type): untyped =
     doAssert typeParamCaseBranchValuesList(T) == res
     res
 
+func containedValuesList(typ: NimNode): NimNode =
+  let values = newTree(nnkBracket)
+  for field in recordFields(typ):
+    if field.caseBranchValues != nil:
+      let
+        name = newLit(field.name.repr)
+        branchValues = field.caseBranchValues
+        contained = newTree(nnkBracket)
+      for ordinal in 0'i64 .. 3:
+        contained.add newLit(branchValues.containsOrdinal(ordinal))
+      values.add quote do:
+        block:
+          type Discriminator = typeof(items(`branchValues`))
+          var res: set[Discriminator]
+          for value in Discriminator.low .. Discriminator.high:
+            if `contained`[ord(value)]:
+              res.incl value
+          `name` & ": " & $res
+  values
+
+macro typeInstContainedValuesList(T: type): untyped =
+  containedValuesList(T.getTypeInst[1])
+
+macro typeImplContainedValuesList(T: type): untyped =
+  containedValuesList(T.getTypeInst[1].getTypeImpl)
+
+macro typeContainedValuesList(T: type): untyped =
+  containedValuesList(T.getType[1])
+
+macro typeDefContainedValuesList(T: type): untyped =
+  let typ = T.getTypeInst[1]
+  containedValuesList(if typ.kind == nnkSym: typ.getImpl else: typ)
+
+macro typeParamContainedValuesList(T: type): untyped =
+  containedValuesList(T)
+
+template getContainedValuesList(T: type): untyped =
+  block:
+    const res = typeInstContainedValuesList(T)
+    doAssert typeImplContainedValuesList(T) == res
+    doAssert typeContainedValuesList(T) == res
+    doAssert typeDefContainedValuesList(T) == res
+    doAssert typeParamContainedValuesList(T) == res
+    res
+
 func untypedFieldsLists(typeDef: NimNode): NimNode =
   let genSymTypeDef = typeDef.copyNimTree
   genSymTypeDef[0] = genSym(nskType, $typeDef[0])
@@ -1048,6 +1093,26 @@ static:
   ]
 
   doAssert getCaseBranchValuesList(ElseCaseType) == [
+    "elseOfField: {1, 2}",
+    "elseField: {0}",
+    "elseOnlyField: {false, true}"
+  ]
+
+  doAssert getContainedValuesList(MyType[string]) == [
+    "first: {true}",
+    "second: {false}"
+  ]
+
+  doAssert getContainedValuesList(DerivedFromRefType) == [
+    "baseA: {kindA}"
+  ]
+
+  doAssert getContainedValuesList(NestedCaseType) == [
+    "innerKind: {kindA, kindB}",
+    "nestedField: {1, 2}"
+  ]
+
+  doAssert getContainedValuesList(ElseCaseType) == [
     "elseOfField: {1, 2}",
     "elseField: {0}",
     "elseOnlyField: {false, true}"
