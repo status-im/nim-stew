@@ -522,13 +522,17 @@ macro readBoundOverloadedPragma(): untyped =
   newLit(recordFields(objectType)[0].readPragma("overloadedPragma") == pragma)
 
 func pragmaLists(routines: NimNode): NimNode =
-  var names: seq[string]
+  var names, present: seq[string]
   for routine in routines:
     if routine.kind notin RoutineNodes:
       continue
-    for p in routine.pragma:
+    let pragmas = routine.pragma
+    for p in pragmas:
       names.add $p.pragmaName
-  newLit (names: names)
+    for name in ["zeroOrOne", "zero", "unknown", "raises", "gcsafe"]:
+      if pragmas.hasPragma(name):
+        present.add name
+  newLit (names: names, present: present)
 
 macro getPragmaLists(routines: untyped): untyped =
   pragmaLists(routines)
@@ -1097,6 +1101,22 @@ suite "Macros":
       untypedHasOverloadedPragma
       templateHasOverloadedPragma()
       bindHasOverloadedPragma()
+
+  test "hasPragma":
+    const untypedPragmaLists = getPragmaLists:
+      proc bareProc() {.zeroOrOne.} = discard
+      proc emptyProc() {.zeroOrOne().} = discard
+      proc colonProc() {.zeroOrOne: "colon".} = discard
+      proc callProc() {.zeroOrOne("call").} = discard
+      proc strLitProc() {.zeroOrOne"strLit".} = discard
+      proc otherProc() {.zero, raises: [], gcsafe.} = discard
+    check:
+      untypedPragmaLists.present == @[
+        "zeroOrOne", "zeroOrOne", "zeroOrOne", "zeroOrOne", "zeroOrOne",
+        "zero", "raises", "gcsafe"]
+      zeroOrOneProcs(getPragmaLists).present == untypedPragmaLists.present
+      bindZeroOrOneProcs(getPragmaLists).present == untypedPragmaLists.present
+      zeroOrOneProcs(getTypedPragmaLists).present == untypedPragmaLists.present
 
   test "readPragma":
     const untypedOverloadedPragmaValues = overloadedPragmaValues:
