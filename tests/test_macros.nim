@@ -522,7 +522,7 @@ macro readBoundOverloadedPragma(): untyped =
   newLit(recordFields(objectType)[0].readPragma("overloadedPragma") == pragma)
 
 func pragmaLists(routines: NimNode): NimNode =
-  var names, present: seq[string]
+  var names, present, values: seq[string]
   for routine in routines:
     if routine.kind notin RoutineNodes:
       continue
@@ -532,7 +532,9 @@ func pragmaLists(routines: NimNode): NimNode =
     for name in ["zeroOrOne", "zero", "unknown", "raises", "gcsafe"]:
       if pragmas.hasPragma(name):
         present.add name
-  newLit (names: names, present: present)
+    let value = pragmas.readPragmaValue("zeroOrOne")
+    values.add(if value == nil: "" else: value.strVal)
+  newLit (names: names, present: present, values: values)
 
 macro getPragmaLists(routines: untyped): untyped =
   pragmaLists(routines)
@@ -558,6 +560,13 @@ template bindZeroOrOneProcs(getLists: untyped): untyped =
     proc callProc() {.zeroOrOne("call").} = discard
     proc strLitProc() {.zeroOrOne"strLit".} = discard
     proc otherProc() {.zero, raises: [], gcsafe.} = discard
+
+macro getZeroOrOneValues(routine: untyped): untyped =
+  var values: seq[string]
+  for param in routineParams(routine[0]):
+    let value = param.readPragmaValue("zeroOrOne")
+    values.add(if value == nil: "" else: value.strVal)
+  newLit values
 
 func paramsList(n: NimNode): NimNode =
   var res: seq[string]
@@ -1131,6 +1140,23 @@ suite "Macros":
         @["overloadedPragma", "colon", "call", "strLit", ""]
       templateOverloadedPragmaValues() == untypedOverloadedPragmaValues
       bindOverloadedPragmaValues() == untypedOverloadedPragmaValues
+
+  test "readPragmaValue":
+    const untypedPragmaLists = getPragmaLists:
+      proc bareProc() {.zeroOrOne.} = discard
+      proc emptyProc() {.zeroOrOne().} = discard
+      proc colonProc() {.zeroOrOne: "colon".} = discard
+      proc callProc() {.zeroOrOne("call").} = discard
+      proc strLitProc() {.zeroOrOne"strLit".} = discard
+      proc otherProc() {.zero, raises: [], gcsafe.} = discard
+    check:
+      untypedPragmaLists.values == @["", "", "colon", "call", "strLit", ""]
+      zeroOrOneProcs(getPragmaLists).values == untypedPragmaLists.values
+      bindZeroOrOneProcs(getPragmaLists).values == untypedPragmaLists.values
+      zeroOrOneProcs(getTypedPragmaLists).values == untypedPragmaLists.values
+    const zeroOrOneValues = getZeroOrOneValues:
+      proc oneProc(a {.zeroOrOne("a").}, b {.zeroOrOne.}: int, c: string)
+    check zeroOrOneValues == @["a", "", ""]
 
   test "routineParams":
     const

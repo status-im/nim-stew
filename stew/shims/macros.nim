@@ -125,6 +125,19 @@ template readPragma*(
     pragmaName: static string): NimNode =
   readPragma(field.pragmas, pragmaName)
 
+template readPragmaValue*(
+    pragmas: NimNode, pragmaName: static string): NimNode =
+  static: discard bindSym(pragmaName)
+  let p = findPragma(pragmas, ident(pragmaName))
+  if p == nil or p.kind notin nnkPragmaCallKinds or p.len < 2: nil
+  elif p.len == 2: p[1]
+  else: p
+
+template readPragmaValue*(
+    field: FieldDescription | ParamDescription,
+    pragmaName: static string): NimNode =
+  readPragmaValue(field.pragmas, pragmaName)
+
 func branchValues(recCase: NimNode, i: int): NimNode =
   let discriminator = recCase[0]
   if discriminator.kind != nnkSym and discriminator[0].kind != nnkSym:
