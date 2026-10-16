@@ -492,18 +492,6 @@ func isCaseObject*(T: type): bool {.compileTime.} =
   else:
     false
 
-func readLiteralValue(field: var EnumFieldDescription, value: NimNode) =
-  case value.kind
-  of nnkCharLit .. nnkUInt64Lit:
-    field.ordinal = value.intVal
-  of nnkStrLit .. nnkTripleStrLit:
-    field.strValue = value.strVal
-  of nnkPar, nnkTupleConstr:
-    for i in 0 ..< value.len:
-      field.readLiteralValue(value[i])
-  else:
-    macros.error("literal expected", value)
-
 func enumFields*(typ: NimNode): seq[EnumFieldDescription] =
   if typ.typeKind == ntyTypeDesc:
     return enumFields(typ.getTypeInst[1])
@@ -532,11 +520,6 @@ func enumFields*(typ: NimNode): seq[EnumFieldDescription] =
             impl.strVal
           else:
             $field.name
-      else:
-        field.ordinal = if fields.len > 0: fields[^1].ordinal + 1 else: 0
-        field.strValue = $field.name
-        if field.value != nil:
-          field.readLiteralValue(field.value)
       fields.add field
     fields
   else:
