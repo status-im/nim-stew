@@ -90,6 +90,12 @@ func findPragma*(pragmas: NimNode, pragmaSym: NimNode): NimNode =
 func hasPragma*(pragmas: NimNode, pragmaName: string): bool =
   findPragma(pragmas, ident(pragmaName)) != nil
 
+template hasPragma*(
+    field: FieldDescription | ParamDescription,
+    pragmaName: static string): bool =
+  static: discard bindSym(pragmaName)
+  hasPragma(field.pragmas, pragmaName)
+
 func isTuple*(typ: NimNode): bool =
   case typ.typeKind
   of ntyTypeDesc:
