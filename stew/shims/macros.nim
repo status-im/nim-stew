@@ -110,7 +110,8 @@ macro isTuple*(T: type): untyped =
 
 template readPragma*(
     pragmas: NimNode, pragmaName: static string): NimNode =
-  let p = findPragma(pragmas, bindSym(pragmaName))
+  static: discard bindSym(pragmaName)
+  let p = findPragma(pragmas, ident(pragmaName))
   if p != nil and p.kind in nnkPragmaCallKinds and p.len == 2: p[1] else: p
 
 template readPragma*(
