@@ -498,7 +498,7 @@ func readLiteralValue(field: var EnumFieldDescription, value: NimNode) =
     field.ordinal = value.intVal
   of nnkStrLit .. nnkTripleStrLit:
     field.strValue = value.strVal
-  of nnkTupleConstr:
+  of nnkPar, nnkTupleConstr:
     for i in 0 ..< value.len:
       field.readLiteralValue(value[i])
   else:

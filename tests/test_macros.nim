@@ -51,6 +51,8 @@ type
     valuedD {.deprecated.} = 'z'
     valuedE = (ord('z') + 5, "e")
     valuedF
+    valuedG = (130)
+    valuedH = ((131), ("h"))
 
   BaseType = object of RootObj
     baseField: int
@@ -906,7 +908,9 @@ static:
     "valuedC = \"val\" & \"ued\": (11, \"valued\")",
     "valuedD = 122: (122, \"valuedD\")",
     "valuedE = (127, \"e\"): (127, \"e\")",
-    "valuedF: (128, \"valuedF\")"
+    "valuedF: (128, \"valuedF\")",
+    "valuedG = 130: (130, \"valuedG\")",
+    "valuedH = (131, \"h\"): (131, \"h\")"
   ]
 
   const untypedEnumFieldsList = getUntypedEnumFieldsList:
@@ -917,13 +921,17 @@ static:
       untypedD {.deprecated.} = 'z'
       untypedE = (127, "e")
       untypedF
+      untypedG = (130)
+      untypedH = ((131), ("h"))
   doAssert untypedEnumFieldsList == @[
     "untypedA = -5: (-5, \"untypedA\")",
     "untypedB = (10, \"ten\"): (10, \"ten\")",
     "untypedC = \"valued\": (11, \"valued\")",
     "untypedD = 'z': (122, \"untypedD\")",
     "untypedE = (127, \"e\"): (127, \"e\")",
-    "untypedF: (128, \"untypedF\")"
+    "untypedF: (128, \"untypedF\")",
+    "untypedG = (130): (130, \"untypedG\")",
+    "untypedH = ((131), (\"h\")): (131, \"h\")"
   ]
 
 # Test for https://github.com/nim-lang/Nim/issues/26464
