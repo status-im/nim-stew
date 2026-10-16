@@ -593,7 +593,7 @@ macro field*(obj: typed, fieldName: static string): untyped =
     typeImpl = typeImpl[0].getTypeImpl
   if typeImpl.kind == nnkTupleConstr:
     for i in 0 ..< typeImpl.len:
-      if if eqIdent(ident("Field" & $i), fieldName):
+      if eqIdent(ident("Field" & $i), fieldName):
         return nnkBracketExpr.newTree(obj, newLit i)
   newDotExpr(obj, ident fieldName)
 
