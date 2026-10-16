@@ -601,6 +601,33 @@ template templateTypedIdentNames(): untyped =
   getTypedIdentNames:
     proc typedIdentProc(`type`, `quoted name` {.zero.}: int) = discard
 
+func bracketExprsList(routine: NimNode): NimNode =
+  let routine = if routine.kind == nnkStmtList: routine[0] else: routine
+  var res: seq[(bool, string)]
+  for param in routineParams(routine):
+    let typ = param.typ.bracketExpr
+    res.add (typ.kind == nnkBracketExpr, typ.repr)
+  newLit res
+
+macro getBracketExprs(routine: untyped): untyped =
+  bracketExprsList(routine)
+
+macro getTypedBracketExprs(routine: typed): untyped =
+  bracketExprsList(routine)
+
+template bracketExprProcs(getList: untyped): untyped =
+  getList:
+    proc bracketProc(
+        a: seq[int], b: GenericBaseType[seq[byte]], c: array[2, int], d: int,
+        e: `[]`(seq, string)) = discard
+
+template bindBracketExprProcs(getList: untyped): untyped =
+  bind `[]`
+  getList:
+    proc bracketProc(
+        a: seq[int], b: GenericBaseType[seq[byte]], c: array[2, int], d: int,
+        e: `[]`(seq, string)) = discard
+
 static:
   doAssert getFieldsLists(MyType[string]) == [
     "myField: string {.zero, one(\"foo\"), two(\"foo\", \"bar\").}",
@@ -1088,6 +1115,19 @@ suite "Macros":
       nestedNames == untypedIdentNames
       typedIdentNames == @["type", "quotedname"]
       templateTypedIdentNames() == typedIdentNames
+
+  test "bracketExpr":
+    const untypedBracketExprs = getBracketExprs:
+      proc bracketProc(
+          a: seq[int], b: GenericBaseType[seq[byte]], c: array[2, int],
+          d: int, e: `[]`(seq, string))
+    check:
+      untypedBracketExprs == @[
+        (true, "seq[int]"), (true, "GenericBaseType[seq[byte]]"),
+        (true, "array[2, int]"), (false, "int"), (true, "seq[string]")]
+      bracketExprProcs(getBracketExprs) == untypedBracketExprs
+      bindBracketExprProcs(getBracketExprs) == untypedBracketExprs
+      bracketExprProcs(getTypedBracketExprs) == untypedBracketExprs
 
   test "hasCustomPragmaFixed":
     type LocalType = object
