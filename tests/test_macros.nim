@@ -479,10 +479,13 @@ template bindHasOverloadedPragma(): untyped =
   hasOverloadedPragma:
     proc bindProc() {.overloadedPragma.}
 
+iterator overloadedPragmaValueNodes(procSection: NimNode): NimNode =
+  for procDef in procSection:
+    yield procDef.pragma.readPragma("overloadedPragma")
+
 macro overloadedPragmaValues(procSection: untyped): untyped =
   var values: seq[string]
-  for procDef in procSection:
-    let value = procDef.pragma.readPragma("overloadedPragma")
+  for value in overloadedPragmaValueNodes(procSection):
     values.add(
       if value == nil: ""
       elif value.kind in nnkStrLit .. nnkTripleStrLit: value.strVal
