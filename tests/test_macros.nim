@@ -507,6 +507,33 @@ macro readBoundOverloadedPragma(): untyped =
       newEmptyNode(), newEmptyNode(), nnkRecList.newTree(field))
   newLit(recordFields(objectType)[0].readPragma("overloadedPragma") == pragma)
 
+func paramsList(n: NimNode): NimNode =
+  var res: seq[string]
+  for param in routineParams(n):
+    var description = param.name.repr
+    if param.typ.kind != nnkEmpty:
+      description.add ": " & param.typ.repr
+    if param.defaultValue.kind != nnkEmpty:
+      description.add " = " & param.defaultValue.repr
+    if param.pragmas != nil:
+      description.add param.pragmas.repr
+    res.add description
+  newLit res
+
+macro getParamsList(routine: untyped): untyped =
+  let
+    routine = if routine.kind == nnkStmtList: routine[0] else: routine
+    res = paramsList(routine)
+  doAssert paramsList(routine.params) == res
+  res
+
+macro getOneValues(routine: untyped): untyped =
+  var values: seq[string]
+  for param in routineParams(routine[0]):
+    let value = param.readPragma("one")
+    values.add(if value == nil: "" else: value.strVal)
+  newLit values
+
 static:
   doAssert getFieldsLists(MyType[string]) == [
     "myField: string {.zero, one(\"foo\"), two(\"foo\", \"bar\").}",
@@ -912,6 +939,40 @@ suite "Macros":
         @["overloadedPragma", "colon", "call", "strLit", ""]
       templateOverloadedPragmaValues() == untypedOverloadedPragmaValues
       bindOverloadedPragmaValues() == untypedOverloadedPragmaValues
+
+  test "routineParams":
+    const
+      procParams = getParamsList:
+        proc paramsProc(a, b {.zero.}: int, c: string = "c", d = 1): string
+      funcParams = getParamsList:
+        func paramsFunc(a, b {.zero.}: int, c: string = "c", d = 1): string
+      methodParams = getParamsList:
+        method paramsMethod(a, b {.zero.}: int, c: string = "c", d = 1): string
+      iteratorParams = getParamsList:
+        iterator paramsIterator(
+            a, b {.zero.}: int, c: string = "c", d = 1): string
+      templateParams = getParamsList:
+        template paramsTemplate(
+            a, b {.zero.}: int, c: string = "c", d = 1): string
+      macroParams = getParamsList:
+        macro paramsMacro(a, b {.zero.}: int, c: string = "c", d = 1): string
+      doParams = getParamsList do (
+          a, b {.zero.}: int, c: string = "c", d = 1) -> string:
+        discard
+      lambdaParams = getParamsList(
+        proc (a, b {.zero.}: int, c: string = "c", d = 1): string = discard)
+    check:
+      procParams == @["a: int", "b: int {.zero.}", "c: string = \"c\"", "d = 1"]
+      funcParams == procParams
+      methodParams == procParams
+      iteratorParams == procParams
+      templateParams == procParams
+      macroParams == procParams
+      doParams == procParams
+      lambdaParams == procParams
+    const oneValues = getOneValues:
+      proc oneProc(a {.one("a").}, b: int, c {.zero.}: string)
+    check oneValues == @["a", "", ""]
 
   test "hasCustomPragmaFixed":
     type LocalType = object
