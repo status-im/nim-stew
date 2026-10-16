@@ -21,6 +21,12 @@ type
     name*: NimNode
     value*: NimNode
 
+  ParamDescription* = object
+    name*: NimNode
+    typ*: NimNode
+    pragmas*: NimNode
+    defaultValue*: NimNode
+
 const
   nnkPragmaCallKinds = {nnkExprColonExpr, nnkCall, nnkCallStrLit}
 
@@ -106,7 +112,8 @@ template readPragma*(
   if p != nil and p.kind in nnkPragmaCallKinds and p.len == 2: p[1] else: p
 
 template readPragma*(
-    field: FieldDescription, pragmaName: static string): NimNode =
+    field: FieldDescription | ParamDescription,
+    pragmaName: static string): NimNode =
   readPragma(field.pragmas, pragmaName)
 
 func branchValues(recCase: NimNode, i: int): NimNode =
@@ -757,6 +764,22 @@ iterator typedParams*(n: NimNode, skip = 0): (NimNode, NimNode) =
 
     for j in 0 ..< paramNodes.len - 2:
       yield (skipPragma paramNodes[j], paramType)
+
+iterator routineParams*(n: NimNode): ParamDescription =
+  let params = if n.kind == nnkFormalParams: n else: n.params
+  for i in 1 ..< params.len:
+    let paramNodes = params[i]
+    for j in 0 ..< paramNodes.len - 2:
+      var param: ParamDescription
+      param.name = paramNodes[j]
+      param.typ = paramNodes[^2]
+      param.defaultValue = paramNodes[^1]
+
+      if param.name.kind == nnkPragmaExpr:
+        param.pragmas = param.name[1]
+        param.name = param.name[0]
+
+      yield param
 
 iterator baseTypes*(exceptionType: NimNode): NimNode =
   var typ = exceptionType
