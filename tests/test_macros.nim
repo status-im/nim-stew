@@ -346,6 +346,9 @@ macro typeDefFieldsLists(T: type): untyped =
 macro typeParamFieldsLists(T: type): untyped =
   fieldsList(T)
 
+macro valueTypeFieldsLists(value: typed): untyped =
+  fieldsList(value.getType)
+
 macro typeInstIsTuple(T: type): untyped =
   newLit(T.getTypeInst[1].isTuple)
 
@@ -362,6 +365,9 @@ macro typeDefIsTuple(T: type): untyped =
 macro typeParamIsTuple(T: type): untyped =
   newLit(T.isTuple)
 
+macro valueTypeIsTuple(value: typed): untyped =
+  newLit(value.getType.isTuple)
+
 template getIsTuple(T: type): untyped =
   block:
     const res = typeInstIsTuple(T)
@@ -369,6 +375,7 @@ template getIsTuple(T: type): untyped =
     doAssert typeIsTuple(T) == res
     doAssert typeDefIsTuple(T) == res
     doAssert typeParamIsTuple(T) == res
+    doAssert valueTypeIsTuple(default(T)) == res
     res
 
 macro typeHumaneName(T: type): untyped =
@@ -433,10 +440,10 @@ template getFieldsLists(T: type): untyped =
   block:
     const res = typeInstFieldsLists(T)
     doAssert typeImplFieldsLists(T) == res
-    when T isnot tuple:  # getType has no tuple field names
-      doAssert typeFieldsLists(T) == res
+    doAssert typeFieldsLists(T) == res
     doAssert typeDefFieldsLists(T) == res
     doAssert typeParamFieldsLists(T) == res
+    doAssert valueTypeFieldsLists(default(T)) == res
     doAssert typeDescFieldsLists(T) == @res
     res
 
@@ -466,6 +473,9 @@ macro typeDefCaseBranchValuesList(T: type): untyped =
 macro typeParamCaseBranchValuesList(T: type): untyped =
   caseBranchValuesList(T)
 
+macro valueTypeCaseBranchValuesList(value: typed): untyped =
+  caseBranchValuesList(value.getType)
+
 template getCaseBranchValuesList(T: type): untyped =
   block:
     const res = typeInstCaseBranchValuesList(T)
@@ -473,6 +483,7 @@ template getCaseBranchValuesList(T: type): untyped =
     doAssert typeCaseBranchValuesList(T) == res
     doAssert typeDefCaseBranchValuesList(T) == res
     doAssert typeParamCaseBranchValuesList(T) == res
+    doAssert valueTypeCaseBranchValuesList(default(T)) == res
     res
 
 func containedValuesList(typ: NimNode): NimNode =
@@ -511,6 +522,9 @@ macro typeDefContainedValuesList(T: type): untyped =
 macro typeParamContainedValuesList(T: type): untyped =
   containedValuesList(T)
 
+macro valueTypeContainedValuesList(value: typed): untyped =
+  containedValuesList(value.getType)
+
 template getContainedValuesList(T: type): untyped =
   block:
     const res = typeInstContainedValuesList(T)
@@ -518,6 +532,7 @@ template getContainedValuesList(T: type): untyped =
     doAssert typeContainedValuesList(T) == res
     doAssert typeDefContainedValuesList(T) == res
     doAssert typeParamContainedValuesList(T) == res
+    doAssert valueTypeContainedValuesList(default(T)) == res
     res
 
 func untypedFieldsLists(typeDef: NimNode): NimNode =

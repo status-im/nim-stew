@@ -146,7 +146,7 @@ template readPragmaValue*(
 
 func branchValues(recCase: NimNode, i: int): NimNode =
   let discriminator = recCase[0]
-  if discriminator.kind != nnkSym and discriminator[0].kind != nnkSym:
+  if discriminator[0].kind != nnkSym:
     return nil
 
   let branch = recCase[i]
@@ -161,9 +161,7 @@ func branchValues(recCase: NimNode, i: int): NimNode =
     for k in 0 ..< recCase[j].len - 1:
       ofValues.add recCase[j][k]
   if ofValues.len == 0:
-    let discriminatorType =
-      if discriminator.kind == nnkIdentDefs: discriminator[1]
-      else: discriminator.getTypeInst
+    let discriminatorType = discriminator[1]
     ofValues = quote do: set[`discriminatorType`]({})
   quote do: complement(`ofValues`)
 
@@ -234,15 +232,6 @@ func collectFieldsFromRecList(
         field.name = field.name[1]
 
       fields.add field
-
-  of nnkSym:
-    fields.add FieldDescription(
-      name: n,
-      typ: getType(n),
-      caseField: parentCaseField,
-      caseBranch: parentCaseBranch,
-      caseBranchValues: parentCaseBranchValues,
-      isDiscriminator: isDiscriminator)
 
   of nnkNilLit, nnkDiscardStmt, nnkCommentStmt, nnkEmpty:
     discard
@@ -454,9 +443,7 @@ func recordFields*(typ: NimNode): seq[FieldDescription] =
   var fields: seq[FieldDescription]
   if typ.kind == nnkBracketExpr and typ[0].kind == nnkSym and
       eqIdent(typ[0], "tuple"):
-    for i in 1 ..< typ.len:
-      fields.add FieldDescription(
-        typ: typ[i], name: ident("Field" & $(i - 1)))
+    collectFieldsFromTuple(fields, typ.getTypeImpl)
     return fields
 
   case typ.kind
@@ -473,11 +460,15 @@ func recordFields*(typ: NimNode): seq[FieldDescription] =
       var firstField = recList[0]
       if firstField.kind == nnkRecCase:
         firstField = firstField[0]
-      if firstField.kind == nnkIdentDefs and firstField[0].kind == nnkSym:
-        collectFieldsFromType(fields, typ.getTypeInst, typ)
+      if firstField.kind == nnkIdentDefs:
+        firstField = firstField[0]
+      if firstField.kind == nnkSym:
+        collectFieldsFromType(fields, typ.getTypeInst, typ.getTypeImpl)
         return fields
     elif typ[1].kind == nnkOfInherit:
       return recordFields(typ[1][0])
+    elif typ[1].kind != nnkEmpty:
+      return recordFields(typ[1])
   of nnkTypeDef:
     var name = typ[0]
     if name.kind == nnkPragmaExpr:
