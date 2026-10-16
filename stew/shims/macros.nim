@@ -556,6 +556,15 @@ func enumFields*(typ: NimNode): seq[EnumFieldDescription] =
   else:
     macros.error("enum type expected", typ)
 
+func tupleTypes*(typ: NimNode): seq[NimNode] =
+  let impl = getType(typ)
+  if impl.typeKind == ntyTypeDesc:
+    return tupleTypes(impl[1])
+  if impl.kind != nnkBracketExpr or impl[0].kind != nnkSym or
+      not eqIdent(impl[0], "tuple"):
+    macros.error("tuple type expected", typ)
+  impl[1 .. ^1]
+
 macro field*(obj: typed, fieldName: static string): untyped =
   newDotExpr(obj, ident fieldName)
 
