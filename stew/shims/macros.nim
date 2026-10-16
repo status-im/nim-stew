@@ -492,6 +492,20 @@ func isCaseObject*(T: type): bool {.compileTime.} =
   else:
     false
 
+func hasField*(T: type, name: static string): bool {.compileTime.} =
+  when T is object | tuple:
+    # Index into fields rather than iterate across elements to work around
+    # https://github.com/nim-lang/Nim/issues/26273
+    let fields = recordFields(T)
+    for i in 0 ..< fields.len:
+      if fields[i].name.isSameName(ident name):
+        return true
+    false
+  elif T is ref | ptr:
+    hasField(typeof(default(T)[]), name)
+  else:
+    false
+
 func enumFields*(typ: NimNode): seq[EnumFieldDescription] =
   if typ.typeKind == ntyTypeDesc:
     return enumFields(typ.getTypeInst[1])
