@@ -216,6 +216,8 @@ type
   RefPtrUnnamedTupleType = ref ptr UnnamedTupleType
   GenericTupleType[T] = tuple[genericTupleField: T]
   GenericTupleAliasType = GenericTupleType[int]
+  ErrorAliasType = ErrorType
+  AliasTupleType = (ErrorAliasType, UnnamedTupleType)
 
   EmptyObject = object
   EmptyRefObject = ref object
@@ -385,6 +387,36 @@ template getEnumFieldsList(T: type): untyped =
   block:
     const res = typeInstEnumFieldsList(T)
     doAssert typeParamEnumFieldsList(T) == res
+    res
+
+func tupleTypesList(typ: NimNode): NimNode =
+  var res: seq[string]
+  for elementType in tupleTypes(typ):
+    res.add elementType.repr
+  newLit res
+
+macro typeInstTupleTypesList(T: type): untyped =
+  tupleTypesList(T.getTypeInst[1])
+
+macro typeImplTupleTypesList(T: type): untyped =
+  tupleTypesList(T.getTypeInst[1].getTypeImpl)
+
+macro typeTupleTypesList(T: type): untyped =
+  tupleTypesList(T.getType[1])
+
+macro typeParamTupleTypesList(T: type): untyped =
+  tupleTypesList(T)
+
+macro valueTypeTupleTypesList(value: typed): untyped =
+  tupleTypesList(value.getType)
+
+template getTupleTypesList(T: type): untyped =
+  block:
+    const res = typeInstTupleTypesList(T)
+    doAssert typeImplTupleTypesList(T) == res
+    doAssert typeTupleTypesList(T) == res
+    doAssert typeParamTupleTypesList(T) == res
+    doAssert valueTypeTupleTypesList(default(T)) == res
     res
 
 func typeDescFieldsLists(T: type): seq[string] {.compileTime.} =
@@ -1056,6 +1088,18 @@ static:
     "valuedE = (127, \"e\"): (127, \"e\")",
     "valuedF: (128, \"valuedF\")"
   ]
+
+  doAssert getTupleTypesList(UnnamedTupleType) == @["int", "string"]
+  doAssert getTupleTypesList(TupleType) == @["int"]
+  doAssert getTupleTypesList(GenericTupleType[string]) == @["string"]
+  doAssert getTupleTypesList(GenericTupleAliasType) == @["int"]
+  doAssert getTupleTypesList(AliasTupleType) == @[
+    "ErrorType", "tuple[int, string]"]
+  doAssert getTupleTypesList(tuple[]).len == 0
+  when compiles(typeParamTupleTypesList(int)):
+    doAssert false
+  when compiles(typeParamTupleTypesList(void)):
+    doAssert false
 
 # Test for https://github.com/nim-lang/Nim/issues/26464
 block:
