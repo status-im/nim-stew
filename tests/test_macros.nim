@@ -522,7 +522,7 @@ macro readBoundOverloadedPragma(): untyped =
 func paramsList(n: NimNode): NimNode =
   var res: seq[string]
   for param in routineParams(n):
-    var description = param.name.repr
+    var description = param.name.identName
     if param.typ.kind != nnkEmpty:
       description.add ": " & param.typ.repr
     if param.defaultValue.kind != nnkEmpty:
@@ -545,6 +545,61 @@ macro getOneValues(routine: untyped): untyped =
     let value = param.readPragma("one")
     values.add(if value == nil: "" else: value.strVal)
   newLit values
+
+template templateParamsList(): untyped =
+  getParamsList:
+    proc paramsTemplate(a, b {.zero.}: int, c: string = "c", d = 1): string
+
+template nestedParamsList(): untyped =
+  template nestedTemplateParamsList(): untyped =
+    getParamsList:
+      proc paramsNested(a, b {.zero.}: int, c: string = "c", d = 1): string
+  nestedTemplateParamsList()
+
+macro getIdentNames(section: untyped): untyped =
+  var names: seq[string]
+  for n in section:
+    case n.kind
+    of nnkProcDef:
+      names.add n[0].identName
+      for param in routineParams(n):
+        names.add param.name.identName
+    of nnkTypeSection:
+      names.add n[0][0].identName
+      for field in n[0][2][2]:
+        names.add field[0].identName
+    of nnkLetSection:
+      names.add n[0][0].identName
+    else:
+      doAssert false
+  newLit names
+
+template templateIdentNames(names: untyped) =
+  const names = getIdentNames:
+    proc identProc*(`type`, `quoted name` {.zero.}: int)
+    type IdentType* {.zero.} = object
+      identField* {.zero.}: int
+    let identLet {.used.} = 0
+
+template nestedIdentNames(names: untyped) =
+  template nestedTemplateIdentNames(innerNames: untyped) =
+    const innerNames = getIdentNames:
+      proc identProc*(`type`, `quoted name` {.zero.}: int)
+      type IdentType* {.zero.} = object
+        identField* {.zero.}: int
+      let identLet {.used.} = 0
+  nestedTemplateIdentNames(names)
+
+macro getTypedIdentNames(routine: typed): untyped =
+  let routine = if routine.kind == nnkStmtList: routine[0] else: routine
+  var names: seq[string]
+  for param in routineParams(routine):
+    names.add param.name.identName
+  newLit names
+
+template templateTypedIdentNames(): untyped =
+  getTypedIdentNames:
+    proc typedIdentProc(`type`, `quoted name` {.zero.}: int) = discard
 
 static:
   doAssert getFieldsLists(MyType[string]) == [
@@ -1008,9 +1063,31 @@ suite "Macros":
       macroParams == procParams
       doParams == procParams
       lambdaParams == procParams
+      templateParamsList() == procParams
+      nestedParamsList() == procParams
     const oneValues = getOneValues:
       proc oneProc(a {.one("a").}, b: int, c {.zero.}: string)
     check oneValues == @["a", "", ""]
+
+  test "identName":
+    const
+      untypedIdentNames = getIdentNames:
+        proc identProc*(`type`, `quoted name` {.zero.}: int)
+        type IdentType* {.zero.} = object
+          identField* {.zero.}: int
+        let identLet {.used.} = 0
+      typedIdentNames = getTypedIdentNames:
+        proc typedIdentProc(`type`, `quoted name` {.zero.}: int) = discard
+    templateIdentNames(templateNames)
+    nestedIdentNames(nestedNames)
+    check:
+      untypedIdentNames == @[
+        "identProc", "type", "quotedname",
+        "IdentType", "identField", "identLet"]
+      templateNames == untypedIdentNames
+      nestedNames == untypedIdentNames
+      typedIdentNames == @["type", "quotedname"]
+      templateTypedIdentNames() == typedIdentNames
 
   test "hasCustomPragmaFixed":
     type LocalType = object
