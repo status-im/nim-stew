@@ -1443,6 +1443,20 @@ suite "Macros":
     when not hasField(MyType[string], "myField"):
       check false
 
+  test "field":
+    var
+      unnamedTuple: UnnamedTupleType
+      namedTuple: TupleType
+    unnamedTuple.field("Field0") = 1
+    field(unnamedTuple, "Field1") = "unnamed"
+    namedTuple.field("tupleField") = 2
+    let unnamedTuplePtr = addr unnamedTuple
+    check:
+      unnamedTuple == (1, "unnamed")
+      unnamedTuplePtr.field("Field0") == 1
+      namedTuple.tupleField == 2
+      myType.field("myField") == "test"
+
   test "identName":
     const
       untypedIdentNames = getIdentNames:
