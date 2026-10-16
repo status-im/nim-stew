@@ -862,9 +862,11 @@ static:
 
   doAssert isCaseObject(MyType[string])
   doAssert isCaseObject(RefBaseType)
+  doAssert isCaseObject(ptr RefBaseType)
   doAssert isCaseObject(NestedCaseType)
   doAssert not isCaseObject(EmptyObject)
   doAssert not isCaseObject((int, string))
+  doAssert not isCaseObject(PtrRefTupleType)
   doAssert not isCaseObject(int)
   doAssert not isCaseObject(seq[int])
   doAssert not isCaseObject(ref int)
