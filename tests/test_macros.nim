@@ -19,6 +19,7 @@ template two(one: string, two: string) {.pragma.}
 template zeroOrOne() {.pragma.}
 template zeroOrOne(one: string) {.pragma.}
 {.pragma: zeroAlias, zero.}
+{.pragma: reusedZeroAlias, zero.}
 
 const elseOfKinds = {1, 2}
 
@@ -207,6 +208,12 @@ type
 
   PragmaAliasType = object
     aliasField {.zeroAlias.}: int
+
+  ReusedPragmaAliasType = object
+    firstAliasField {.reusedZeroAlias.}: int
+    secondAliasField {.reusedZeroAlias.}: int
+    callField {.zero().}: int
+    bareField {.zero.}: int
 
   TupleType = tuple[tupleField: int]
   UnnamedTupleType = (int, string)
@@ -552,6 +559,29 @@ macro readBoundOverloadedPragma(): untyped =
     objectType = nnkObjectTy.newTree(
       newEmptyNode(), newEmptyNode(), nnkRecList.newTree(field))
   newLit(recordFields(objectType)[0].readPragma("overloadedPragma") == pragma)
+
+macro readBoundOverloadedPragmaPresence(): untyped =
+  let
+    field = nnkIdentDefs.newTree(
+      nnkPragmaExpr.newTree(
+        ident "boundField",
+        nnkPragma.newTree(bindSym "overloadedPragma")),
+      ident "int", newEmptyNode())
+    objectType = nnkObjectTy.newTree(
+      newEmptyNode(), newEmptyNode(), nnkRecList.newTree(field))
+  newLit recordFields(objectType)[0].hasPragma("overloadedPragma")
+
+macro zeroPragmaPresence(T: type): untyped =
+  var present: seq[bool]
+  for field in recordFields(T):
+    present.add field.hasPragma("zero")
+  newLit present
+
+macro getOnePresence(routine: untyped): untyped =
+  var present: seq[bool]
+  for param in routineParams(routine[0]):
+    present.add param.hasPragma("one")
+  newLit present
 
 func pragmaLists(routines: NimNode): NimNode =
   var names, present, values: seq[string]
@@ -1170,6 +1200,16 @@ suite "Macros":
       zeroOrOneProcs(getPragmaLists).present == untypedPragmaLists.present
       bindZeroOrOneProcs(getPragmaLists).present == untypedPragmaLists.present
       zeroOrOneProcs(getTypedPragmaLists).present == untypedPragmaLists.present
+      readBoundOverloadedPragmaPresence()
+      zeroPragmaPresence(ReusedPragmaAliasType) == @[true, true, true, true]
+      zeroPragmaPresence(MyType[string]) == @[true, true, true, true, true]
+    const onePresence = getOnePresence:
+      proc oneProc(a {.one("a").}, b: int, c {.one: "c".}: string)
+    check onePresence == @[true, false, true]
+    when compiles(block:
+        macro undeclaredPragmaPresence(T: type): untyped =
+          newLit recordFields(T)[0].hasPragma("undeclaredPragma")):
+      check false
 
   test "readPragma":
     const untypedOverloadedPragmaValues = overloadedPragmaValues:
