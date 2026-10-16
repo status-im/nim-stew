@@ -380,6 +380,10 @@ template getIsTuple(T: type): untyped =
     doAssert typeDefIsTuple(T) == res
     doAssert typeParamIsTuple(T) == res
     doAssert valueTypeIsTuple(default(T)) == res
+    doAssert typeInstIsTuple(sink T) == res
+    doAssert typeImplIsTuple(sink T) == res
+    doAssert typeIsTuple(sink T) == res
+    doAssert typeParamIsTuple(sink T) == res
     res
 
 macro typeHumaneName(T: type): untyped =
@@ -422,6 +426,10 @@ template getEnumFieldsList(T: type): untyped =
     doAssert typeDefEnumFieldsList(T) == res
     doAssert typeParamEnumFieldsList(T) == res
     doAssert valueTypeEnumFieldsList(default(T)) == res
+    doAssert typeInstEnumFieldsList(sink T) == res
+    doAssert typeImplEnumFieldsList(sink T) == res
+    doAssert typeEnumFieldsList(sink T) == res
+    doAssert typeParamEnumFieldsList(sink T) == res
     res
 
 func tupleTypesList(typ: NimNode): NimNode =
@@ -452,6 +460,10 @@ template getTupleTypesList(T: type): untyped =
     doAssert typeTupleTypesList(T) == res
     doAssert typeParamTupleTypesList(T) == res
     doAssert valueTypeTupleTypesList(default(T)) == res
+    doAssert typeInstTupleTypesList(sink T) == res
+    doAssert typeImplTupleTypesList(sink T) == res
+    doAssert typeTupleTypesList(sink T) == res
+    doAssert typeParamTupleTypesList(sink T) == res
     res
 
 func typeDescFieldsLists(T: type): seq[string] {.compileTime.} =
@@ -466,6 +478,11 @@ template getFieldsLists(T: type): untyped =
     doAssert typeParamFieldsLists(T) == res
     doAssert valueTypeFieldsLists(default(T)) == res
     doAssert typeDescFieldsLists(T) == @res
+    doAssert typeInstFieldsLists(sink T) == res
+    doAssert typeImplFieldsLists(sink T) == res
+    doAssert typeFieldsLists(sink T) == res
+    doAssert typeParamFieldsLists(sink T) == res
+    doAssert typeDescFieldsLists(sink T) == @res
     res
 
 func caseBranchValuesList(typ: NimNode): NimNode =
@@ -505,6 +522,10 @@ template getCaseBranchValuesList(T: type): untyped =
     doAssert typeDefCaseBranchValuesList(T) == res
     doAssert typeParamCaseBranchValuesList(T) == res
     doAssert valueTypeCaseBranchValuesList(default(T)) == res
+    doAssert typeInstCaseBranchValuesList(sink T) == res
+    doAssert typeImplCaseBranchValuesList(sink T) == res
+    doAssert typeCaseBranchValuesList(sink T) == res
+    doAssert typeParamCaseBranchValuesList(sink T) == res
     res
 
 func containedValuesList(typ: NimNode): NimNode =
@@ -554,6 +575,10 @@ template getContainedValuesList(T: type): untyped =
     doAssert typeDefContainedValuesList(T) == res
     doAssert typeParamContainedValuesList(T) == res
     doAssert valueTypeContainedValuesList(default(T)) == res
+    doAssert typeInstContainedValuesList(sink T) == res
+    doAssert typeImplContainedValuesList(sink T) == res
+    doAssert typeContainedValuesList(sink T) == res
+    doAssert typeParamContainedValuesList(sink T) == res
     res
 
 func untypedFieldsLists(typeDef: NimNode): NimNode =
@@ -1176,6 +1201,7 @@ static:
   doAssert compileTimeIsCaseObject(MyType[string])
   doAssert isCaseObject(RefBaseType)
   doAssert isCaseObject(ptr RefBaseType)
+  doAssert isCaseObject(sink MyType[string])
   doAssert isCaseObject(NestedCaseType)
   doAssert not isCaseObject(EmptyObject)
   doAssert not isCaseObject((int, string))
@@ -1187,6 +1213,7 @@ static:
   doAssert hasField(MyType[string], "myField")
   doAssert compileTimeHasField(MyType[string], "myField")
   doAssert hasField(MyType[string], "second")
+  doAssert hasField(sink MyType[string], "myField")
   doAssert hasField(DerivedFromRefType, "baseA")
   doAssert hasField(PtrType, "genericBaseField")
   doAssert hasField(RefPtrType, "ptrField")
@@ -1444,6 +1471,8 @@ suite "Macros":
       check false
 
   test "field":
+    func sinkTupleField(value: sink UnnamedTupleType): string =
+      value.field("Field1")
     var
       unnamedTuple: UnnamedTupleType
       namedTuple: TupleType
@@ -1455,6 +1484,7 @@ suite "Macros":
       unnamedTuple == (1, "unnamed")
       unnamedTuplePtr.field("Field0") == 1
       unnamedTuplePtr.field("FiEl_d0") == 1
+      sinkTupleField(unnamedTuple) == "unnamed"
       namedTuple.tupleField == 2
       myType.field("myField") == "test"
 
@@ -1540,6 +1570,7 @@ suite "Macros":
       DerivedFromGensymType.hasCustomPragmaFixed("gensymBaseField", zero)
       MacroType.hasCustomPragmaFixed("macroField", zero)
       LocalType.hasCustomPragmaFixed("localField", zero)
+      (sink MyType[string]).hasCustomPragmaFixed("myField", zero)
 
       PublicType.hasCustomPragmaFixed(zero)
       PublicAliasType.hasCustomPragmaFixed(zero)
@@ -1551,6 +1582,7 @@ suite "Macros":
       TemplateCallAliasType.hasCustomPragmaFixed(one)
       DotTemplateCallAliasType.hasCustomPragmaFixed(one)
       MacroCallAliasType.hasCustomPragmaFixed(one)
+      (sink PublicType).hasCustomPragmaFixed(zero)
       not EmptyObject.hasCustomPragmaFixed(zero)
       not (int, string).hasCustomPragmaFixed(zero)
       not (ref GenericBaseType[int]).hasCustomPragmaFixed(one)
@@ -1571,6 +1603,8 @@ suite "Macros":
       myType.type.getCustomPragmaFixed("second", zero).isNil
 
       DerivedFromRefBaseType.getCustomPragmaFixed("refBaseField", one) == "ref"
+      (sink DerivedFromRefBaseType)
+        .getCustomPragmaFixed("refBaseField", one) == "ref"
       MultiDerivedType[int, string].getCustomPragmaFixed(
         "multiBaseField", two) == (one: "multi", two: "base")
       WhenBaseType[string].getCustomPragmaFixed("whenField", one) == "else"
@@ -1597,6 +1631,7 @@ suite "Macros":
       TemplateCallAliasType.getCustomPragmaFixed(one) == "call"
       DotTemplateCallAliasType.getCustomPragmaFixed(one) == "call"
       MacroCallAliasType.getCustomPragmaFixed(one) == "call"
+      (sink PublicType).getCustomPragmaFixed(one) == "public"
       EmptyObject.getCustomPragmaFixed(zero).isNil
       (int, string).getCustomPragmaFixed(zero).isNil
       (ref GenericBaseType[int]).getCustomPragmaFixed(one).isNil
