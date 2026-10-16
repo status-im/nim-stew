@@ -673,7 +673,7 @@ func getPragma(typedescNode, pragma: NimNode): NimNode =
   nil
 
 func pragmaValue(p: NimNode): NimNode =
-  if p == nil or p.len == 0:
+  if p == nil or p.len <= 1:
     return nil
   if p.len == 2:
     return p[1]

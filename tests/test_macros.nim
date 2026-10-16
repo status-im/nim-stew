@@ -1533,6 +1533,8 @@ suite "Macros":
       not SharedIdentDefsType.hasCustomPragmaFixed("sharedA", zero)
       NestedCaseType.hasCustomPragmaFixed("innerKind", zero)
       PragmaAliasType.hasCustomPragmaFixed("aliasField", zero)
+      ReusedPragmaAliasType.hasCustomPragmaFixed("secondAliasField", zero)
+      ReusedPragmaAliasType.hasCustomPragmaFixed("callField", zero)
       not TupleType.hasCustomPragmaFixed("tupleField", zero)
       not (int, string).hasCustomPragmaFixed("Field0", zero)
       DerivedFromGensymType.hasCustomPragmaFixed("gensymBaseField", zero)
@@ -1560,7 +1562,8 @@ suite "Macros":
       myType.type.getCustomPragmaFixed("myField", unknown).isNil
       myType.type.getCustomPragmaFixed("myField", zero).isNil
       myType.type.getCustomPragmaFixed("myField", one) is string
-      myType.type.getCustomPragmaFixed("myField", two) is tuple[one: string, two: string]
+      myType.type
+        .getCustomPragmaFixed("myField", two) is tuple[one: string, two: string]
 
       myType.type.getCustomPragmaFixed("myGeneric", zero).isNil
       myType.type.getCustomPragmaFixed("kind", zero).isNil
@@ -1573,11 +1576,14 @@ suite "Macros":
       WhenBaseType[string].getCustomPragmaFixed("whenField", one) == "else"
       DerivedFromWhenType.getCustomPragmaFixed("whenField", one) == "else"
       StaticType[2].getCustomPragmaFixed("staticWhenField", one) == "big"
-      WhenInCaseType[string].getCustomPragmaFixed(
-        "whenInCaseField", one) == "else"
+      WhenInCaseType[string]
+        .getCustomPragmaFixed("whenInCaseField", one) == "else"
       QuotedType.getCustomPragmaFixed("quotedField", one) == "quoted"
       NestedCaseType.getCustomPragmaFixed("nestedField", one) == "nested"
       PragmaAliasType.getCustomPragmaFixed("aliasField", zero).isNil
+      ReusedPragmaAliasType
+        .getCustomPragmaFixed("secondAliasField", zero).isNil
+      ReusedPragmaAliasType.getCustomPragmaFixed("callField", zero).isNil
       TupleType.getCustomPragmaFixed("tupleField", zero).isNil
       (int, string).getCustomPragmaFixed("Field0", zero).isNil
 
