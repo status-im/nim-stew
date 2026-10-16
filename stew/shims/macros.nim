@@ -544,6 +544,19 @@ func skipPragma*(n: NimNode): NimNode =
   if n.kind == nnkPragmaExpr: n[0]
   else: n
 
+func identName*(n: NimNode): string =
+  case n.kind
+  of nnkPostfix:
+    identName(n[1])
+  of nnkPragmaExpr:
+    identName(n[0])
+  else:
+    var name = $n
+    let suffixStart = name.find('`')
+    if suffixStart >= 0:
+      name.setLen(suffixStart)
+    name
+
 func fieldPragmas(typedescNode, typ: NimNode): NimNode =
   let cache = CacheSeq("stew.shims.macros.fieldPragmas." & typ.repr)
   for entry in cache:
