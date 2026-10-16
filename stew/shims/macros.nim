@@ -557,6 +557,12 @@ func identName*(n: NimNode): string =
       name.setLen(suffixStart)
     name
 
+func bracketExpr*(n: NimNode): NimNode =
+  if n.kind == nnkCall and n.len > 1 and eqIdent(n[0], "[]"):
+    newNimNode(nnkBracketExpr, n).add(n[1 .. ^1])
+  else:
+    n
+
 func fieldPragmas(typedescNode, typ: NimNode): NimNode =
   let cache = CacheSeq("stew.shims.macros.fieldPragmas." & typ.repr)
   for entry in cache:
