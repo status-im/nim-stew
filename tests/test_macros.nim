@@ -470,6 +470,33 @@ template bindHasOverloadedPragma(): untyped =
   hasOverloadedPragma:
     proc bindProc() {.overloadedPragma.}
 
+macro overloadedPragmaValues(procSection: untyped): untyped =
+  var values: seq[string]
+  for procDef in procSection:
+    let value = procDef.pragma.readPragma("overloadedPragma")
+    values.add(
+      if value == nil: ""
+      elif value.kind in nnkStrLit .. nnkTripleStrLit: value.strVal
+      else: $value)
+  newLit values
+
+template templateOverloadedPragmaValues(): untyped =
+  overloadedPragmaValues:
+    proc bareProc() {.overloadedPragma.}
+    proc colonProc() {.overloadedPragma: "colon".}
+    proc callProc() {.overloadedPragma("call").}
+    proc strLitProc() {.overloadedPragma"strLit".}
+    proc otherProc() {.zero.}
+
+template bindOverloadedPragmaValues(): untyped =
+  bind overloadedPragma
+  overloadedPragmaValues:
+    proc bareProc() {.overloadedPragma.}
+    proc colonProc() {.overloadedPragma: "colon".}
+    proc callProc() {.overloadedPragma("call").}
+    proc strLitProc() {.overloadedPragma"strLit".}
+    proc otherProc() {.zero.}
+
 macro readBoundOverloadedPragma(): untyped =
   let
     pragma = bindSym "overloadedPragma"
@@ -873,7 +900,18 @@ suite "Macros":
       bindHasOverloadedPragma()
 
   test "readPragma":
-    check readBoundOverloadedPragma()
+    const untypedOverloadedPragmaValues = overloadedPragmaValues:
+      proc bareProc() {.overloadedPragma.}
+      proc colonProc() {.overloadedPragma: "colon".}
+      proc callProc() {.overloadedPragma("call").}
+      proc strLitProc() {.overloadedPragma"strLit".}
+      proc otherProc() {.zero.}
+    check:
+      readBoundOverloadedPragma()
+      untypedOverloadedPragmaValues ==
+        @["overloadedPragma", "colon", "call", "strLit", ""]
+      templateOverloadedPragmaValues() == untypedOverloadedPragmaValues
+      bindOverloadedPragmaValues() == untypedOverloadedPragmaValues
 
   test "hasCustomPragmaFixed":
     type LocalType = object
