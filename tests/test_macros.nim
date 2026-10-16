@@ -16,6 +16,8 @@ template unknown() {.pragma.}
 template zero() {.pragma.}
 template one(one: string) {.pragma.}
 template two(one: string, two: string) {.pragma.}
+template zeroOrOne() {.pragma.}
+template zeroOrOne(one: string) {.pragma.}
 {.pragma: zeroAlias, zero.}
 
 const elseOfKinds = {1, 2}
@@ -518,6 +520,40 @@ macro readBoundOverloadedPragma(): untyped =
     objectType = nnkObjectTy.newTree(
       newEmptyNode(), newEmptyNode(), nnkRecList.newTree(field))
   newLit(recordFields(objectType)[0].readPragma("overloadedPragma") == pragma)
+
+func pragmaLists(routines: NimNode): NimNode =
+  var names: seq[string]
+  for routine in routines:
+    if routine.kind notin RoutineNodes:
+      continue
+    for p in routine.pragma:
+      names.add $p.pragmaName
+  newLit (names: names)
+
+macro getPragmaLists(routines: untyped): untyped =
+  pragmaLists(routines)
+
+macro getTypedPragmaLists(routines: typed): untyped =
+  pragmaLists(routines)
+
+template zeroOrOneProcs(getLists: untyped): untyped =
+  getLists:
+    proc bareProc() {.zeroOrOne.} = discard
+    proc emptyProc() {.zeroOrOne().} = discard
+    proc colonProc() {.zeroOrOne: "colon".} = discard
+    proc callProc() {.zeroOrOne("call").} = discard
+    proc strLitProc() {.zeroOrOne"strLit".} = discard
+    proc otherProc() {.zero, raises: [], gcsafe.} = discard
+
+template bindZeroOrOneProcs(getLists: untyped): untyped =
+  bind zeroOrOne, zero
+  getLists:
+    proc bareProc() {.zeroOrOne.} = discard
+    proc emptyProc() {.zeroOrOne().} = discard
+    proc colonProc() {.zeroOrOne: "colon".} = discard
+    proc callProc() {.zeroOrOne("call").} = discard
+    proc strLitProc() {.zeroOrOne"strLit".} = discard
+    proc otherProc() {.zero, raises: [], gcsafe.} = discard
 
 func paramsList(n: NimNode): NimNode =
   var res: seq[string]
@@ -1038,6 +1074,22 @@ let myType = MyType[string](
   myField: "test", myGeneric: "test", kind: true, first: "test")
 
 suite "Macros":
+  test "pragmaName":
+    const untypedPragmaLists = getPragmaLists:
+      proc bareProc() {.zeroOrOne.} = discard
+      proc emptyProc() {.zeroOrOne().} = discard
+      proc colonProc() {.zeroOrOne: "colon".} = discard
+      proc callProc() {.zeroOrOne("call").} = discard
+      proc strLitProc() {.zeroOrOne"strLit".} = discard
+      proc otherProc() {.zero, raises: [], gcsafe.} = discard
+    check:
+      untypedPragmaLists.names == @[
+        "zeroOrOne", "zeroOrOne", "zeroOrOne", "zeroOrOne", "zeroOrOne",
+        "zero", "raises", "gcsafe"]
+      zeroOrOneProcs(getPragmaLists).names == untypedPragmaLists.names
+      bindZeroOrOneProcs(getPragmaLists).names == untypedPragmaLists.names
+      zeroOrOneProcs(getTypedPragmaLists).names == untypedPragmaLists.names
+
   test "findPragma":
     const untypedHasOverloadedPragma = hasOverloadedPragma:
       proc untypedProc() {.overloadedPragma.}

@@ -75,6 +75,9 @@ macro dumpMacroResults*: untyped =
   except IOError as exc:
     doAssert(false, exc.msg)
 
+func pragmaName*(p: NimNode): NimNode =
+  if p.kind in nnkPragmaCallKinds and p.len > 0: p[0] else: p
+
 func findPragma*(pragmas: NimNode, pragmaSym: NimNode): NimNode =
   for p in pragmas:
     if p.kind in nnkPragmaCallKinds:
