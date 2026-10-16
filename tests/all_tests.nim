@@ -37,4 +37,5 @@ import
   test_staticfor,
   test_strformat,
   test_templateutils,
+  test_typetraits,
   test_winacl
