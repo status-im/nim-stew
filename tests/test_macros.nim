@@ -1454,6 +1454,7 @@ suite "Macros":
     check:
       unnamedTuple == (1, "unnamed")
       unnamedTuplePtr.field("Field0") == 1
+      unnamedTuplePtr.field("FiEl_d0") == 1
       namedTuple.tupleField == 2
       myType.field("myField") == "test"
 
