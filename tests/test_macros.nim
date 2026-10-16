@@ -44,6 +44,14 @@ type
     describedA = "first"
     describedB
 
+  ValuedKind = enum
+    valuedA = -5
+    valuedB = (10, "ten")
+    valuedC = "val" & "ued"
+    valuedD {.deprecated.} = 'z'
+    valuedE = (ord('z') + 5, "e")
+    valuedF
+
   BaseType = object of RootObj
     baseField: int
     case baseCaseField: FieldKind
@@ -361,6 +369,7 @@ func enumFieldsList(typ: NimNode): NimNode =
     var description = $field.name
     if field.value != nil:
       description.add " = " & field.value.repr
+    description.add ": " & $(field.ordinal, field.strValue)
     res.add description
   newLit res
 
@@ -375,6 +384,9 @@ template getEnumFieldsList(T: type): untyped =
     const res = typeInstEnumFieldsList(T)
     doAssert typeParamEnumFieldsList(T) == res
     res
+
+macro getUntypedEnumFieldsList(typeSection: untyped): untyped =
+  enumFieldsList(typeSection[0][0])
 
 func typeDescFieldsLists(T: type): seq[string] {.compileTime.} =
   fieldDescriptions(recordFields(T))
@@ -869,23 +881,49 @@ static:
   doAssert typeHumaneName(FieldKind) == "FieldKind = enum\n  kindA, kindB"
 
   doAssert getEnumFieldsList(FieldKind) == @[
-    "kindA",
-    "kindB"
+    "kindA: (0, \"kindA\")",
+    "kindB: (1, \"kindB\")"
   ]
 
   doAssert getEnumFieldsList(HoleyKind) == @[
-    "holeyA = 5",
-    "holeyB = 20"
+    "holeyA = 5: (5, \"holeyA\")",
+    "holeyB = 20: (20, \"holeyB\")"
   ]
 
   doAssert getEnumFieldsList(HoleyKindAlias) == @[
-    "holeyA = 5",
-    "holeyB = 20"
+    "holeyA = 5: (5, \"holeyA\")",
+    "holeyB = 20: (20, \"holeyB\")"
   ]
 
   doAssert getEnumFieldsList(DescribedKind) == @[
-    "describedA = \"first\"",
-    "describedB"
+    "describedA = \"first\": (0, \"first\")",
+    "describedB: (1, \"describedB\")"
+  ]
+
+  doAssert getEnumFieldsList(ValuedKind) == @[
+    "valuedA = -5: (-5, \"valuedA\")",
+    "valuedB = (10, \"ten\"): (10, \"ten\")",
+    "valuedC = \"val\" & \"ued\": (11, \"valued\")",
+    "valuedD = 122: (122, \"valuedD\")",
+    "valuedE = (127, \"e\"): (127, \"e\")",
+    "valuedF: (128, \"valuedF\")"
+  ]
+
+  const untypedEnumFieldsList = getUntypedEnumFieldsList:
+    type U = enum
+      untypedA = -5
+      untypedB = (10, "ten")
+      untypedC = "valued"
+      untypedD {.deprecated.} = 'z'
+      untypedE = (127, "e")
+      untypedF
+  doAssert untypedEnumFieldsList == @[
+    "untypedA = -5: (-5, \"untypedA\")",
+    "untypedB = (10, \"ten\"): (10, \"ten\")",
+    "untypedC = \"valued\": (11, \"valued\")",
+    "untypedD = 'z': (122, \"untypedD\")",
+    "untypedE = (127, \"e\"): (127, \"e\")",
+    "untypedF: (128, \"untypedF\")"
   ]
 
 # Test for https://github.com/nim-lang/Nim/issues/26464

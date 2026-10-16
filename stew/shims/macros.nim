@@ -20,6 +20,8 @@ type
   EnumFieldDescription* = object
     name*: NimNode
     value*: NimNode
+    ordinal*: int64
+    strValue*: string
 
   ParamDescription* = object
     name*: NimNode
@@ -490,6 +492,18 @@ func isCaseObject*(T: type): bool {.compileTime.} =
   else:
     false
 
+func readLiteralValue(field: var EnumFieldDescription, value: NimNode) =
+  case value.kind
+  of nnkCharLit .. nnkUInt64Lit:
+    field.ordinal = value.intVal
+  of nnkStrLit .. nnkTripleStrLit:
+    field.strValue = value.strVal
+  of nnkTupleConstr:
+    for i in 0 ..< value.len:
+      field.readLiteralValue(value[i])
+  else:
+    macros.error("literal expected", value)
+
 func enumFields*(typ: NimNode): seq[EnumFieldDescription] =
   if typ.typeKind == ntyTypeDesc:
     return enumFields(typ.getTypeInst[1])
@@ -502,12 +516,28 @@ func enumFields*(typ: NimNode): seq[EnumFieldDescription] =
   of nnkEnumTy:
     var fields: seq[EnumFieldDescription]
     for i in 1 ..< typeDef[2].len:
-      let field = typeDef[2][i]
-      fields.add(
-        if field.kind == nnkEnumFieldDef:
-          EnumFieldDescription(name: field[0], value: field[1])
+      let fieldDef = typeDef[2][i]
+      var field =
+        if fieldDef.kind == nnkEnumFieldDef:
+          EnumFieldDescription(name: fieldDef[0], value: fieldDef[1])
         else:
-          EnumFieldDescription(name: field))
+          EnumFieldDescription(name: fieldDef)
+      if field.name.kind == nnkPragmaExpr:
+        field.name = field.name[0]
+      if field.name.kind == nnkSym:
+        let impl = field.name.getImpl
+        field.ordinal = field.name.intVal
+        field.strValue =
+          if impl.kind in {nnkStrLit .. nnkTripleStrLit}:
+            impl.strVal
+          else:
+            $field.name
+      else:
+        field.ordinal = if fields.len > 0: fields[^1].ordinal + 1 else: 0
+        field.strValue = $field.name
+        if field.value != nil:
+          field.readLiteralValue(field.value)
+      fields.add field
     fields
   else:
     macros.error("enum type expected", typ)
