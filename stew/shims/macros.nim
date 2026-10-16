@@ -96,7 +96,13 @@ template hasPragma*(
   static: discard bindSym(pragmaName)
   hasPragma(field.pragmas, pragmaName)
 
+func isSink(typ: NimNode): bool =
+  typ.kind == nnkBracketExpr and typ[0].kind == nnkSym and
+  eqIdent(typ[0], "sink")
+
 func isTuple*(typ: NimNode): bool =
+  if typ.isSink:
+    return isTuple(typ[1])
   case typ.typeKind
   of ntyTypeDesc:
     isTuple(getType(typ)[1])
@@ -439,6 +445,8 @@ func collectFieldsFromType(
 func recordFields*(typ: NimNode): seq[FieldDescription] =
   if typ.typeKind == ntyTypeDesc:
     return recordFields(typ.getTypeInst[1])
+  if typ.isSink:
+    return recordFields(typ[1])
 
   var fields: seq[FieldDescription]
   if typ.kind == nnkBracketExpr and typ[0].kind == nnkSym and
@@ -544,6 +552,8 @@ template hasField*(T: type, name: static string): bool =
 func enumFields*(typ: NimNode): seq[EnumFieldDescription] =
   if typ.typeKind == ntyTypeDesc:
     return enumFields(typ.getTypeInst[1])
+  if typ.isSink:
+    return enumFields(typ[1])
   var typeDef = if typ.kind == nnkSym: typ.getImpl else: typ
   if typeDef.kind in {nnkEnumTy, nnkNilLit}:
     typeDef = typ.getTypeInst.getImpl
@@ -580,7 +590,7 @@ func enumFields*(typ: NimNode): seq[EnumFieldDescription] =
 
 func tupleTypes*(typ: NimNode): seq[NimNode] =
   let impl = getType(typ)
-  if impl.typeKind == ntyTypeDesc:
+  if impl.typeKind == ntyTypeDesc or impl.isSink:
     return tupleTypes(impl[1])
   if impl.kind != nnkBracketExpr or impl[0].kind != nnkSym or
       not eqIdent(impl[0], "tuple"):
@@ -589,6 +599,8 @@ func tupleTypes*(typ: NimNode): seq[NimNode] =
 
 macro field*(obj: typed, fieldName: static string): untyped =
   var typeImpl = obj.getTypeImpl
+  if typeImpl.isSink:
+    typeImpl = typeImpl[1].getTypeImpl
   while typeImpl.kind in {nnkRefTy, nnkPtrTy}:
     typeImpl = typeImpl[0].getTypeImpl
   if typeImpl.kind == nnkTupleConstr:
@@ -653,7 +665,8 @@ func getPragma(
   error "The type " & $typ & " doesn't have a field named " & lookedUpField
 
 func getPragma(typedescNode, pragma: NimNode): NimNode =
-  for typeInst in [typedescNode.getTypeInst[1], typedescNode.getType[1]]:
+  for typ in [typedescNode.getTypeInst[1], typedescNode.getType[1]]:
+    let typeInst = if typ.isSink: typ[1] else: typ
     var typeSym = if typeInst.kind == nnkBracketExpr: typeInst[0] else: typeInst
     while typeSym.kind == nnkSym:
       let typeDef = getImpl(typeSym)
