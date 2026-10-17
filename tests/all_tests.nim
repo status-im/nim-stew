@@ -26,6 +26,7 @@ import
   test_importops,
   test_interval_set,
   test_io2,
+  test_iterators,
   test_keyed_queue,
   test_lentutils,
   test_macros,
