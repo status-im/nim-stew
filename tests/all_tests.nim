@@ -40,4 +40,5 @@ import
   test_strformat,
   test_templateutils,
   test_typetraits,
+  test_utfutils,
   test_winacl
