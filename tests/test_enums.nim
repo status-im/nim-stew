@@ -13,29 +13,48 @@ import unittest2, ../stew/enums
 
 suite "enumStyle":
   test "OrdinalEnum":
-    type EnumTest = enum
-      x0
-      x1
-      x2
+    type
+      EnumTest = enum
+        x0
+        x1
+        x2
+      EnumTestAlias = EnumTest
 
-    check EnumTest.enumStyle == EnumStyle.Numeric
+    check:
+      EnumTest.enumStyle == EnumStyle.Numeric
+      EnumTestAlias.enumStyle == EnumStyle.Numeric
 
   test "HoleyEnum":
-    type EnumTest = enum
-      y1 = 1
-      y3 = 3
-      y4
-      y6 = 6
+    type
+      EnumTest = enum
+        y1 = 1
+        y3 = 3
+        y4
+        y6 = 6
+      EnumTestAlias = EnumTest
 
-    check EnumTest.enumStyle == EnumStyle.Numeric
+    check:
+      EnumTest.enumStyle == EnumStyle.Numeric
+      EnumTestAlias.enumStyle == EnumStyle.Numeric
 
   test "StringEnum":
-    type EnumTest = enum
-      z1 = "aaa"
-      z2 = "bbb"
-      z3 = "ccc"
+    const ccc = "ccc"
+    type
+      EnumTest = enum
+        z1 = "aaa"
+        z2 = "bbb"
+        z3 = "ccc"
+      EnumTestAlias = EnumTest
+      EnumTestExpression = enum
+        e1 = r"aaa"
+        e2 = """bbb"""
+        e3 = ccc
+        e4 = "d" & "dd"
 
-    check EnumTest.enumStyle == EnumStyle.AssociatedStrings
+    check:
+      EnumTest.enumStyle == EnumStyle.AssociatedStrings
+      EnumTestAlias.enumStyle == EnumStyle.AssociatedStrings
+      EnumTestExpression.enumStyle == EnumStyle.AssociatedStrings
 
 suite "enums":
   test "enumRangeInt64":
@@ -55,10 +74,18 @@ suite "enums":
         C2 = 3
         C3 = 5
 
+      WithCustomInt64 = enum
+        D1 = 1
+        D2 = 3
+
+    func int64(e: WithCustomInt64): int64 =
+      42
+
     check:
       enumRangeInt64(WithoutHoles) == [0'i64, 1, 2]
       enumRangeInt64(WithoutHoles2) == [4'i64, 5, 6]
       enumRangeInt64(WithHoles) == [1'i64, 3, 5]
+      enumRangeInt64(WithCustomInt64) == [1'i64, 3]
 
   test "enumStringValues":
     type
@@ -76,14 +103,23 @@ suite "enums":
         A = "value A"
         B = "value B"
 
+      EnumWithCustomDollar = enum
+        D = "value D"
+        E = "value E"
+
+    func `$`(e: EnumWithCustomDollar): string =
+      "custom"
+
     check:
       enumStrValuesArray(RegularEnum) == ["A1", "A2", "A3"]
       enumStrValuesArray(EnumWithHoles) == ["C1", "C2", "C3"]
       enumStrValuesArray(StringyEnum) == ["value A", "value B"]
+      enumStrValuesArray(EnumWithCustomDollar) == ["value D", "value E"]
 
       enumStrValuesSeq(RegularEnum) == @["A1", "A2", "A3"]
       enumStrValuesSeq(EnumWithHoles) == @["C1", "C2", "C3"]
       enumStrValuesSeq(StringyEnum) == @["value A", "value B"]
+      enumStrValuesSeq(EnumWithCustomDollar) == @["value D", "value E"]
 
   test "contains":
     type
