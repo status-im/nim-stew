@@ -28,16 +28,12 @@ macro enumStyle*(t: typedesc[enum]): untyped =
 
   var style: Option[EnumStyle]
   for field in typ.enumFields:
-    if field.value == nil:
-      style.setMode(EnumStyle.Numeric, typ)
+    if field.value != nil and field.value.kind == nnkTupleConstr:
+      error("Unexpected enum tuple for deserialization: " & $typ)
+    elif field.name.getImpl.kind in {nnkStrLit .. nnkTripleStrLit}:
+      style.setMode(EnumStyle.AssociatedStrings, typ)
     else:
-      case field.value.kind
-      of nnkIntLit:
-        style.setMode(EnumStyle.Numeric, typ)
-      of nnkStrLit:
-        style.setMode(EnumStyle.AssociatedStrings, typ)
-      else:
-        error("Unexpected enum tuple for deserialization: " & $field.value.kind)
+      style.setMode(EnumStyle.Numeric, typ)
 
   if style.isNone:
     error("Cannot determine enum style for deserialization: " & $typ)

@@ -38,16 +38,23 @@ suite "enumStyle":
       EnumTestAlias.enumStyle == EnumStyle.Numeric
 
   test "StringEnum":
+    const ccc = "ccc"
     type
       EnumTest = enum
         z1 = "aaa"
         z2 = "bbb"
         z3 = "ccc"
       EnumTestAlias = EnumTest
+      EnumTestExpression = enum
+        e1 = r"aaa"
+        e2 = """bbb"""
+        e3 = ccc
+        e4 = "d" & "dd"
 
     check:
       EnumTest.enumStyle == EnumStyle.AssociatedStrings
       EnumTestAlias.enumStyle == EnumStyle.AssociatedStrings
+      EnumTestExpression.enumStyle == EnumStyle.AssociatedStrings
 
 suite "enums":
   test "enumRangeInt64":
