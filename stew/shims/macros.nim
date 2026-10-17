@@ -96,7 +96,7 @@ template hasPragma*(
   static: discard bindSym(pragmaName)
   hasPragma(field.pragmas, pragmaName)
 
-func isSink(typ: NimNode): bool =
+func isSink*(typ: NimNode): bool =
   typ.kind == nnkBracketExpr and typ[0].kind == nnkSym and
   eqIdent(typ[0], "sink")
 
