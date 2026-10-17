@@ -9,33 +9,7 @@
 
 {.push raises: [].}
 
-import ./shims/macros
-
-func containsIdent(n: NimNode, idents: openArray[NimNode]): bool =
-  if n.kind == nnkIdent:
-    for ident in idents:
-      if eqIdent(n, ident):
-        return true
-  for child in n:
-    if child.containsIdent(idents):
-      return true
-  false
-
-func staticCaseParamType(typ: NimNode, generics: openArray[NimNode]): NimNode =
-  if typ.kind == nnkVarTy:
-    staticCaseParamType(typ[0], generics)
-  elif typ.kind == nnkInfix and eqIdent(typ[0], "|"):
-    staticCaseParamType(typ[1], generics)
-  elif typ.kind == nnkBracketExpr and typ.containsIdent(generics):
-    typ[0]  # Generic params are not in scope, use the uninstantiated type
-  else: typ
-
-func staticCaseType(T: NimNode): NimNode =
-  let
-    typ = T.getTypeInst[1]
-    impl = typ.getTypeImpl
-  if impl.kind == nnkBracketExpr and eqIdent(impl[0], "or"): impl[1]
-  else: typ
+import std/macrocache, ./shims/macros
 
 func staticCaseDiscriminator(typ: NimNode): FieldDescription =
   if typ.getTypeImpl.kind in {nnkObjectTy, nnkRefTy, nnkPtrTy}:
@@ -73,42 +47,58 @@ func staticCaseField(
       res = fields[i].name
   res
 
-macro staticCaseImpl(
-    def, name, accessors: untyped, types: varargs[typed]): untyped =
-  var params: seq[NimNode]
-  for param in def.routineParams:
-    params.add param.name
+func staticCaseInfo(T: NimNode): NimNode =
+  ## `(discriminator, [(value, field)...])`, with empty nodes where absent.
+  var typ = T.getTypeInst[1]
+  if typ.isSink:
+    typ = typ[1]
+  let cache = CacheSeq("stew.staticcase.staticCaseInfo." & typ.repr)
+  for entry in cache:
+    if sameType(entry[0], typ):
+      return entry[1]
   var
-    selector = params[0]
-    selectorType = staticCaseType(types[0])
-  if selectorType.getTypeImpl.kind != nnkEnumTy:
-    let discriminator = selectorType.staticCaseDiscriminator
-    selector = newDotExpr(selector, ident $discriminator.name)
-    selectorType = discriminator.typ
-  var fields: seq[seq[FieldDescription]]
-  for i in 0 ..< accessors.len:
-    fields.add staticCaseBranchFields(staticCaseType(types[i]))
+    discriminator = newEmptyNode()
+    selectorType = typ
+  if typ.getTypeImpl.kind != nnkEnumTy:
+    let field = typ.staticCaseDiscriminator
+    discriminator = ident $field.name
+    selectorType = field.typ
   let
-    caseStmt = nnkCaseStmt.newTree(selector)
+    fields = typ.staticCaseBranchFields
     values = enumFields(selectorType)
+    branches = newNimNode(nnkBracket)
   for i in 0 ..< values.len:
+    let field = fields.staticCaseField(values[i].ordinal, typ)
+    branches.add nnkPar.newTree(
+      values[i].name, if field != nil: ident $field else: newEmptyNode())
+  let res = nnkPar.newTree(discriminator, branches)
+  cache.add nnkPar.newTree(typ, res)
+  res
+
+macro staticCaseImpl(
+    name, accessors, params, body: untyped, types: varargs[typed]): untyped =
+  var infos: seq[NimNode]
+  for i in 0 ..< types.len:
+    infos.add staticCaseInfo(types[i])
+  var selector = params[0]
+  if infos[0][0].kind != nnkEmpty:
+    selector = newDotExpr(selector, infos[0][0])
+  let caseStmt = nnkCaseStmt.newTree(selector)
+  for branchInfo in infos[0][1]:
     let
-      value = values[i].name
+      value = branchInfo[0]
       branch = newStmtList(quote do:
         const `name` {.inject, used.} = `value`)
     for j, accessor in accessors:
-      let field = fields[j].staticCaseField(values[i].ordinal, types[j])
-      if field != nil:
-        let
-          param = params[j]
-          fieldName = ident $field
-        branch.add quote do:
-          template `accessor`: untyped {.inject, used.} = `param`.`fieldName`
-    branch.add def.body.copyNimTree
+      for otherInfo in infos[j][1]:
+        let fieldName = otherInfo[1]
+        if otherInfo[0].intVal == value.intVal and fieldName.kind != nnkEmpty:
+          let param = params[j]
+          branch.add quote do:
+            template `accessor`: untyped {.inject, used.} = `param`.`fieldName`
+    branch.add body.copyNimTree
     caseStmt.add nnkOfBranch.newTree(value, branch)
-  let res = def.copyNimTree
-  res.body = newStmtList(caseStmt)
-  res
+  caseStmt
 
 macro staticCase*(args: varargs[untyped]): untyped =
   ## Template pragma `{.staticCase(name, accessors...).}`.
@@ -125,7 +115,6 @@ macro staticCase*(args: varargs[untyped]): untyped =
   ##
   ## The first parameter decides the `case`, other parameters are assumed to
   ## share the discriminator type and be in the same branch as the first one.
-  ## For type class parameters, the first class member defines the fields.
   ## Template parameters may be evaluated multiple times.
   ##
   ## .. code-block:: nim
@@ -148,17 +137,17 @@ macro staticCase*(args: varargs[untyped]): untyped =
   let
     def = args[^1]
     accessors = newTree(nnkBracket, args[1 .. ^2])
-  var generics: seq[NimNode]
-  if def[2].kind == nnkGenericParams:
-    for identDefs in def[2]:
-      for generic in identDefs[0 .. ^3]:
-        generics.add generic
-  var types: seq[NimNode]
+  var params: seq[NimNode]
   for param in def.routineParams:
-    types.add param.typ.staticCaseParamType(generics)
-  if types.len < max(accessors.len, 1):
+    params.add param.name
+  let numTypes = max(accessors.len, 1)
+  if params.len < numTypes:
     macros.error("more accessors than parameters", def)
-  let res = newCall(bindSym"staticCaseImpl", def, args[0], accessors)
-  for i in 0 ..< max(accessors.len, 1):
-    res.add types[i]
+  let call = newCall(
+    bindSym"staticCaseImpl", args[0], accessors,
+    newTree(nnkBracket, params[0 ..< numTypes]), def.body)
+  for i in 0 ..< numTypes:
+    call.add newCall(ident"typeof", params[i])
+  let res = def.copyNimTree
+  res.body = newStmtList(call)
   res

@@ -80,7 +80,10 @@ type
   GenericStaticCaseObject[T] = object
     case kind: StaticCaseKind
     of staticA:
-      genericA: T
+      when T is int:
+        intA: int
+      else:
+        genericA: T
     of staticB, staticC:
       discard
 
@@ -148,6 +151,15 @@ template withGenericStaticCaseObject[T](
     x: GenericStaticCaseObject[T], body: untyped
 ): untyped {.staticCase(staticKind, innerField).} =
   body
+
+template withSinkStaticCaseObject(
+    x: sink StaticCaseObject, body: untyped
+): untyped {.staticCase(staticKind, innerField).} =
+  body
+
+func sinkStaticCaseObject(x: sink StaticCaseObject): string =
+  withSinkStaticCaseObject(x):
+    when staticKind == staticB: innerField else: ""
 
 func staticCaseFields(x: SomeStaticCaseObject): string =
   withStaticCaseObject(x):
@@ -235,7 +247,9 @@ suite "staticcase":
         template withTwoFields(
             x: TwoFieldsStaticCaseObject, body: untyped
         ): untyped {.staticCase(staticKind, innerField).} =
-          body):
+          body
+        withTwoFields(TwoFieldsStaticCaseObject(kind: staticB)):
+          discard):
       check false
 
   test "Parameter wrappers":
@@ -255,3 +269,11 @@ suite "staticcase":
         GenericStaticCaseObject[string](kind: staticA, genericA: "g")):
       when staticKind == staticA: innerField else: ""
     check genericValue == "g"
+
+    let intValue = withGenericStaticCaseObject(
+        GenericStaticCaseObject[int](kind: staticA, intA: 5)):
+      when staticKind == staticA: innerField else: 0
+    check intValue == 5
+
+    check sinkStaticCaseObject(
+      StaticCaseObject(kind: staticB, bField: "s")) == "s"
