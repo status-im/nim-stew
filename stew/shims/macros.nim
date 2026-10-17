@@ -555,6 +555,27 @@ template hasField*(T: type, name: static string): bool =
   const res = hasFieldImpl(T, name)
   res
 
+func collectFieldsFromEnum(
+    fields: var seq[EnumFieldDescription], n: NimNode) =
+  for i in 1 ..< n.len:
+    let fieldDef = n[i]
+    var field =
+      if fieldDef.kind == nnkEnumFieldDef:
+        EnumFieldDescription(name: fieldDef[0], value: fieldDef[1])
+      else:
+        EnumFieldDescription(name: fieldDef)
+    if field.name.kind == nnkPragmaExpr:
+      field.name = field.name[0]
+    if field.name.kind == nnkSym:
+      let impl = field.name.getImpl
+      field.ordinal = field.name.intVal
+      field.strValue =
+        if impl.kind in {nnkStrLit .. nnkTripleStrLit}:
+          impl.strVal
+        else:
+          $field.name
+    fields.add field
+
 func enumFields*(typ: NimNode): seq[EnumFieldDescription] =
   if typ.typeKind == ntyTypeDesc:
     return enumFields(typ.getTypeInst[1])
@@ -565,34 +586,20 @@ func enumFields*(typ: NimNode): seq[EnumFieldDescription] =
     typeDef = typ.getTypeInst.getImpl
   if typeDef.kind != nnkTypeDef:
     macros.error("enum type expected", typ)
+  var fields: seq[EnumFieldDescription]
   case typeDef[2].kind
   of nnkSym:
-    enumFields(typeDef[2])
+    return enumFields(typeDef[2])
   of nnkEnumTy:
-    var fields: seq[EnumFieldDescription]
-    for i in 1 ..< typeDef[2].len:
-      let fieldDef = typeDef[2][i]
-      var field =
-        if fieldDef.kind == nnkEnumFieldDef:
-          EnumFieldDescription(name: fieldDef[0], value: fieldDef[1])
-        else:
-          EnumFieldDescription(name: fieldDef)
-      if field.name.kind == nnkPragmaExpr:
-        field.name = field.name[0]
-      if field.name.kind == nnkSym:
-        let impl = field.name.getImpl
-        field.ordinal = field.name.intVal
-        field.strValue =
-          if impl.kind in {nnkStrLit .. nnkTripleStrLit}:
-            impl.strVal
-          else:
-            $field.name
-      fields.add field
-    fields
+    collectFieldsFromEnum(fields, typeDef[2])
   of nnkCall, nnkCommand, nnkDotExpr, nnkTypeOfExpr:
-    enumFields(typeDef[2].getTypeImpl)
+    let typeImpl = typeDef[2].getTypeImpl
+    if typeImpl.kind != nnkEnumTy or typeImpl.getTypeInst.getImpl != typeDef:
+      return enumFields(typeImpl)
+    collectFieldsFromEnum(fields, typeImpl)
   else:
     macros.error("enum type expected", typ)
+  fields
 
 func tupleTypes*(typ: NimNode): seq[NimNode] =
   let impl = getType(typ)
