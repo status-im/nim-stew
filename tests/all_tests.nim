@@ -40,5 +40,6 @@ import
   test_strformat,
   test_templateutils,
   test_typetraits,
+  test_utf8,
   test_utfutils,
   test_winacl
