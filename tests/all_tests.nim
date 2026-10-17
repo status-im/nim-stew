@@ -1,5 +1,5 @@
 # stew
-# Copyright 2018-2023 Status Research & Development GmbH
+# Copyright 2018-2026 Status Research & Development GmbH
 # Licensed under either of
 #
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
@@ -26,6 +26,7 @@ import
   test_importops,
   test_interval_set,
   test_io2,
+  test_iterators,
   test_keyed_queue,
   test_lentutils,
   test_macros,
@@ -34,6 +35,7 @@ import
   test_sequtils2,
   test_sets,
   test_sorted_set,
+  test_staticcase,
   test_staticfor,
   test_strformat,
   test_templateutils,

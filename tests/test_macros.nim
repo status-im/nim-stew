@@ -292,6 +292,13 @@ template templateCallType(T: type): untyped = CallGenericType[T]
 
 template templateCallKind(): untyped = HoleyKind
 
+macro macroCallKind(): untyped =
+  let def = quote do:
+    type T = enum
+      macroA
+      macroB = 7
+  def[0][2]
+
 macro macroCallType(T: type): untyped =
   quote do: CallGenericType[`T`]
 
@@ -301,6 +308,7 @@ type
   MacroCallAliasType = macroCallType(bool)
   TemplateCallAliasKind = templateCallKind()
   TypeofAliasKind = typeof(holeyA)
+  MacroCallKind = macroCallKind()
 
 func fieldDescriptions(fields: seq[FieldDescription]): seq[string] =
   var res: seq[string]
@@ -646,7 +654,7 @@ template bindHasOverloadedPragma(): untyped =
 
 iterator overloadedPragmaValueNodes(procSection: NimNode): NimNode =
   for procDef in procSection:
-    yield procDef.pragma.readPragma("overloadedPragma")
+    yield procDef.pragma.readPragmaValue("overloadedPragma")
 
 macro overloadedPragmaValues(procSection: untyped): untyped =
   var values: seq[string]
@@ -674,16 +682,6 @@ template bindOverloadedPragmaValues(): untyped =
     proc strLitProc() {.overloadedPragma"strLit".}
     proc otherProc() {.zero.}
 
-macro readBoundOverloadedPragma(): untyped =
-  let
-    pragma = bindSym "overloadedPragma"
-    field = nnkIdentDefs.newTree(
-      nnkPragmaExpr.newTree(ident "boundField", nnkPragma.newTree(pragma)),
-      ident "int", newEmptyNode())
-    objectType = nnkObjectTy.newTree(
-      newEmptyNode(), newEmptyNode(), nnkRecList.newTree(field))
-  newLit(recordFields(objectType)[0].readPragma("overloadedPragma") == pragma)
-
 macro readBoundOverloadedPragmaPresence(): untyped =
   let
     field = nnkIdentDefs.newTree(
@@ -706,6 +704,18 @@ macro getOnePresence(routine: untyped): untyped =
   for param in routineParams(routine[0]):
     present.add param.hasPragma("one")
   newLit present
+
+macro zeroPragmaValues(T: type): untyped =
+  var values: seq[string]
+  for field in recordFields(T):
+    values.add field.readPragmaValue("zero").repr
+  newLit values
+
+macro twoPragmaValues(T: type): untyped =
+  var values: seq[string]
+  for field in recordFields(T):
+    values.add field.readPragmaValue("two").repr
+  newLit values
 
 func pragmaLists(routines: NimNode): NimNode =
   var names, present, values: seq[string]
@@ -777,7 +787,7 @@ macro getParamsList(routine: untyped): untyped =
 macro getOneValues(routine: untyped): untyped =
   var values: seq[string]
   for param in routineParams(routine[0]):
-    let value = param.readPragma("one")
+    let value = param.readPragmaValue("one")
     values.add(if value == nil: "" else: value.strVal)
   newLit values
 
@@ -1263,6 +1273,11 @@ static:
     "holeyB = 20: (20, \"holeyB\")"
   ]
 
+  doAssert getEnumFieldsList(MacroCallKind) == @[
+    "macroA: (0, \"macroA\")",
+    "macroB: (7, \"macroB\")"
+  ]
+
   doAssert getEnumFieldsList(DescribedKind) == @[
     "describedA = \"first\": (0, \"first\")",
     "describedB: (1, \"describedB\")"
@@ -1374,20 +1389,6 @@ suite "Macros":
           newLit recordFields(T)[0].hasPragma("undeclaredPragma")):
       check false
 
-  test "readPragma":
-    const untypedOverloadedPragmaValues = overloadedPragmaValues:
-      proc bareProc() {.overloadedPragma.}
-      proc colonProc() {.overloadedPragma: "colon".}
-      proc callProc() {.overloadedPragma("call").}
-      proc strLitProc() {.overloadedPragma"strLit".}
-      proc otherProc() {.zero.}
-    check:
-      readBoundOverloadedPragma()
-      untypedOverloadedPragmaValues ==
-        @["overloadedPragma", "colon", "call", "strLit", ""]
-      templateOverloadedPragmaValues() == untypedOverloadedPragmaValues
-      bindOverloadedPragmaValues() == untypedOverloadedPragmaValues
-
   test "readPragmaValue":
     const untypedPragmaLists = getPragmaLists:
       proc bareProc() {.zeroOrOne.} = discard
@@ -1404,6 +1405,20 @@ suite "Macros":
     const zeroOrOneValues = getZeroOrOneValues:
       proc oneProc(a {.zeroOrOne("a").}, b {.zeroOrOne.}: int, c: string)
     check zeroOrOneValues == @["a", "", ""]
+    const untypedOverloadedPragmaValues = overloadedPragmaValues:
+      proc bareProc() {.overloadedPragma.}
+      proc colonProc() {.overloadedPragma: "colon".}
+      proc callProc() {.overloadedPragma("call").}
+      proc strLitProc() {.overloadedPragma"strLit".}
+      proc otherProc() {.zero.}
+    check:
+      untypedOverloadedPragmaValues == @["", "colon", "call", "strLit", ""]
+      templateOverloadedPragmaValues() == untypedOverloadedPragmaValues
+      bindOverloadedPragmaValues() == untypedOverloadedPragmaValues
+      zeroPragmaValues(ReusedPragmaAliasType) ==
+        @["nil", "nil", "nil", "nil"]
+      twoPragmaValues(MyType[string]) ==
+        @["two(\"foo\", \"bar\")", "nil", "nil", "nil", "nil"]
 
   test "routineParams":
     const

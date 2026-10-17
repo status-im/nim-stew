@@ -69,6 +69,12 @@ proc storeMacroResult*(callSite: LineInfo,
     # echo macroResult.repr
     writeMacroResultsNow()
 
+proc storeMacroResult*(
+    macroResult: NimNode, writeOutputImmediately = false
+) {.deprecated, raises: [IOError].} =
+  let usageSite = callsite().lineInfoObj
+  storeMacroResult(usageSite, macroResult, writeOutputImmediately)
+
 macro dumpMacroResults*: untyped =
   try:
     writeMacroResultsNow()
@@ -96,7 +102,7 @@ template hasPragma*(
   static: discard bindSym(pragmaName)
   hasPragma(field.pragmas, pragmaName)
 
-func isSink(typ: NimNode): bool =
+func isSink*(typ: NimNode): bool =
   typ.kind == nnkBracketExpr and typ[0].kind == nnkSym and
   eqIdent(typ[0], "sink")
 
@@ -126,16 +132,22 @@ func isTuple*(typ: NimNode): bool =
 macro isTuple*(T: type): untyped =
   newLit(isTuple(getType(T)[1]))
 
-template readPragma*(
+template readPragmaImpl(
     pragmas: NimNode, pragmaName: static string): NimNode =
   static: discard bindSym(pragmaName)
   let p = findPragma(pragmas, ident(pragmaName))
   if p != nil and p.kind in nnkPragmaCallKinds and p.len == 2: p[1] else: p
 
 template readPragma*(
+    pragmas: NimNode, pragmaName: static string): NimNode {.
+    deprecated: "use readPragmaValue or hasPragma".} =
+  readPragmaImpl(pragmas, pragmaName)
+
+template readPragma*(
     field: FieldDescription | ParamDescription,
-    pragmaName: static string): NimNode =
-  readPragma(field.pragmas, pragmaName)
+    pragmaName: static string): NimNode {.
+    deprecated: "use readPragmaValue or hasPragma".} =
+  readPragmaImpl(field.pragmas, pragmaName)
 
 template readPragmaValue*(
     pragmas: NimNode, pragmaName: static string): NimNode =
@@ -150,7 +162,7 @@ template readPragmaValue*(
     pragmaName: static string): NimNode =
   readPragmaValue(field.pragmas, pragmaName)
 
-func branchValues(recCase: NimNode, i: int): NimNode =
+func caseBranchValues*(recCase: NimNode, i: int): NimNode =
   let discriminator = recCase[0]
   if discriminator[0].kind != nnkSym:
     return nil
@@ -209,7 +221,7 @@ func collectFieldsFromRecList(
     for i in 1 ..< n.len:
       let
         branch = n[i]
-        values = n.branchValues(i)
+        values = n.caseBranchValues(i)
       case branch.kind
       of nnkOfBranch:
         collectFieldsFromRecList fields, branch[^1], n[0], branch, values
@@ -549,6 +561,27 @@ template hasField*(T: type, name: static string): bool =
   const res = hasFieldImpl(T, name)
   res
 
+func collectFieldsFromEnum(
+    fields: var seq[EnumFieldDescription], n: NimNode) =
+  for i in 1 ..< n.len:
+    let fieldDef = n[i]
+    var field =
+      if fieldDef.kind == nnkEnumFieldDef:
+        EnumFieldDescription(name: fieldDef[0], value: fieldDef[1])
+      else:
+        EnumFieldDescription(name: fieldDef)
+    if field.name.kind == nnkPragmaExpr:
+      field.name = field.name[0]
+    if field.name.kind == nnkSym:
+      let impl = field.name.getImpl
+      field.ordinal = field.name.intVal
+      field.strValue =
+        if impl.kind in {nnkStrLit .. nnkTripleStrLit}:
+          impl.strVal
+        else:
+          $field.name
+    fields.add field
+
 func enumFields*(typ: NimNode): seq[EnumFieldDescription] =
   if typ.typeKind == ntyTypeDesc:
     return enumFields(typ.getTypeInst[1])
@@ -559,34 +592,20 @@ func enumFields*(typ: NimNode): seq[EnumFieldDescription] =
     typeDef = typ.getTypeInst.getImpl
   if typeDef.kind != nnkTypeDef:
     macros.error("enum type expected", typ)
+  var fields: seq[EnumFieldDescription]
   case typeDef[2].kind
   of nnkSym:
-    enumFields(typeDef[2])
+    return enumFields(typeDef[2])
   of nnkEnumTy:
-    var fields: seq[EnumFieldDescription]
-    for i in 1 ..< typeDef[2].len:
-      let fieldDef = typeDef[2][i]
-      var field =
-        if fieldDef.kind == nnkEnumFieldDef:
-          EnumFieldDescription(name: fieldDef[0], value: fieldDef[1])
-        else:
-          EnumFieldDescription(name: fieldDef)
-      if field.name.kind == nnkPragmaExpr:
-        field.name = field.name[0]
-      if field.name.kind == nnkSym:
-        let impl = field.name.getImpl
-        field.ordinal = field.name.intVal
-        field.strValue =
-          if impl.kind in {nnkStrLit .. nnkTripleStrLit}:
-            impl.strVal
-          else:
-            $field.name
-      fields.add field
-    fields
+    collectFieldsFromEnum(fields, typeDef[2])
   of nnkCall, nnkCommand, nnkDotExpr, nnkTypeOfExpr:
-    enumFields(typeDef[2].getTypeImpl)
+    let typeImpl = typeDef[2].getTypeImpl
+    if typeImpl.kind != nnkEnumTy or typeImpl.getTypeInst.getImpl != typeDef:
+      return enumFields(typeImpl)
+    collectFieldsFromEnum(fields, typeImpl)
   else:
     macros.error("enum type expected", typ)
+  fields
 
 func tupleTypes*(typ: NimNode): seq[NimNode] =
   let impl = getType(typ)
