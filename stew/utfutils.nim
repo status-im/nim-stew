@@ -45,6 +45,3 @@ func push*[T: byte | char](v: var Utf8Validator, c: T) =
 
 func valid*(v: Utf8Validator): bool =
   v.state == utf8Accept
-
-func clear*(v: var Utf8Validator) =
-  v.state = 0
