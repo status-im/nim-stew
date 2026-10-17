@@ -90,13 +90,13 @@ suite "Utf utils":
         checkpoint("Failed (bytes stream): " & name)
         fail()
 
-  test "utf8 clear validator":
+  test "utf8 reset validator":
     var v: Utf8Validator
     check v.valid()  # empty is valid
     v.push('\x80')
     check not v.valid()
     check not v.valid()  # still invalid
-    v.clear()
+    v.reset()
     check v.valid()
     v.push('a')
     check v.valid()
