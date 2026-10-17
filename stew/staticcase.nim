@@ -11,8 +11,23 @@
 
 import ./shims/macros
 
-func unionMember(typ: NimNode): NimNode =
-  if typ.kind == nnkInfix and eqIdent(typ[0], "|"): unionMember(typ[1])
+func containsIdent(n: NimNode, idents: openArray[NimNode]): bool =
+  if n.kind == nnkIdent:
+    for ident in idents:
+      if eqIdent(n, ident):
+        return true
+  for child in n:
+    if child.containsIdent(idents):
+      return true
+  false
+
+func staticCaseParamType(typ: NimNode, generics: openArray[NimNode]): NimNode =
+  if typ.kind == nnkVarTy:
+    staticCaseParamType(typ[0], generics)
+  elif typ.kind == nnkInfix and eqIdent(typ[0], "|"):
+    staticCaseParamType(typ[1], generics)
+  elif typ.kind == nnkBracketExpr and typ.containsIdent(generics):
+    typ[0]  # Generic params are not in scope, use the uninstantiated type
   else: typ
 
 func staticCaseType(T: NimNode): NimNode =
@@ -23,7 +38,7 @@ func staticCaseType(T: NimNode): NimNode =
   else: typ
 
 func staticCaseDiscriminator(typ: NimNode): FieldDescription =
-  if typ.getTypeImpl.kind == nnkObjectTy:
+  if typ.getTypeImpl.kind in {nnkObjectTy, nnkRefTy, nnkPtrTy}:
     let fields = recordFields(typ)
     var res: FieldDescription
     for i in 0 ..< fields.len:
@@ -61,9 +76,8 @@ func staticCaseField(
 macro staticCaseImpl(
     def, name, accessors: untyped, types: varargs[typed]): untyped =
   var params: seq[NimNode]
-  for identDefs in def.params[1 .. ^1]:
-    for param in identDefs[0 .. ^3]:
-      params.add param
+  for param in def.routineParams:
+    params.add param.name
   var
     selector = params[0]
     selectorType = staticCaseType(types[0])
@@ -134,10 +148,14 @@ macro staticCase*(args: varargs[untyped]): untyped =
   let
     def = args[^1]
     accessors = newTree(nnkBracket, args[1 .. ^2])
+  var generics: seq[NimNode]
+  if def[2].kind == nnkGenericParams:
+    for identDefs in def[2]:
+      for generic in identDefs[0 .. ^3]:
+        generics.add generic
   var types: seq[NimNode]
-  for identDefs in def.params[1 .. ^1]:
-    for _ in identDefs[0 .. ^3]:
-      types.add identDefs[^2].unionMember
+  for param in def.routineParams:
+    types.add param.typ.staticCaseParamType(generics)
   if types.len < max(accessors.len, 1):
     macros.error("more accessors than parameters", def)
   let res = newCall(bindSym"staticCaseImpl", def, args[0], accessors)

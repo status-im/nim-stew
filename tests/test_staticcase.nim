@@ -70,6 +70,20 @@ type
     of staticB, staticC:
       discard
 
+  RefStaticCaseObject = ref object
+    case kind: StaticCaseKind
+    of staticA:
+      refA: int
+    of staticB, staticC:
+      discard
+
+  GenericStaticCaseObject[T] = object
+    case kind: StaticCaseKind
+    of staticA:
+      genericA: T
+    of staticB, staticC:
+      discard
+
 const staticBC = {staticB, staticC}
 
 type SetStaticCaseObject = object
@@ -117,6 +131,21 @@ template withElseStaticCaseObject(
 
 template withQuotedStaticCaseObject(
     x: QuotedStaticCaseObject, body: untyped
+): untyped {.staticCase(staticKind, innerField).} =
+  body
+
+template withVarStaticCaseObject(
+    x: var StaticCaseObject, body: untyped
+): untyped {.staticCase(staticKind, innerField).} =
+  body
+
+template withRefStaticCaseObject(
+    x: RefStaticCaseObject, body: untyped
+): untyped {.staticCase(staticKind, innerField).} =
+  body
+
+template withGenericStaticCaseObject[T](
+    x: GenericStaticCaseObject[T], body: untyped
 ): untyped {.staticCase(staticKind, innerField).} =
   body
 
@@ -208,3 +237,21 @@ suite "staticcase":
         ): untyped {.staticCase(staticKind, innerField).} =
           body):
       check false
+
+  test "Parameter wrappers":
+    var x = StaticCaseObject(kind: staticA, aField: 1)
+    withVarStaticCaseObject(x):
+      when staticKind == staticA:
+        innerField = 2
+    check x.aField == 2
+
+    let r = RefStaticCaseObject(kind: staticA, refA: 3)
+    withRefStaticCaseObject(r):
+      when staticKind == staticA:
+        innerField = 4
+    check r.refA == 4
+
+    let genericValue = withGenericStaticCaseObject(
+        GenericStaticCaseObject[string](kind: staticA, genericA: "g")):
+      when staticKind == staticA: innerField else: ""
+    check genericValue == "g"
