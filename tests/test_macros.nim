@@ -295,6 +295,13 @@ template templateCallType(T: type): untyped = CallGenericType[T]
 
 template templateCallKind(): untyped = HoleyKind
 
+macro macroCallKind(): untyped =
+  let def = quote do:
+    type T = enum
+      macroA
+      macroB = 7
+  def[0][2]
+
 macro macroCallType(T: type): untyped =
   quote do: CallGenericType[`T`]
 
@@ -304,6 +311,7 @@ type
   MacroCallAliasType = macroCallType(bool)
   TemplateCallAliasKind = templateCallKind()
   TypeofAliasKind = typeof(holeyA)
+  MacroCallKind = macroCallKind()
 
 func fieldDescriptions(fields: seq[FieldDescription]): seq[string] =
   var res: seq[string]
@@ -1392,6 +1400,11 @@ static:
   doAssert getEnumFieldsList(TypeofAliasKind) == @[
     "holeyA = 5: (5, \"holeyA\")",
     "holeyB = 20: (20, \"holeyB\")"
+  ]
+
+  doAssert getEnumFieldsList(MacroCallKind) == @[
+    "macroA: (0, \"macroA\")",
+    "macroB: (7, \"macroB\")"
   ]
 
   doAssert getEnumFieldsList(DescribedKind) == @[
