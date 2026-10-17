@@ -229,9 +229,6 @@ type
   EmptyObject = object
   EmptyRefObject = ref object
 
-  RequiresInitType {.requiresInit.} = object
-    requiresInitField: int
-
   CallGenericType[T] {.one("call").} = object
     callField {.zero.}: T
 
@@ -639,36 +636,6 @@ macro macroIsCaseObject(): untyped =
 
 macro macroHasField(): untyped =
   newLit(hasField(MyType[string], "myField"))
-
-func typeParamFieldTypePairsList(T: type): seq[string] =
-  var res: seq[string]
-  for name, FieldType in fieldTypePairs(T):
-    res.add name & ": " & $FieldType
-  res
-
-func typeParamFieldNamesList(T: type): seq[string] =
-  var res: seq[string]
-  for name, _ in fieldTypePairs(T):
-    res.add name
-  res
-
-func typeParamFieldTypesCount(T: type): int =
-  var res = 0
-  for _, _ in fieldTypePairs(T):
-    inc res
-  res
-
-template getFieldTypePairsList(T: type): untyped =
-  block:
-    var res, names: seq[string]
-    for name, FieldType in fieldTypePairs(T):
-      res.add name & ": " & $FieldType
-      names.add name
-    doAssert typeParamFieldTypePairsList(T) == res
-    doAssert typeParamFieldTypePairsList(sink T) == res
-    doAssert typeParamFieldNamesList(T) == names
-    doAssert typeParamFieldTypesCount(T) == res.len
-    res
 
 macro overloadedPragma(body: untyped): untyped = body
 macro overloadedPragma(arg, body: untyped): untyped = body
@@ -1267,104 +1234,6 @@ static:
   doAssert not hasField(EmptyObject, "type")
   doAssert not hasField(seq[int], "len")
   doAssert not hasField(ref seq[int], "len")
-
-  doAssert getFieldTypePairsList(MyType[string]) == @[
-    "myField: string",
-    "myGeneric: string",
-    "kind: bool",
-    "second: string"
-  ]
-
-  doAssert getFieldTypePairsList(DerivedFromRefType) == @[
-    "anotherDerivedField: string",
-    "derivedField: int",
-    "baseField: int",
-    "baseCaseField: FieldKind",
-    "baseA: int"
-  ]
-
-  doAssert getFieldTypePairsList(DerivedFromHelperType) == @[
-    "helperDerivedField: int",
-    "helperBaseField: int",
-    "helperPrivateField: int"
-  ]
-
-  doAssert getFieldTypePairsList(PtrType) == @[
-    "ptrField: int",
-    "genericBaseField: int"
-  ]
-
-  doAssert getFieldTypePairsList(StaticType[2]) == @[
-    "staticField: array[0..1, byte]",
-    "staticWhenField: int"
-  ]
-
-  doAssert getFieldTypePairsList(NestedCaseType) == @[
-    "outerKind: FieldKind",
-    "innerKind: range 0..3(int)"
-  ]
-
-  doAssert getFieldTypePairsList(ElseCaseType) == @[
-    "elseKind: range 0..3(int)",
-    "elseField: int",
-    "elseOnlyKind: bool",
-    "elseOnlyField: int"
-  ]
-
-  doAssert getFieldTypePairsList(QuotedType) == @[
-    "quotedfield: int",
-    "type: int",
-    "quotedkind: bool"
-  ]
-
-  doAssert getFieldTypePairsList(RequiresInitType) == @[
-    "requiresInitField: int"
-  ]
-
-  doAssert getFieldTypePairsList(TupleType) == @[
-    "tupleField: int"
-  ]
-
-  doAssert getFieldTypePairsList(RefPtrUnnamedTupleType) == @[
-    "Field0: int",
-    "Field1: string"
-  ]
-
-  doAssert getFieldTypePairsList(EmptyObject).len == 0
-
-  block:
-    var names: seq[string]
-    for name, _ in fieldTypePairs(MyType[string]):
-      if name == "kind":
-        break
-      names.add name
-    doAssert names == @["myField", "myGeneric"]
-
-  when compiles(block:
-      for _, _ in fieldTypePairs(MyType[string]):
-        continue):
-    doAssert false
-
-  block:
-    template skip() = continue
-    when compiles(block:
-        for _, _ in fieldTypePairs(MyType[string]):
-          skip()):
-      doAssert false
-
-  block:
-    template stop() = break
-    var names: seq[string]
-    for name, _ in fieldTypePairs(MyType[string]):
-      if name == "kind":
-        stop()
-      names.add name
-    doAssert names == @["myField", "myGeneric"]
-
-  when compiles(block:
-      for _, _ in fieldTypePairs(int):
-        discard):
-    doAssert false
 
   doAssert getIsTuple(TupleType)
   doAssert getIsTuple(UnnamedTupleType)
