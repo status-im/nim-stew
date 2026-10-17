@@ -17,6 +17,6 @@ func write*[T](s: var seq[T], v: openArray[T]) =
       let start = s.len
       s.setLen(start + v.len)
       when supportsCopyMem(T): # shortcut
-        copyMem(addr s[start], unsafeAddr v[0], v.len * sizeof(T))
+        copyMem(addr s[start], addr v[0], v.len * sizeof(T))
       else:
         assign(s.toOpenArray(start, s.high), v)

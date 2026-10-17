@@ -5,7 +5,7 @@
 
 when not declared(newSeqUninit):
   # https://github.com/nim-lang/Nim/pull/22739
-  # v2.0.0+
+  # v2.2.0+
   template newSeqUninit*[T](len: Natural): seq[T] =
     when T is SomeNumber:
       newSeqUninitialized[T](len)

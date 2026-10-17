@@ -1,5 +1,7 @@
+{.push raises: [].}
+
 import
-  std/[hashes, macros, tables, typetraits]
+  std/[hashes, macrocache, macros, setutils, tables, typetraits]
 
 export
   macros
@@ -13,13 +15,24 @@ type
     pragmas*: NimNode
     caseField*: NimNode
     caseBranch*: NimNode
+    caseBranchValues*: NimNode
+
+  EnumFieldDescription* = object
+    name*: NimNode
+    value*: NimNode
+    ordinal*: int64
+    strValue*: string
+
+  ParamDescription* = object
+    name*: NimNode
+    typ*: NimNode
+    pragmas*: NimNode
+    defaultValue*: NimNode
 
 const
   nnkPragmaCallKinds = {nnkExprColonExpr, nnkCall, nnkCallStrLit}
 
-{.push raises: [].}
-
-proc hash*(x: LineInfo): Hash =
+func hash*(x: LineInfo): Hash =
   !$(hash(x.filename) !& hash(x.line) !& hash(x.column))
 
 var
@@ -56,78 +69,152 @@ proc storeMacroResult*(callSite: LineInfo,
     # echo macroResult.repr
     writeMacroResultsNow()
 
-proc storeMacroResult*(macroResult: NimNode, writeOutputImmediately = false) {.raises: [IOError].} =
-  let usageSite = callsite().lineInfoObj
-  storeMacroResult(usageSite, macroResult, writeOutputImmediately)
-
 macro dumpMacroResults*: untyped =
   try:
     writeMacroResultsNow()
   except IOError as exc:
     doAssert(false, exc.msg)
 
-proc findPragma*(pragmas: NimNode, pragmaSym: NimNode): NimNode =
-  for p in pragmas:
-    if p.kind in {nnkSym, nnkIdent} and eqIdent(p, pragmaSym):
-      return p
-    if p.kind in nnkPragmaCallKinds and p.len > 0 and eqIdent(p[0], pragmaSym):
-      return p
+func pragmaName*(p: NimNode): NimNode =
+  if p.kind in nnkPragmaCallKinds and p.len > 0: p[0] else: p
 
-func isTuple*(t: NimNode): bool =
-  t.kind == nnkBracketExpr and t[0].kind == nnkSym and eqIdent(t[0], "tuple")
+func findPragma*(pragmas: NimNode, pragmaSym: NimNode): NimNode =
+  for p in pragmas:
+    if p.kind in nnkPragmaCallKinds:
+      if p.len > 0 and eqIdent(p[0], pragmaSym):
+        return p
+    else:
+      if eqIdent(p, pragmaSym):
+        return p
+
+func hasPragma*(pragmas: NimNode, pragmaName: string): bool =
+  findPragma(pragmas, ident(pragmaName)) != nil
+
+template hasPragma*(
+    field: FieldDescription | ParamDescription,
+    pragmaName: static string): bool =
+  static: discard bindSym(pragmaName)
+  hasPragma(field.pragmas, pragmaName)
+
+func isSink(typ: NimNode): bool =
+  typ.kind == nnkBracketExpr and typ[0].kind == nnkSym and
+  eqIdent(typ[0], "sink")
+
+func isTuple*(typ: NimNode): bool =
+  if typ.isSink:
+    return isTuple(typ[1])
+  case typ.typeKind
+  of ntyTypeDesc:
+    isTuple(getType(typ)[1])
+  of ntyTuple:
+    true
+  of ntyGenericInst, ntyAlias:
+    typ.getTypeImpl.kind in {nnkTupleTy, nnkTupleConstr}
+  of ntyNone:
+    case typ.kind
+    of nnkTupleTy, nnkTupleConstr:
+      true
+    of nnkBracketExpr:
+      typ[0].kind == nnkSym and eqIdent(typ[0], "tuple")
+    of nnkTypeDef:
+      isTuple(typ[2])
+    else:
+      false
+  else:
+    false
 
 macro isTuple*(T: type): untyped =
   newLit(isTuple(getType(T)[1]))
 
-proc skipRef*(T: NimNode): NimNode =
-  result = T
-  if T.kind == nnkBracketExpr and eqIdent(T[0], "ref"):
-    result = T[1]
+template readPragma*(
+    pragmas: NimNode, pragmaName: static string): NimNode =
+  static: discard bindSym(pragmaName)
+  let p = findPragma(pragmas, ident(pragmaName))
+  if p != nil and p.kind in nnkPragmaCallKinds and p.len == 2: p[1] else: p
 
-proc skipPtr*(T: NimNode): NimNode =
-  result = T
-  if T.kind == nnkBracketExpr and eqIdent(T[0], "ptr"):
-    result = T[1]
+template readPragma*(
+    field: FieldDescription | ParamDescription,
+    pragmaName: static string): NimNode =
+  readPragma(field.pragmas, pragmaName)
 
-template readPragma*(field: FieldDescription, pragmaName: static string): NimNode =
-  let p = findPragma(field.pragmas, bindSym(pragmaName))
-  if p != nil and p.len == 2: p[1] else: p
+template readPragmaValue*(
+    pragmas: NimNode, pragmaName: static string): NimNode =
+  static: discard bindSym(pragmaName)
+  let p = findPragma(pragmas, ident(pragmaName))
+  if p == nil or p.kind notin nnkPragmaCallKinds or p.len < 2: nil
+  elif p.len == 2: p[1]
+  else: p
 
-proc collectFieldsFromRecList(result: var seq[FieldDescription],
-                              n: NimNode,
-                              parentCaseField: NimNode = nil,
-                              parentCaseBranch: NimNode = nil,
-                              isDiscriminator = false) =
+template readPragmaValue*(
+    field: FieldDescription | ParamDescription,
+    pragmaName: static string): NimNode =
+  readPragmaValue(field.pragmas, pragmaName)
+
+func branchValues(recCase: NimNode, i: int): NimNode =
+  let discriminator = recCase[0]
+  if discriminator[0].kind != nnkSym:
+    return nil
+
+  let branch = recCase[i]
+  if branch.kind == nnkOfBranch:
+    let values = newNimNode(nnkCurly)
+    for j in 0 ..< branch.len - 1:
+      values.add branch[j].copyNimTree
+    return values
+
+  var ofValues = newNimNode(nnkCurly)
+  for j in 1 ..< i:
+    for k in 0 ..< recCase[j].len - 1:
+      ofValues.add recCase[j][k]
+  if ofValues.len == 0:
+    let discriminatorType = discriminator[1]
+    ofValues = quote do: set[`discriminatorType`]({})
+  quote do: complement(`ofValues`)
+
+func collectFieldsFromRecList(
+    fields: var seq[FieldDescription], n: NimNode,
+    parentCaseField: NimNode = nil, parentCaseBranch: NimNode = nil,
+    parentCaseBranchValues: NimNode = nil, isDiscriminator = false) =
   case n.kind
   of nnkRecList:
     for entry in n:
-      collectFieldsFromRecList result, entry,
-                               parentCaseField, parentCaseBranch
+      collectFieldsFromRecList fields, entry,
+                               parentCaseField, parentCaseBranch,
+                               parentCaseBranchValues
   of nnkRecWhen:
     for branch in n:
       case branch.kind:
       of nnkElifBranch:
-        collectFieldsFromRecList result, branch[1],
-                                 parentCaseField, parentCaseBranch
+        if branch[0].kind == nnkSym and eqIdent(branch[0], "false"):
+          continue
+        collectFieldsFromRecList fields, branch[1],
+                                 parentCaseField, parentCaseBranch,
+                                 parentCaseBranchValues
+        if branch[0].kind == nnkSym and eqIdent(branch[0], "true"):
+          break
       of nnkElse:
-        collectFieldsFromRecList result, branch[0],
-                                 parentCaseField, parentCaseBranch
+        collectFieldsFromRecList fields, branch[0],
+                                 parentCaseField, parentCaseBranch,
+                                 parentCaseBranchValues
       else:
         doAssert false
 
   of nnkRecCase:
-    collectFieldsFromRecList result, n[0],
+    collectFieldsFromRecList fields, n[0],
                              parentCaseField,
                              parentCaseBranch,
+                             parentCaseBranchValues,
                              isDiscriminator = true
 
     for i in 1 ..< n.len:
-      let branch = n[i]
+      let
+        branch = n[i]
+        values = n.branchValues(i)
       case branch.kind
       of nnkOfBranch:
-        collectFieldsFromRecList result, branch[^1], n[0], branch
+        collectFieldsFromRecList fields, branch[^1], n[0], branch, values
       of nnkElse:
-        collectFieldsFromRecList result, branch[0], n[0], branch
+        collectFieldsFromRecList fields, branch[0], n[0], branch, values
       else:
         doAssert false
 
@@ -139,6 +226,7 @@ proc collectFieldsFromRecList(result: var seq[FieldDescription],
       field.typ = fieldType
       field.caseField = parentCaseField
       field.caseBranch = parentCaseBranch
+      field.caseBranchValues = parentCaseBranchValues
       field.isDiscriminator = isDiscriminator
 
       if field.name.kind == nnkPragmaExpr:
@@ -149,175 +237,557 @@ proc collectFieldsFromRecList(result: var seq[FieldDescription],
         field.isPublic = true
         field.name = field.name[1]
 
-      result.add field
-
-  of nnkSym:
-    result.add FieldDescription(
-      name: n,
-      typ: getType(n),
-      caseField: parentCaseField,
-      caseBranch: parentCaseBranch,
-      isDiscriminator: isDiscriminator)
+      fields.add field
 
   of nnkNilLit, nnkDiscardStmt, nnkCommentStmt, nnkEmpty:
     discard
 
   else:
-    doAssert false, "Unexpected nodes in recordFields:\n" & n.treeRepr
+    raiseAssert "Unexpected nodes in recordFields:\n" & n.treeRepr
 
-proc collectFieldsInHierarchy(result: var seq[FieldDescription],
-                              objectType: NimNode) =
-  var objectType = objectType
+func collectFieldsFromTuple(fields: var seq[FieldDescription], n: NimNode) =
+  if n.kind == nnkTupleConstr:
+    for i in 0 ..< n.len:
+      fields.add FieldDescription(typ: n[i], name: ident("Field" & $i))
+  else:
+    for entry in n:
+      collectFieldsFromRecList fields, entry
 
-  objectType.expectKind {nnkObjectTy, nnkRefTy}
+func objectDefinition(typeInst: NimNode): NimNode =
+  var typeSym = if typeInst.kind == nnkBracketExpr: typeInst[0] else: typeInst
+  while typeSym.kind == nnkSym:
+    let typeDef = getImpl(typeSym)
+    if typeDef.kind != nnkTypeDef:
+      break
+    var body = typeDef[2]
+    while body.kind in {nnkRefTy, nnkPtrTy}:
+      body = body[0]
+    case body.kind
+    of nnkObjectTy:
+      return body
+    of nnkSym:
+      typeSym = body
+    of nnkBracketExpr:
+      typeSym = body[0]
+    of nnkCall, nnkCommand, nnkDotExpr, nnkTypeOfExpr:
+      when (NimMajor, NimMinor) > (2, 2):
+        let typeInst = body.getTypeInst
+        if typeInst == typeSym:
+          break
+        typeSym = if typeInst.kind == nnkBracketExpr: typeInst[0] else: typeInst
+      else:
+        break
+    else:
+      break
+  nil
 
-  if objectType.kind == nnkRefTy:
-    objectType = objectType[0]
-
+func collectFieldsInHierarchy(
+    fields: var seq[FieldDescription], objectType: NimNode) =
   objectType.expectKind nnkObjectTy
 
-  var baseType = objectType[1]
+  let baseType = objectType[1]
   if baseType.kind != nnkEmpty:
     baseType.expectKind nnkOfInherit
-    baseType = baseType[0]
-    baseType.expectKind nnkSym
-    baseType = getImpl(baseType)
-    baseType.expectKind nnkTypeDef
-    baseType = baseType[2]
-    baseType.expectKind {nnkObjectTy, nnkRefTy}
-    collectFieldsInHierarchy result, baseType
+    let baseDef = baseType[0].objectDefinition
+    if baseDef == nil:
+      macros.error("object type expected", baseType[0])
+    collectFieldsInHierarchy fields, baseDef
 
   let recList = objectType[2]
-  collectFieldsFromRecList result, recList
+  collectFieldsFromRecList fields, recList
 
-proc recordFields*(typeImpl: NimNode): seq[FieldDescription] =
-  if typeImpl.isTuple:
-    for i in 1 ..< typeImpl.len:
-      result.add FieldDescription(typ: typeImpl[i], name: ident("Field" & $(i - 1)))
+func isSameName(defName, name: NimNode): bool =
+  if defName.kind == nnkAccQuoted and defName.len > 1:
+    eqIdent($defName, name)  # https://github.com/nim-lang/Nim/issues/26383
+  else:
+    eqIdent(defName, name)
+
+func caseFieldName*(field: FieldDescription): NimNode =
+  if field.caseField == nil:
+    return nil
+  var name = field.caseField[0]
+  if name.kind == nnkPragmaExpr:
+    name = name[0]
+  if name.kind == nnkPostfix:
+    name = name[1]
+  name
+
+func containsOrdinal*(values: NimNode, ordinal: int64): bool =
+  if values.kind == nnkCall:
+    let contained = values[1].containsOrdinal(ordinal)
+    return if eqIdent(values[0], "complement"): not contained else: contained
+  values.expectKind nnkCurly
+  for value in values:
+    if value.kind == nnkRange:
+      if ordinal in value[0].intVal .. value[1].intVal:
+        return true
+    elif value.intVal == ordinal:
+      return true
+  false
+
+func isSameCaseField(a, b: FieldDescription): bool =
+  let
+    aName = a.caseFieldName
+    bName = b.caseFieldName
+  if aName == nil or bName == nil:
+    aName == nil and bName == nil
+  else:
+    aName.isSameName(bName)
+
+func isDefinitionOf(defField, field: FieldDescription): bool =
+  # The compiler has no link from a field symbol back to its definition node,
+  # select the correct definition on a best-effort basis.
+  # https://github.com/nim-lang/Nim/issues/26373
+  defField.name.isSameName(field.name) and
+  defField.isSameCaseField(field) and
+  defField.name.lineInfoObj == field.name.lineInfoObj
+
+func withLineInfoOf(n, src: NimNode): NimNode =
+  let res = copyNimNode(n)
+  res.copyLineInfo(src)
+  for child in n:
+    res.add child.withLineInfoOf(src)
+  res
+
+func definedField(
+    defFields: seq[FieldDescription],
+    field: FieldDescription): FieldDescription =
+  var match = -1
+  template matchField: FieldDescription = defFields[match]
+  for i in 0 ..< defFields.len:
+    template defField: FieldDescription = defFields[i]
+    if defField.isDefinitionOf(field):
+      if match == -1:
+        match = i
+      elif defField.isPublic != matchField.isPublic or
+          defField.pragmas != matchField.pragmas or
+          defField.caseBranch != matchField.caseBranch:
+        macros.error("ambiguous definition of field " & $field.name, field.name)
+  if match == -1:
+    macros.error("no definition found for field " & $field.name, field.name)
+  var defField = matchField
+  # https://github.com/nim-lang/Nim/issues/26464
+  defField.typ = field.typ.withLineInfoOf(defField.typ)
+  defField.caseBranchValues = field.caseBranchValues
+  defField
+
+func areAllFieldsDefined(def: NimNode, fields: seq[FieldDescription]): bool =
+  var defFields: seq[FieldDescription]
+  collectFieldsFromRecList defFields, def[2]
+  for i in 0 ..< fields.len:
+    var found = false
+    for j in 0 ..< defFields.len:
+      if defFields[j].isDefinitionOf(fields[i]):
+        found = true
+        break
+    if not found:
+      return false
+  true
+
+func aliasedDefinition(node: NimNode, fields: seq[FieldDescription]): NimNode =
+  let def = node.objectDefinition
+  if def != nil:
+    return if def.areAllFieldsDefined(fields): def else: nil
+  if node.kind == nnkSym:
+    let typeDef = node.getImpl
+    if typeDef.kind == nnkTypeDef:
+      return typeDef[2].aliasedDefinition(fields)
+    return nil
+  for child in node:
+    let def = child.aliasedDefinition(fields)
+    if def != nil:
+      return def
+  nil
+
+func collectFieldsFromType(
+    fields: var seq[FieldDescription], typeInst, typeImpl: NimNode) =
+  var typeImpl = typeImpl
+  while typeImpl.kind in {nnkRefTy, nnkPtrTy}:
+    typeImpl = typeImpl[0].getTypeImpl
+  if typeImpl.kind in {nnkTupleTy, nnkTupleConstr}:
+    collectFieldsFromTuple(fields, typeImpl)
+    return
+  typeImpl.expectKind nnkObjectTy
+
+  let baseType = typeImpl[1]
+  if baseType.kind != nnkEmpty:
+    baseType.expectKind nnkOfInherit
+    collectFieldsFromType fields, baseType[0], baseType[0].getTypeImpl
+
+  var implFields: seq[FieldDescription]
+  collectFieldsFromRecList implFields, typeImpl[2]
+
+  var def = typeInst.objectDefinition
+  if def == nil:
+    def = typeImpl.getTypeInst.objectDefinition
+  if def == nil:
+    def = typeInst.aliasedDefinition(implFields)
+  when (NimMajor, NimMinor) <= (2, 2):
+    if def == nil and implFields.len > 0 and implFields[0].name.kind == nnkSym:
+      def = implFields[0].name.owner.objectDefinition
+      if def != nil and not def.areAllFieldsDefined(implFields):
+        def = nil
+  if def == nil:
+    # https://github.com/nim-lang/Nim/issues/22937
+    warning("definition of " & typeInst.repr &
+      " not found, its field pragmas are ignored", typeInst)
+    for i in 0 ..< implFields.len:
+      var field = implFields[i]
+      field.isPublic = field.name.isExported
+      fields.add field
     return
 
-  let objectType = case typeImpl.kind
-    of nnkObjectTy: typeImpl
-    of nnkTypeDef: typeImpl[2]
-    else:
-      macros.error("object type expected", typeImpl)
-      return
+  var defFields: seq[FieldDescription]
+  collectFieldsFromRecList defFields, def[2]
+  for i in 0 ..< implFields.len:
+    fields.add defFields.definedField(implFields[i])
 
-  collectFieldsInHierarchy(result, objectType)
+func recordFields*(typ: NimNode): seq[FieldDescription] =
+  if typ.typeKind == ntyTypeDesc:
+    return recordFields(typ.getTypeInst[1])
+  if typ.isSink:
+    return recordFields(typ[1])
+
+  var fields: seq[FieldDescription]
+  if typ.kind == nnkBracketExpr and typ[0].kind == nnkSym and
+      eqIdent(typ[0], "tuple"):
+    collectFieldsFromTuple(fields, typ.getTypeImpl)
+    return fields
+
+  case typ.kind
+  of nnkSym, nnkBracketExpr:
+    var typeInst = typ
+    while typeInst.kind == nnkBracketExpr and
+        (eqIdent(typeInst[0], "ref") or eqIdent(typeInst[0], "ptr")):
+      typeInst = typeInst[1]
+    collectFieldsFromType(fields, typeInst, typeInst.getTypeImpl)
+    return fields
+  of nnkObjectTy:
+    let recList = typ[2]
+    if recList.kind == nnkRecList and recList.len > 0:
+      var firstField = recList[0]
+      if firstField.kind == nnkRecCase:
+        firstField = firstField[0]
+      if firstField.kind == nnkIdentDefs:
+        firstField = firstField[0]
+      if firstField.kind == nnkSym:
+        collectFieldsFromType(fields, typ.getTypeInst, typ.getTypeImpl)
+        return fields
+    elif typ[1].kind == nnkOfInherit:
+      return recordFields(typ[1][0])
+    elif typ[1].kind != nnkEmpty:
+      return recordFields(typ[1])
+  of nnkTypeDef:
+    var name = typ[0]
+    if name.kind == nnkPragmaExpr:
+      name = name[0]
+    if name.kind == nnkPostfix:
+      name = name[1]
+    if name.kind == nnkSym and typ[1].kind == nnkEmpty and
+        name.getImpl.kind == nnkTypeDef:
+      # https://github.com/nim-lang/Nim/issues/26399
+      collectFieldsFromType(fields, name, name.getTypeInst.getTypeImpl)
+      return fields
+  else:
+    discard
+
+  var objectType = case typ.kind
+    of nnkObjectTy, nnkRefTy, nnkPtrTy, nnkTupleTy, nnkTupleConstr: typ
+    of nnkTypeDef: typ[2]
+    else:
+      macros.error("object or tuple type expected", typ)
+
+  while objectType.kind in {nnkRefTy, nnkPtrTy}:
+    objectType = objectType[0]
+  if objectType.kind in {nnkSym, nnkBracketExpr}:
+    return recordFields(objectType)
+  if objectType.kind in {nnkTupleTy, nnkTupleConstr}:
+    collectFieldsFromTuple(fields, objectType)
+  else:
+    collectFieldsInHierarchy(fields, objectType)
+  fields
+
+func recordFields*(T: type): seq[FieldDescription] {.compileTime.} =
+  recordFields(getTypeInst(T))
+
+func isCaseObject*(typ: NimNode): bool =
+  # Index into fields rather than iterate across elements to work around
+  # https://github.com/nim-lang/Nim/issues/26273
+  let fields = recordFields(typ)
+  for i in 0 ..< fields.len:
+    if fields[i].isDiscriminator:
+      return true
+  false
+
+func isCaseObjectImpl(T: type): bool {.compileTime.} =
+  when T is object:
+    isCaseObject(getTypeInst(T))
+  elif T is ref | ptr:
+    isCaseObjectImpl(T.pointerBase)
+  else:
+    false
+
+template isCaseObject*(T: type): bool =
+  const res = isCaseObjectImpl(T)
+  res
+
+func hasFieldImpl(T: type, name: static string): bool {.compileTime.} =
+  when T is object | tuple:
+    # Index into fields rather than iterate across elements to work around
+    # https://github.com/nim-lang/Nim/issues/26273
+    let fields = recordFields(T)
+    for i in 0 ..< fields.len:
+      if fields[i].name.isSameName(ident name):
+        return true
+    false
+  elif T is ref | ptr:
+    hasFieldImpl(T.pointerBase, name)
+  else:
+    false
+
+template hasField*(T: type, name: static string): bool =
+  const res = hasFieldImpl(T, name)
+  res
+
+func enumFields*(typ: NimNode): seq[EnumFieldDescription] =
+  if typ.typeKind == ntyTypeDesc:
+    return enumFields(typ.getTypeInst[1])
+  if typ.isSink:
+    return enumFields(typ[1])
+  var typeDef = if typ.kind == nnkSym: typ.getImpl else: typ
+  if typeDef.kind in {nnkEnumTy, nnkNilLit}:
+    typeDef = typ.getTypeInst.getImpl
+  if typeDef.kind != nnkTypeDef:
+    macros.error("enum type expected", typ)
+  case typeDef[2].kind
+  of nnkSym:
+    enumFields(typeDef[2])
+  of nnkEnumTy:
+    var fields: seq[EnumFieldDescription]
+    for i in 1 ..< typeDef[2].len:
+      let fieldDef = typeDef[2][i]
+      var field =
+        if fieldDef.kind == nnkEnumFieldDef:
+          EnumFieldDescription(name: fieldDef[0], value: fieldDef[1])
+        else:
+          EnumFieldDescription(name: fieldDef)
+      if field.name.kind == nnkPragmaExpr:
+        field.name = field.name[0]
+      if field.name.kind == nnkSym:
+        let impl = field.name.getImpl
+        field.ordinal = field.name.intVal
+        field.strValue =
+          if impl.kind in {nnkStrLit .. nnkTripleStrLit}:
+            impl.strVal
+          else:
+            $field.name
+      fields.add field
+    fields
+  of nnkCall, nnkCommand, nnkDotExpr, nnkTypeOfExpr:
+    enumFields(typeDef[2].getTypeImpl)
+  else:
+    macros.error("enum type expected", typ)
+
+func tupleTypes*(typ: NimNode): seq[NimNode] =
+  let impl = getType(typ)
+  if impl.typeKind == ntyTypeDesc or impl.isSink:
+    return tupleTypes(impl[1])
+  if impl.kind != nnkBracketExpr or impl[0].kind != nnkSym or
+      not eqIdent(impl[0], "tuple"):
+    macros.error("tuple type expected", typ)
+  impl[1 .. ^1]
 
 macro field*(obj: typed, fieldName: static string): untyped =
+  var typeImpl = obj.getTypeImpl
+  if typeImpl.isSink:
+    typeImpl = typeImpl[1].getTypeImpl
+  while typeImpl.kind in {nnkRefTy, nnkPtrTy}:
+    typeImpl = typeImpl[0].getTypeImpl
+  if typeImpl.kind == nnkTupleConstr:
+    for i in 0 ..< typeImpl.len:
+      if eqIdent(ident("Field" & $i), fieldName):
+        return nnkBracketExpr.newTree(obj, newLit i)
   newDotExpr(obj, ident fieldName)
 
-proc skipPragma*(n: NimNode): NimNode =
+func skipPragma*(n: NimNode): NimNode =
   if n.kind == nnkPragmaExpr: n[0]
   else: n
 
-proc getPragma(T: NimNode, lookedUpField: string, pragma: NimNode): NimNode =
-  let Tresolved = getType(T)[1]
-  if isTuple(Tresolved):
+func identName*(n: NimNode): string =
+  case n.kind
+  of nnkPostfix:
+    identName(n[1])
+  of nnkPragmaExpr:
+    identName(n[0])
+  else:
+    var name = $n
+    let suffixStart = name.find('`')
+    if suffixStart >= 0:
+      name.setLen(suffixStart)
+    name
+
+func bracketExpr*(n: NimNode): NimNode =
+  if n.kind == nnkCall and n.len > 1 and eqIdent(n[0], "[]"):
+    newNimNode(nnkBracketExpr, n).add(n[1 .. ^1])
+  else:
+    n
+
+func fieldPragmas(typedescNode, typ: NimNode): NimNode =
+  let cache = CacheSeq("stew.shims.macros.fieldPragmas." & typ.repr)
+  for entry in cache:
+    if sameType(typedescNode, entry[0]):
+      return entry[1]
+
+  # Index into fields rather than iterate across elements to work around
+  # https://github.com/nim-lang/Nim/issues/26273
+  let
+    fields = recordFields(typ)
+    res = newNimNode(nnkBracket)
+  for i in 0 ..< fields.len:
+    let
+      name = fields[i].name
+      p = if fields[i].pragmas == nil: newEmptyNode() else: fields[i].pragmas
+    res.add quote do: (`name`, `p`)
+  cache.add quote do: (`typedescNode`, `res`)
+  res
+
+func getPragma(
+    typedescNode: NimNode, lookedUpField: string, pragma: NimNode): NimNode =
+  let typ = getType(typedescNode)[1]
+  if isTuple(typ):
     return nil
 
-  for f in recordFields(Tresolved.getImpl):
-    var fieldName = f.name
-    # TODO: Fix this in eqIdent
-    if fieldName.kind == nnkAccQuoted: fieldName = fieldName[0]
-    if eqIdent(fieldName, lookedUpField):
-      return f.pragmas.findPragma(pragma)
+  let fieldName = ident(lookedUpField)
+  for field in fieldPragmas(typedescNode, typ):
+    if field[0].isSameName(fieldName):
+      return field[1].findPragma(pragma).copyNimTree
 
-  error "The type " & $Tresolved & " doesn't have a field named " & lookedUpField
+  error "The type " & $typ & " doesn't have a field named " & lookedUpField
+
+func getPragma(typedescNode, pragma: NimNode): NimNode =
+  for typ in [typedescNode.getTypeInst[1], typedescNode.getType[1]]:
+    let typeInst = if typ.isSink: typ[1] else: typ
+    var typeSym = if typeInst.kind == nnkBracketExpr: typeInst[0] else: typeInst
+    while typeSym.kind == nnkSym:
+      let typeDef = getImpl(typeSym)
+      if typeDef.kind != nnkTypeDef:
+        break
+      if typeDef[0].kind == nnkPragmaExpr:
+        let p = typeDef[0][1].findPragma(pragma)
+        if p != nil:
+          return p.copyNimTree
+      case typeDef[2].kind
+      of nnkSym:
+        typeSym = typeDef[2]
+      of nnkBracketExpr:
+        typeSym = typeDef[2][0]
+      else:
+        break
+  nil
+
+func pragmaValue(p: NimNode): NimNode =
+  if p == nil or p.len <= 1:
+    return nil
+  if p.len == 2:
+    return p[1]
+
+  let
+    def = p[0].getImpl[3]
+    args = newTree(nnkPar)
+  for i in 1 ..< def.len:
+    let key = def[i][0]
+    let val = p[i]
+    args.add newTree(nnkExprColonExpr, key, val)
+  args
 
 macro getCustomPragmaFixed*(T: type, field: static string, pragma: typed{nkSym}): untyped =
-  result = nil
-  let p = getPragma(T, field, pragma)
+  pragmaValue(getPragma(T, field, pragma))
 
-  if p != nil and p.len > 0:
-    if p.len == 2:
-      result = p[1]
-    else:
-      let def = p[0].getImpl[3]
-      result = newTree(nnkPar)
-      for i in 1 ..< def.len:
-        let key = def[i][0]
-        let val = p[i]
-        result.add newTree(nnkExprColonExpr, key, val)
+macro getCustomPragmaFixed*(T: type, pragma: typed{nkSym}): untyped =
+  pragmaValue(getPragma(T, pragma))
 
 macro hasCustomPragmaFixed*(T: type, field: static string, pragma: typed{nkSym}): untyped =
   newLit(getPragma(T, field, pragma) != nil)
 
-proc humaneTypeName*(typedescNode: NimNode): string =
-  var t = getType(typedescNode)[1]
-  if t.kind != nnkBracketExpr:
-    let tImpl = t.getImpl
-    if tImpl != nil and tImpl.kind notin {nnkEmpty, nnkNilLit}:
-      t = tImpl
+macro hasCustomPragmaFixed*(T: type, pragma: typed{nkSym}): untyped =
+  newLit(getPragma(T, pragma) != nil)
 
-  repr(t)
+func humaneTypeName*(typedescNode: NimNode): string =
+  var typ = getType(typedescNode)[1]
+  if typ.kind == nnkEnumTy:
+    typ = getTypeInst(typedescNode)[1]
+  if typ.kind == nnkSym:
+    let typeDef = typ.getImpl
+    if typeDef != nil and typeDef.kind notin {nnkEmpty, nnkNilLit}:
+      typ = typeDef
+
+  repr(typ)
 
 macro inspectType*(T: typed): untyped =
   echo "Inspect type: ", humaneTypeName(T)
 
 # FIXED NewLit
 
-proc newLitFixed*(c: char): NimNode {.compileTime.} =
+func newLitFixed*(c: char): NimNode {.compileTime.} =
   ## Produces a new character literal node.
   result = newNimNode(nnkCharLit)
   result.intVal = ord(c)
 
-proc newLitFixed*(i: int): NimNode {.compileTime.} =
+func newLitFixed*(i: int): NimNode {.compileTime.} =
   ## Produces a new integer literal node.
   result = newNimNode(nnkIntLit)
   result.intVal = i
 
-proc newLitFixed*(i: int8): NimNode {.compileTime.} =
+func newLitFixed*(i: int8): NimNode {.compileTime.} =
   ## Produces a new integer literal node.
   result = newNimNode(nnkInt8Lit)
   result.intVal = i
 
-proc newLitFixed*(i: int16): NimNode {.compileTime.} =
+func newLitFixed*(i: int16): NimNode {.compileTime.} =
   ## Produces a new integer literal node.
   result = newNimNode(nnkInt16Lit)
   result.intVal = i
 
-proc newLitFixed*(i: int32): NimNode {.compileTime.} =
+func newLitFixed*(i: int32): NimNode {.compileTime.} =
   ## Produces a new integer literal node.
   result = newNimNode(nnkInt32Lit)
   result.intVal = i
 
-proc newLitFixed*(i: int64): NimNode {.compileTime.} =
+func newLitFixed*(i: int64): NimNode {.compileTime.} =
   ## Produces a new integer literal node.
   result = newNimNode(nnkInt64Lit)
   result.intVal = i
 
-proc newLitFixed*(i: uint): NimNode {.compileTime.} =
+func newLitFixed*(i: uint): NimNode {.compileTime.} =
   ## Produces a new unsigned integer literal node.
   result = newNimNode(nnkUIntLit)
   result.intVal = BiggestInt(i)
 
-proc newLitFixed*(i: uint8): NimNode {.compileTime.} =
+func newLitFixed*(i: uint8): NimNode {.compileTime.} =
   ## Produces a new unsigned integer literal node.
   result = newNimNode(nnkUInt8Lit)
   result.intVal = BiggestInt(i)
 
-proc newLitFixed*(i: uint16): NimNode {.compileTime.} =
+func newLitFixed*(i: uint16): NimNode {.compileTime.} =
   ## Produces a new unsigned integer literal node.
   result = newNimNode(nnkUInt16Lit)
   result.intVal = BiggestInt(i)
 
-proc newLitFixed*(i: uint32): NimNode {.compileTime.} =
+func newLitFixed*(i: uint32): NimNode {.compileTime.} =
   ## Produces a new unsigned integer literal node.
   result = newNimNode(nnkUInt32Lit)
   result.intVal = BiggestInt(i)
 
-proc newLitFixed*(i: uint64): NimNode {.compileTime.} =
+func newLitFixed*(i: uint64): NimNode {.compileTime.} =
   ## Produces a new unsigned integer literal node.
   result = newNimNode(nnkUInt64Lit)
   result.intVal = BiggestInt(i)
 
-proc newLitFixed*(b: bool): NimNode {.compileTime.} =
+func newLitFixed*(b: bool): NimNode {.compileTime.} =
   ## Produces a new boolean literal node.
   result = if b: bindSym"true" else: bindSym"false"
 
-proc newLitFixed*(s: string): NimNode {.compileTime.} =
+func newLitFixed*(s: string): NimNode {.compileTime.} =
   ## Produces a new string literal node.
   result = newNimNode(nnkStrLit)
   result.strVal = s
@@ -329,12 +799,12 @@ when false:
     result = newNimNode(nnkFloatLit)
     result.floatVal = f
 
-proc newLitFixed*(f: float32): NimNode {.compileTime.} =
+func newLitFixed*(f: float32): NimNode {.compileTime.} =
   ## Produces a new float literal node.
   result = newNimNode(nnkFloat32Lit)
   result.floatVal = f
 
-proc newLitFixed*(f: float64): NimNode {.compileTime.} =
+func newLitFixed*(f: float64): NimNode {.compileTime.} =
   ## Produces a new float literal node.
   result = newNimNode(nnkFloat64Lit)
   result.floatVal = f
@@ -345,34 +815,34 @@ when declared(float128):
     result = newNimNode(nnkFloat128Lit)
     result.floatVal = f
 
-proc newLitFixed*(arg: enum): NimNode {.compileTime.} =
+func newLitFixed*(arg: enum): NimNode {.compileTime.} =
   result = newCall(
     arg.type.getTypeInst[1],
     newLitFixed(int(arg))
   )
 
-proc newLitFixed*[N,T](arg: array[N,T]): NimNode {.compileTime.}
-proc newLitFixed*[T](arg: seq[T]): NimNode {.compileTime.}
-proc newLitFixed*[T](s: set[T]): NimNode {.compileTime.}
-proc newLitFixed*(arg: tuple): NimNode {.compileTime.}
+func newLitFixed*[N,T](arg: array[N,T]): NimNode {.compileTime.}
+func newLitFixed*[T](arg: seq[T]): NimNode {.compileTime.}
+func newLitFixed*[T](s: set[T]): NimNode {.compileTime.}
+func newLitFixed*(arg: tuple): NimNode {.compileTime.}
 
-proc newLitFixed*(arg: object): NimNode {.compileTime.} =
+func newLitFixed*(arg: object): NimNode {.compileTime.} =
   result = nnkObjConstr.newTree(arg.type.getTypeInst[1])
   for a, b in arg.fieldPairs:
     result.add nnkExprColonExpr.newTree( newIdentNode(a), newLitFixed(b) )
 
-proc newLitFixed*(arg: ref object): NimNode {.compileTime.} =
+func newLitFixed*(arg: ref object): NimNode {.compileTime.} =
   ## produces a new ref type literal node.
   result = nnkObjConstr.newTree(arg.type.getTypeInst[1])
   for a, b in fieldPairs(arg[]):
     result.add nnkExprColonExpr.newTree(newIdentNode(a), newLitFixed(b))
 
-proc newLitFixed*[N,T](arg: array[N,T]): NimNode {.compileTime.} =
+func newLitFixed*[N,T](arg: array[N,T]): NimNode {.compileTime.} =
   result = nnkBracket.newTree
   for x in arg:
     result.add newLitFixed(x)
 
-proc newLitFixed*[T](arg: seq[T]): NimNode {.compileTime.} =
+func newLitFixed*[T](arg: seq[T]): NimNode {.compileTime.} =
   let bracket = nnkBracket.newTree
   for x in arg:
     bracket.add newLitFixed(x)
@@ -385,17 +855,17 @@ proc newLitFixed*[T](arg: seq[T]): NimNode {.compileTime.} =
     var typ = getTypeInst(typeof(arg))[1]
     result = newCall(typ,result)
 
-proc newLitFixed*[T](s: set[T]): NimNode {.compileTime.} =
+func newLitFixed*[T](s: set[T]): NimNode {.compileTime.} =
   result = nnkCurly.newTree
   for x in s:
     result.add newLitFixed(x)
 
-proc newLitFixed*(arg: tuple): NimNode {.compileTime.} =
+func newLitFixed*(arg: tuple): NimNode {.compileTime.} =
   result = nnkPar.newTree
   for a,b in arg.fieldPairs:
     result.add nnkExprColonExpr.newTree(newIdentNode(a), newLitFixed(b))
 
-proc newLitFixed*(arg: distinct): NimNode {.compileTime.} =
+func newLitFixed*(arg: distinct): NimNode {.compileTime.} =
   result = newLitFixed distinctBase(arg)
   var typ = getTypeInst(typeof(arg))[1]
   result = newCall(typ,result)
@@ -408,6 +878,22 @@ iterator typedParams*(n: NimNode, skip = 0): (NimNode, NimNode) =
 
     for j in 0 ..< paramNodes.len - 2:
       yield (skipPragma paramNodes[j], paramType)
+
+iterator routineParams*(n: NimNode): ParamDescription =
+  let params = if n.kind == nnkFormalParams: n else: n.params
+  for i in 1 ..< params.len:
+    let paramNodes = params[i]
+    for j in 0 ..< paramNodes.len - 2:
+      var param: ParamDescription
+      param.name = paramNodes[j]
+      param.typ = paramNodes[^2]
+      param.defaultValue = paramNodes[^1]
+
+      if param.name.kind == nnkPragmaExpr:
+        param.pragmas = param.name[1]
+        param.name = param.name[0]
+
+      yield param
 
 iterator baseTypes*(exceptionType: NimNode): NimNode =
   var typ = exceptionType
