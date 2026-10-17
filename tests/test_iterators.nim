@@ -127,28 +127,10 @@ template getFieldTypePairsList(T: type): untyped =
     res
 
 template checkFieldTypePairs(T: type, expected: openArray[string]) =
-  static: doAssert getFieldTypePairsList(T) == @expected
   check getFieldTypePairsList(T) == @expected
 
-func namesBeforeKind(): seq[string] =
-  var names: seq[string]
-  for name, _ in fieldTypePairs(MyType[string]):
-    if name == "kind":
-      break
-    names.add name
-  names
-
-func namesBeforeKindViaTemplate(): seq[string] =
-  template stop() = break
-  var names: seq[string]
-  for name, _ in fieldTypePairs(MyType[string]):
-    if name == "kind":
-      stop()
-    names.add name
-  names
-
 suite "iterators":
-  test "fieldTypePairs":
+  dualTest "fieldTypePairs":
     checkFieldTypePairs(MyType[string], [
       "myField: string",
       "myGeneric: string",
@@ -213,13 +195,23 @@ suite "iterators":
 
     checkFieldTypePairs(EmptyObject, array[0, string]([]))
 
-  test "fieldTypePairs control flow":
-    static:
-      doAssert namesBeforeKind() == @["myField", "myGeneric"]
-      doAssert namesBeforeKindViaTemplate() == @["myField", "myGeneric"]
-    check:
-      namesBeforeKind() == @["myField", "myGeneric"]
-      namesBeforeKindViaTemplate() == @["myField", "myGeneric"]
+  dualTest "fieldTypePairs control flow":
+    block:
+      var names: seq[string]
+      for name, _ in fieldTypePairs(MyType[string]):
+        if name == "kind":
+          break
+        names.add name
+      check names == @["myField", "myGeneric"]
+
+    block:
+      template stop() = break
+      var names: seq[string]
+      for name, _ in fieldTypePairs(MyType[string]):
+        if name == "kind":
+          stop()
+        names.add name
+      check names == @["myField", "myGeneric"]
 
     template skip() = continue
     check:
