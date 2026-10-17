@@ -28,10 +28,16 @@ const
   PROTECTED_DACL_SECURITY_INFORMATION = 0x8000_0000'u32
   SE_FILE_OBJECT = 0x0000_0001'u32
   ERROR_SUCCESS = 0x0000_0000'u32
+  ERROR_PATH_NOT_FOUND = 0x0000_0003'u32
   SECURITY_DESCRIPTOR_MIN_LENGTH = 40
   SECURITY_DESCRIPTOR_REVISION = 1'u32
+  ACCESS_ALLOWED_ACE_TYPE = 0x00'u8
+  SE_DACL_PROTECTED = 0x1000'u16
+  LPTR = 0x0040'u32
 
 type
+  LocalMemPtr = distinct pointer
+
   ACL {.pure, final.} = object
     aclRevision: uint8
     sbz1: uint8
@@ -42,11 +48,11 @@ type
   PACL* = ptr ACL
 
   SID* = object
-    data: seq[byte]
+    data: LocalMemPtr
 
   SD* = object
-    sddata: seq[byte]
-    acldata: seq[byte]
+    sddata: LocalMemPtr
+    acldata: LocalMemPtr
 
   SID_AND_ATTRIBUTES {.pure, final.} = object
     sid: pointer
@@ -65,8 +71,13 @@ type
     mask: uint32
     sidStart: uint32
 
+  SecDescriptorKind = enum
+    File, Folder
+
 proc closeHandle(hobj: uint): int32 {.
      importc: "CloseHandle", dynlib: "kernel32", stdcall, sideEffect.}
+proc localAlloc(uFlags: uint32, ubytes: uint): pointer {.
+     importc: "LocalAlloc", stdcall, dynlib: "kernel32".}
 proc localFree(p: pointer): uint {.
      importc: "LocalFree", stdcall, dynlib: "kernel32".}
 proc getCurrentProcess(): uint {.
@@ -117,34 +128,58 @@ proc addAccessAllowedAceEx(pAcl: PACL, dwAceRevision: uint32,
      sideEffect.}
 proc getAce(pAcl: PACL, dwAceIndex: uint32, pAce: pointer): int32 {.
      importc: "GetAce", dynlib: "advapi32", stdcall, sideEffect.}
+proc setSecurityDescriptorControl(pSD: pointer, bitsOfInterest: uint16,
+                                  bitsToSet: uint16): int32 {.
+     importc: "SetSecurityDescriptorControl", dynlib: "advapi32", stdcall,
+     sideEffect.}
 
-proc len*(sid: SID): int = len(sid.data)
+proc len*(sid: SID): int =
+  int(getLengthSid(cast[pointer](sid.data)))
+
+proc free(mem: LocalMemPtr): uint =
+  localFree(cast[pointer](mem))
+
+proc free*(sd: var SD) =
+  ## Free memory occupied by security descriptor.
+  discard sd.sddata.free()
+  discard sd.acldata.free()
+  sd.sddata = LocalMemPtr(nil)
+  sd.acldata = LocalMemPtr(nil)
+
+proc free*(sid: var SID) =
+  ## Free memory occupied by security identifier.
+  discard sid.data.free()
+  sid.data = LocalMemPtr(nil)
 
 proc getTokenInformation(token: uint,
-                         information: uint32): IoResult[seq[byte]] =
-  var tlength: uint32
-  var buffer = newSeq[byte]()
+                         information: uint32): IoResult[LocalMemPtr] =
+  var
+    tlength: uint32 = 0'u32
+    localMem: pointer
   while true:
     let res =
-      if len(buffer) == 0:
+      if tlength == 0'u32:
         getTokenInformation(token, information, nil, 0, tlength)
       else:
-        getTokenInformation(token, information, cast[pointer](addr buffer[0]),
-                            uint32(len(buffer)), tlength)
+        getTokenInformation(token, information, localMem, tlength, tlength)
     if res != 0:
-      return ok(buffer)
+      return ok(LocalMemPtr(localMem))
     else:
-      let errCode = ioLastError()
-      if errCode == ERROR_INSUFFICIENT_BUFFER:
+      let errorCode = ioLastError()
+      if errorCode == ERROR_INSUFFICIENT_BUFFER:
         when sizeof(int) == 8:
-          buffer.setLen(int(tlength))
+          localMem = localAlloc(LPTR, uint(tlength))
+          if isNil(localMem):
+            return err(ioLastError())
         elif sizeof(int) == 4:
           if tlength > uint32(high(int)):
-            return err(errCode)
+            return err(errorCode)
           else:
-            buffer.setLen(int(tlength))
+            localMem = localAlloc(LPTR, uint(tlength))
+            if isNil(localMem):
+              return err(ioLastError())
       else:
-        return err(errCode)
+        return err(errorCode)
 
 proc getCurrentUserSid*(): IoResult[SID] =
   ## Returns current process user's security identifier (SID).
@@ -153,92 +188,158 @@ proc getCurrentUserSid*(): IoResult[SID] =
   if ores == 0:
     err(ioLastError())
   else:
-    let tres = getTokenInformation(token, 1'u32)
-    if tres.isErr():
+    let localMem = getTokenInformation(token, 1'u32).valueOr:
       discard closeHandle(token)
-      err(tres.error)
-    else:
-      var buffer = tres.get()
-      var utoken = cast[ptr TOKEN_USER](addr buffer[0])
-      let psid = utoken[].user.sid
-      if isValidSid(psid) != 0:
-        var ssid = newSeq[byte](getLengthSid(psid))
-        if copySid(uint32(len(ssid)), addr ssid[0], psid) != 0:
-          if closeHandle(token) != 0:
-            ok(SID(data: ssid))
+      return err(error)
+    var utoken = cast[ptr TOKEN_USER](localMem)
+    let psid = utoken[].user.sid
+    if isValidSid(psid) != 0:
+      let length = getLengthSid(psid)
+      var ssid = localAlloc(LPTR, length)
+      if isNil(ssid):
+        return err(ioLastError())
+      if copySid(uint32(length), ssid, psid) != 0:
+        if closeHandle(token) != 0:
+          if free(localMem) != 0'u:
+            let errorCode = ioLastError()
+            discard localFree(ssid)
+            err(errorCode)
           else:
-            err(ioLastError())
+            ok(SID(data: LocalMemPtr(ssid)))
         else:
-          let errCode = ioLastError()
-          discard closeHandle(token)
-          err(errCode)
+          let errorCode = ioLastError()
+          discard localFree(ssid)
+          err(errorCode)
       else:
-        let errCode = ioLastError()
+        let errorCode = ioLastError()
         discard closeHandle(token)
-        err(errCode)
+        discard free(localMem)
+        discard localFree(ssid)
+        err(errorCode)
+    else:
+      let errorCode = ioLastError()
+      discard closeHandle(token)
+      discard free(localMem)
+      err(errorCode)
 
 template getAddr*(sid: SID): pointer =
   ## Obtain Windows specific SID pointer.
-  unsafeAddr sid.data[0]
+  cast[pointer](sid.data)
 
-proc createCurrentUserOnlyAcl(): IoResult[seq[byte]] =
+template getAddr*(mem: LocalMemPtr): pointer =
+  cast[pointer](mem)
+
+proc createCurrentUserOnlyAcl(kind: SecDescriptorKind): IoResult[LocalMemPtr] =
   let aceMask = FILE_ALL_ACCESS
   var userSid = ? getCurrentUserSid()
   let size =
-    ((sizeof(ACL) + sizeof(ACCESS_ALLOWED_ACE) + len(userSid)) +
-      (sizeof(uint32) - 1)) and 0xFFFF_FFFC
+    (uint32(sizeof(ACL) + sizeof(ACCESS_ALLOWED_ACE) + len(userSid)) +
+      uint32(sizeof(uint32) - 1)) and 0xFFFF_FFFC'u32
 
-  var buffer = newSeq[byte](size)
-  var pdacl = cast[PACL](addr buffer[0])
+  var localMem = localAlloc(LPTR, uint(size))
+  if isNil(localMem):
+    let errorCode = ioLastError()
+    free(userSid)
+    return err(errorCode)
+
+  var pdacl = cast[PACL](localMem)
   if initializeAcl(pdacl, uint32(size), ACL_REVISION) == 0:
-    err(ioLastError())
+    let errorCode = ioLastError()
+    discard localFree(localMem)
+    free(userSid)
+    err(errorCode)
   else:
-    let aceFlags = OBJECT_INHERIT_ACE or CONTAINER_INHERIT_ACE
+    let aceFlags =
+      if kind == Folder:
+        OBJECT_INHERIT_ACE or CONTAINER_INHERIT_ACE
+      else:
+        0'u32
     if addAccessAllowedAceEx(pdacl, ACL_REVISION, aceFlags,
                              aceMask, userSid.getAddr()) == 0:
-      err(ioLastError())
+      let errorCode = ioLastError()
+      discard localFree(localMem)
+      free userSid
+      err(errorCode)
     else:
-      ok(buffer)
+      ok(LocalMemPtr(localMem))
 
 proc setCurrentUserOnlyAccess*(path: string): IoResult[void] =
   ## Set file or folder with path ``path`` to be accessed only by current
   ## process' user. All other user's and user's group access will be
   ## prohibited.
-  var buffer = ? createCurrentUserOnlyAcl()
-  var pdacl = cast[PACL](addr buffer[0])
+  if not(fileAccessible(path, {})):
+    return err(IoErrorCode(ERROR_PATH_NOT_FOUND))
 
-  let dflags = DACL_SECURITY_INFORMATION or
-               PROTECTED_DACL_SECURITY_INFORMATION
-  let sres = setNamedSecurityInfo(newWideCString(path), SE_FILE_OBJECT,
-                                  dflags, nil, nil, pdacl, nil)
+  let descriptorKind =
+    if isDir(path):
+      Folder
+    else:
+      File
+
+  let
+    pacl = ? createCurrentUserOnlyAcl(descriptorKind)
+    pdacl = cast[PACL](pacl)
+    dflags = DACL_SECURITY_INFORMATION or
+             PROTECTED_DACL_SECURITY_INFORMATION
+    sres = setNamedSecurityInfo(newWideCString(path), SE_FILE_OBJECT,
+                                dflags, nil, nil, pdacl, nil)
+
+  if free(pacl) != 0'u:
+    return err(ioLastError())
   if sres != ERROR_SUCCESS:
     err(IoErrorCode(sres))
   else:
     ok()
 
-proc createCurrentUserOnlySecurityDescriptor*(): IoResult[SD] =
-  ## Create security descriptor which can be used to limit access to resource
-  ## to current process user.
-  var dacl = ? createCurrentUserOnlyAcl()
-  var buffer = newSeq[byte](SECURITY_DESCRIPTOR_MIN_LENGTH)
-  if initializeSecurityDescriptor(addr buffer[0],
-                                  SECURITY_DESCRIPTOR_REVISION) == 0:
-    err(ioLastError())
+proc createUserOnlySecurityDescriptor(kind: SecDescriptorKind): IoResult[SD] =
+  let
+    dacl = ? createCurrentUserOnlyAcl(kind)
+    localMem = localAlloc(LPTR, SECURITY_DESCRIPTOR_MIN_LENGTH)
+
+  if isNil(localMem):
+    discard free(dacl)
+    return err(ioLastError())
+
+  if initializeSecurityDescriptor(localMem, SECURITY_DESCRIPTOR_REVISION) == 0:
+    let errorCode = ioLastError()
+    discard free(dacl)
+    discard localFree(localMem)
+    err(errorCode)
   else:
-    var res = SD(sddata: buffer, acldata: dacl)
-    if setSecurityDescriptorDacl(addr res.sddata[0], 1'i32,
-                                 addr res.acldata[0], 0'i32) == 0:
-      err(ioLastError())
+    var res = SD(sddata: cast[LocalMemPtr](localMem), acldata: dacl)
+    let bits = SE_DACL_PROTECTED
+    if setSecurityDescriptorControl(localMem, bits, bits) == 0:
+      let errorCode = ioLastError()
+      discard free(dacl)
+      discard localFree(localMem)
+      err(errorCode)
     else:
-      ok(res)
+      if setSecurityDescriptorDacl(localMem, 1'i32,
+                                   res.acldata.getAddr(), 0'i32) == 0:
+        let errorCode = ioLastError()
+        discard free(dacl)
+        discard localFree(localMem)
+        err(errorCode)
+      else:
+        ok(res)
+
+proc createFoldersUserOnlySecurityDescriptor*(): IoResult[SD] {.inline.} =
+  ## Create security descriptor which can be used to restrict folder access to
+  ## only the current process user.
+  createUserOnlySecurityDescriptor(Folder)
+
+proc createFilesUserOnlySecurityDescriptor*(): IoResult[SD] {.inline.} =
+  ## Create security descriptor which can be used to restrict file access to
+  ## only the current process user.
+  createUserOnlySecurityDescriptor(File)
 
 proc isEmpty*(sd: SD): bool =
   ## Returns ``true`` is security descriptor ``sd`` is not initialized.
-  (len(sd.sddata) == 0) or (len(sd.acldata) == 0)
+  isNil(sd.sddata.getAddr()) or isNil(sd.acldata.getAddr())
 
 template getDescriptor*(sd: SD): pointer =
   ## Returns pointer to Windows specific security descriptor.
-  cast[pointer](unsafeAddr sd.sddata[0])
+  sd.sddata.getAddr()
 
 proc checkCurrentUserOnlyACL*(path: string): IoResult[bool] =
   ## Check if specified file or folder ``path`` can be accessed and modified
@@ -247,7 +348,6 @@ proc checkCurrentUserOnlyACL*(path: string): IoResult[bool] =
     sdesc: pointer
     pdacl: PACL
 
-  let aceFlags = OBJECT_INHERIT_ACE or CONTAINER_INHERIT_ACE
   let userSid = ? getCurrentUserSid()
   let gres = getNamedSecurityInfo(newWideCString(path), SE_FILE_OBJECT,
                                   DACL_SECURITY_INFORMATION, nil, nil,
@@ -273,10 +373,17 @@ proc checkCurrentUserOnlyACL*(path: string): IoResult[bool] =
           discard localFree(sdesc)
         err(errCode)
       else:
+        let expectedFlags =
+          if isDir(path):
+            OBJECT_INHERIT_ACE or CONTAINER_INHERIT_ACE
+          else:
+            0x00'u32
+
         var psid = cast[pointer](addr ace.sidStart)
         if isValidSid(psid) != 0:
           if equalSid(psid, userSid.getAddr()) != 0:
-            if ace[].header.aceFlags == aceFlags and
+            if ace[].header.aceType == ACCESS_ALLOWED_ACE_TYPE and
+               ace[].header.aceFlags == expectedFlags and
                ace[].mask == FILE_ALL_ACCESS:
               ok(true)
             else:

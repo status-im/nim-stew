@@ -1,5 +1,17 @@
-import
-  macros
+# stew
+# Copyright 2018-2026 Status Research & Development GmbH
+# Licensed under either of
+#
+#  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+#  * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+#
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.push raises: [].}
+
+import std/macros, ./[assign2, enums]
+
+export enums
 
 template init*(lvalue: var auto) =
   mixin init
@@ -17,12 +29,9 @@ template init*(lvalue: var auto, a1, a2, a3: auto) =
   mixin init
   lvalue = init(type(lvalue), a1, a2, a3)
 
-when not declared(default):
-  proc default*(T: type): T = discard
-
-proc toArray*[T](N: static int, data: openarray[T]): array[N, T] =
+func toArray*[T](N: static int, data: openArray[T]): array[N, T] =
   doAssert data.len == N
-  copyMem(addr result[0], unsafeAddr data[0], N)
+  assign(result, data)
 
 template anonConst*(val: untyped): untyped =
   const c = val
@@ -58,52 +67,30 @@ when not compiles(len((1, 2))):
 # Get an object's base type, as a cstring. Ref objects will have an ":ObjectType"
 # suffix.
 # From: https://gist.github.com/stefantalpalaru/82dc71bb547d6f9178b916e3ed5b527d
-proc baseType*(obj: RootObj): cstring =
-  when not defined(nimTypeNames):
-    raiseAssert("you need to compile this with '-d:nimTypeNames'")
-  else:
+when not defined(nimTypeNames):
+  proc baseType*(obj: RootObj): cstring {.error: "baseType requires -d:nimTypeNames".}
+  proc baseType*(obj: ref RootObj): cstring {.error: "baseType requires -d:nimTypeNames".}
+elif defined(gcArc) or defined(gcOrc):
+  proc baseType*(obj: RootObj): cstring {.error: "baseType is not available in ARC/ORC".}
+  proc baseType*(obj: ref RootObj): cstring {.error: "baseType is not available in ARC/ORC".}
+else:
+  proc baseType*(obj: RootObj): cstring {.deprecated.} =
     {.emit: "result = `obj`->m_type->name;".}
 
-proc baseType*(obj: ref RootObj): cstring =
-  obj[].baseType
+  proc baseType*(obj: ref RootObj): cstring {.deprecated.} =
+    obj[].baseType
 
-when false:
-  # TODO: Implementing this doesn't seem possible at the moment.
-  #
-  # When given enum like:
-  #
-  # type WithoutHoles2 = enum
-  #   A2 = 2, B2 = 3, C2 = 4
-  #
-  # ...the code below will print:
-  #
-  #  EnumTy
-  #    Empty
-  #    Sym "A2"
-  #    Sym "B2"
-  #    Sym "C2"
-  #
-  macro hasHoles*(T: type[enum]): bool =
-    let t = getType(T)[1]
-    echo t.treeRepr
-    return newLit(true)
+func isZeroMemory*[T](x: T): bool =
+  # TODO: iterate over words here
+  # bufPtr avoids pointless https://github.com/nim-lang/Nim/issues/24093 copy
+  let bufPtr = cast[ptr array[sizeof(T), byte]](addr x)
+  for b in bufPtr[]:
+    if b != 0: return false
+  true
 
-func checkedEnumAssign*[E: enum, I: SomeInteger](res: var E, value: I): bool =
-  ## This function can be used to safely assign a tainted integer value (coming
-  ## from untrusted source) to an enum variable. The function will return `true`
-  ## if the integer value is within the acceped values of the enum and `false`
-  ## otherwise.
-
-  # TODO: Enums with holes are not supported yet
-  # static: doAssert(not hasHoles(E))
-
-  when I is SomeSignedInt or low(E).int > 0:
-    if value < I(low(E)):
-      return false
-
-  if value > I(high(E)):
-    return false
-
-  res = E value
-  return true
-
+func isDefaultValue*[T](x: T): bool =
+  # TODO: There are ways to optimise this for simple POD types
+  #       (they can be mapped to `isZeroMemory`)
+  #       It may also be beneficial to store the RHS in a const.
+  #       Check the codegen.
+  x == default(T)

@@ -18,7 +18,7 @@
 ## This module is also compatible with other backends: ``Javascript``, ``Nimscript``
 ## as well as the ``compiletime VM``.
 
-{.push raises: [].}
+{.push raises: [], gcsafe.}
 
 import
   endians2
@@ -58,21 +58,15 @@ func firstOneNim(x: uint32): int =
     0
   else:
     let k = not x + 1 # get two's complement
-    1 + lookup[((x and k) * 0x077CB531'u32) shr 27].int
+    cast[int](uint(1 + lookup[((x and k) * 0x077CB531'u32) shr 27]))
 
 func firstOneNim(x: uint8|uint16): int = firstOneNim(x.uint32)
 func firstOneNim(x: uint64): int =
   ## Returns the 1-based index of the least significant set bit of x, or if x is zero, returns zero.
   # https://graphics.stanford.edu/%7Eseander/bithacks.html#ZerosOnRightMultLookup
 
-  template convert[T](x: uint64): T =
-    when nimvm:
-      T(x and high(T))
-    else:
-      cast[T](x)
-
-  if convert[uint32](x) == 0:
-    32 + firstOneNim(uint32(x shr 32'u32))
+  if (x and uint32.high) == 0:
+    cast[int](32 + uint(firstOneNim(uint32(x shr 32'u32))))
   else:
     firstOneNim(uint32(x))
 
@@ -88,7 +82,7 @@ func log2truncNim(x: uint8|uint16|uint32): int =
   v = v or v shr 4
   v = v or v shr 8
   v = v or v shr 16
-  lookup[uint32(v * 0x07C4ACDD'u32) shr 27].int
+  int(lookup[uint32(v * 0x07C4ACDD'u32) shr 27])
 
 func log2truncNim(x: uint64): int =
   ## Quickly find the log base 2 of a 64-bit integer.
@@ -105,7 +99,7 @@ func log2truncNim(x: uint64): int =
   v = v or v shr 8
   v = v or v shr 16
   v = v or v shr 32
-  lookup[(v * 0x03F6EAF2CD271461'u64) shr 58].int
+  int(lookup[(v * 0x03F6EAF2CD271461'u64) shr 58])
 
 func countOnesNim(x: uint8|uint16|uint32): int =
   ## Counts the set bits in integer. (also called Hamming weight.)
@@ -114,7 +108,7 @@ func countOnesNim(x: uint8|uint16|uint32): int =
   var v = x.uint32
   v = v - ((v shr 1) and 0x55555555)
   v = (v and 0x33333333) + ((v shr 2) and 0x33333333)
-  (((v + (v shr 4) and 0xF0F0F0F) * 0x1010101) shr 24).int
+  cast[int](uint(((v + (v shr 4) and 0xF0F0F0F) * 0x1010101) shr 24))
 
 func countOnesNim(x: uint64): int =
   ## Counts the set bits in integer. (also called Hamming weight.)
@@ -123,7 +117,7 @@ func countOnesNim(x: uint64): int =
   v = v - ((v shr 1'u64) and 0x5555555555555555'u64)
   v = (v and 0x3333333333333333'u64) + ((v shr 2'u64) and 0x3333333333333333'u64)
   v = (v + (v shr 4'u64) and 0x0F0F0F0F0F0F0F0F'u64)
-  ((v * 0x0101010101010101'u64) shr 56'u64).int
+  cast[int](uint((v * 0x0101010101010101'u64) shr 56'u64))
 
 func parityNim(x: SomeUnsignedInt): int =
   # formula id from: https://graphics.stanford.edu/%7Eseander/bithacks.html#ParityParallel
@@ -136,7 +130,7 @@ func parityNim(x: SomeUnsignedInt): int =
     v = v xor (v shr 8)
   v = v xor (v shr 4)
   v = v and 0xf
-  ((0x6996'u shr v) and 1).int
+  cast[int](uint((0x6996'u shr v) and 1))
 
 when (defined(gcc) or defined(llvm_gcc) or defined(clang)) and useBuiltins:
 
@@ -158,24 +152,26 @@ when (defined(gcc) or defined(llvm_gcc) or defined(clang)) and useBuiltins:
 
   func countOnesBuiltin(x: SomeUnsignedInt): int =
     when bitsof(x) == bitsof(culonglong):
-      builtin_popcountll(x.culonglong).int
+      int(builtin_popcountll(x.culonglong))
     else:
-      builtin_popcount(x.cuint).int
+      int(builtin_popcount(x.cuint))
 
   func parityBuiltin(x: SomeUnsignedInt): int =
     when bitsof(x) == bitsof(culonglong):
-      builtin_parityll(x.culonglong).int
+      int(builtin_parityll(x.culonglong))
     else:
-      builtin_parity(x.cuint).int
+      int(builtin_parity(x.cuint))
 
   func firstOneBuiltin(x: SomeUnsignedInt): int =
     when bitsof(x) == bitsof(clonglong):
-      builtin_ffsll(clonglong(x))
+      int(builtin_ffsll(cast[clonglong](x)))
     else:
-      builtin_ffs(x.cuint.cint)
+      int(builtin_ffs(cast[cint](x.cuint)))
 
-  func log2truncBuiltin(v: uint8|uint16|uint32): int = 31 - builtin_clz(v.uint32)
-  func log2truncBuiltin(v: uint64): int = 63 - builtin_clzll(v)
+  func log2truncBuiltin(v: uint8|uint16|uint32): int =
+    int(31 - cast[cuint](builtin_clz(v.uint32)))
+  func log2truncBuiltin(v: uint64): int =
+    int(63 - cast[cuint](builtin_clzll(v)))
 
 elif defined(vcc) and useBuiltins:
   const arch64 = sizeof(int) == 8
@@ -195,19 +191,22 @@ elif defined(vcc) and useBuiltins:
     func bitScanReverse64(index: ptr culong, mask: uint64): cuchar {.importc: "_BitScanReverse64", header: "<intrin.h>".}
     func bitScanForward64(index: ptr culong, mask: uint64): cuchar {.importc: "_BitScanForward64", header: "<intrin.h>".}
 
-  func countOnesBuiltin(v: uint8|uint16): int = builtin_popcnt16(v.uint16).int
-  func countOnesBuiltin(v: uint32): int = builtin_popcnt32(v).int
+  func countOnesBuiltin(v: uint8|uint16): int =
+    cast[int](uint(builtin_popcnt16(v.uint16)))
+  func countOnesBuiltin(v: uint32): int =
+    cast[int](uint(builtin_popcnt32(v)))
   func countOnesBuiltin(v: uint64): int =
     when arch64:
-      builtin_popcnt64(v).int
+      cast[int](uint(builtin_popcnt64(v)))
     else:
-      builtin_popcnt32((v and 0xFFFFFFFF'u64).uint32).int +
-        builtin_popcnt32((v shr 32'u64).uint32).int
+      cast[int](uint(
+        builtin_popcnt32((v and uint32.high).uint32) +
+        builtin_popcnt32((v shr 32'u64).uint32)))
 
   template checkedScan(fnc: untyped, x: typed, def: typed): int =
     var index{.noinit.}: culong
     if fnc(index.addr, v) == cuchar(0): def
-    else: index.int
+    else: cast[int](uint(index))
 
   func firstOneBuiltin(v: uint8|uint16|uint32): int =
     1 + checkedScan(bitScanForward, v.culong, -1)
@@ -220,8 +219,8 @@ elif defined(vcc) and useBuiltins:
 
   template bitScan(fnc: untyped, x: typed): int =
     var index{.noinit.}: culong
-    if fnc(index.addr, v).int == 0: 0
-    else: index.int
+    if fnc(index.addr, v) == cuchar(0): 0
+    else: cast[int](uint(index))
 
   func log2truncBuiltin(v: uint8|uint16|uint32): int =
     bitScan(bitScanReverse, v.culong)
@@ -253,21 +252,23 @@ elif defined(icc) and useBuiltins:
 
   template checkedScan(fnc: untyped, x: typed, def: typed): int =
     var index{.noinit.}: culong
-    if fnc(index.addr, v).int == 0: def
-    else: index.int
+    if fnc(index.addr, v) == cuchar(0): def
+    else: cast[int](uint(index))
 
   template bitScan(fnc: untyped, x: typed): int =
     var index{.noinit.}: culong
-    if fnc(index.addr, v).int == 0: 0
-    else: index.int
+    if fnc(index.addr, v) == cuchar(0): 0
+    else: cast[int](uint(index))
 
-  func countOnesBuiltin(v: uint8|uint16|uint32): int = builtin_popcnt32(v.cint).int
+  func countOnesBuiltin(v: uint8|uint16|uint32): int =
+    cast[int](uint(builtin_popcnt32(cast[cint](cuint(v)))))
   func countOnesBuiltin(v: uint64): int =
     when arch64:
-      builtin_popcnt64(v).int
+      cast[int](uint(builtin_popcnt64(v)))
     else:
-      builtin_popcnt32((v and 0xFFFFFFFF'u64).cint).int +
-        builtin_popcnt32((v shr 32'u64).cint).int
+      cast[int](
+        builtin_popcnt32(cast[cint](v and 0xFFFFFFFF'u64)) +
+        builtin_popcnt32(cast[cint](v shr 32'u64)))
 
   func firstOneBuiltin(v: uint8|uint16|uint32): int =
     1 + checkedScan(bitScanForward, v.culong, -1)
@@ -292,8 +293,6 @@ func countOnes*(x: SomeUnsignedInt): int {.inline.} =
   ##
   ## Example:
   ## doAssert countOnes(0b01000100'u8) == 2
-  # TODO: figure out if ICC support _popcnt32/_popcnt64 on platform without POPCNT.
-  # like GCC and MSVC
   when nimvm:
     countOnesNim(x)
   else:
@@ -303,7 +302,7 @@ func countOnes*(x: SomeUnsignedInt): int {.inline.} =
       countOnesNim(x)
 
 func countZeros*(x: SomeUnsignedInt): int {.inline.} =
-  sizeof(x) - countOnes(x)
+  bitsof(x) - countOnes(x)
 
 func parity*(x: SomeUnsignedInt): int {.inline.} =
   ## Calculate the bit parity in integer. If number of 1-bit
@@ -444,20 +443,6 @@ template getBitBE*(x: BitIndexable, bit: Natural): bool =
   ## `getBitLE` is considering the default indexing scheme.
   (x and mostSignificantBit(x.type) shr bit) != 0
 
-func changeBit*(x: var BitIndexable, bit: Natural, val: bool) {.inline.} =
-  ## changes a bit in `x` to val, assuming 0 to be the position of the
-  ## least significant bit
-  type T = type(x)
-  x = (x and not (T(1) shl bit)) or (T(val) shl bit)
-
-template changeBitLE*(x: var BitIndexable, bit: Natural, val: bool) =
-  setBit(x, bit, val)
-
-func changeBitBE*(x: var BitIndexable, bit: Natural, val: bool) {.inline.} =
-  ## changes a bit in `x` to val, assuming 0 to be the position of the
-  ## most significant bit
-  changeBit(x, bitsof(x) - 1 - bit, val)
-
 func setBit*(x: var BitIndexable, bit: Natural) {.inline.} =
   ## sets bit in `x`, assuming 0 to be the position of the
   ## least significant bit
@@ -473,6 +458,20 @@ func setBitBE*(x: var BitIndexable, bit: Natural) {.inline.} =
   ## most significant bit
   let mask = mostSignificantBit(x.type) shr bit
   x = x or mask
+
+func changeBit*(x: var BitIndexable, bit: Natural, val: bool) {.inline.} =
+  ## changes a bit in `x` to val, assuming 0 to be the position of the
+  ## least significant bit
+  type T = type(x)
+  x = (x and not (T(1) shl bit)) or (T(val) shl bit)
+
+template changeBitLE*(x: var BitIndexable, bit: Natural, val: bool) =
+  setBit(x, bit, val)
+
+func changeBitBE*(x: var BitIndexable, bit: Natural, val: bool) {.inline.} =
+  ## changes a bit in `x` to val, assuming 0 to be the position of the
+  ## most significant bit
+  changeBit(x, bitsof(x) - 1 - bit, val)
 
 func clearBit*(x: var BitIndexable, bit: Natural) {.inline.} =
   ## clears bit in a byte, assuming 0 to be the position of the
@@ -512,94 +511,52 @@ template byteIndex(pos: Natural): int =
 template bitIndex(pos: Natural): int =
   pos and 0b111 # same as pos mod 8
 
-func getBit*(bytes: openarray[byte], pos: Natural): bool {.inline.} =
+func getBit*(bytes: openArray[byte], pos: Natural): bool {.inline.} =
   getBit(bytes[byteIndex pos], bitIndex pos)
 
-template getBitLE*(bytes: openarray[byte], pos: Natural): bool =
+template getBitLE*(bytes: openArray[byte], pos: Natural): bool =
   getBit(bytes, pos)
 
-func getBitBE*(bytes: openarray[byte], pos: Natural): bool {.inline.} =
+func getBitBE*(bytes: openArray[byte], pos: Natural): bool {.inline.} =
   getBitBE(bytes[byteIndex pos], bitIndex pos)
 
-func changeBit*(bytes: var openarray[byte], pos: Natural, value: bool) {.inline.} =
+func changeBit*(bytes: var openArray[byte], pos: Natural, value: bool) {.inline.} =
   changeBit(bytes[byteIndex pos], bitIndex pos, value)
 
-template changeBitLE*(bytes: var openarray[byte], pos: Natural, value: bool) =
+template changeBitLE*(bytes: var openArray[byte], pos: Natural, value: bool) =
   changeBit(bytes, pos, value)
 
-func changeBitBE*(bytes: var openarray[byte], pos: Natural, value: bool) {.inline.} =
+func changeBitBE*(bytes: var openArray[byte], pos: Natural, value: bool) {.inline.} =
   changeBitBE(bytes[byteIndex pos], bitIndex pos, value)
 
-func setBit*(bytes: var openarray[byte], pos: Natural) {.inline.} =
+func setBit*(bytes: var openArray[byte], pos: Natural) {.inline.} =
   setBit(bytes[byteIndex pos], bitIndex pos)
 
-template setBitLE*(bytes: var openarray[byte], pos: Natural) =
+template setBitLE*(bytes: var openArray[byte], pos: Natural) =
   setBit(bytes, pos)
 
-func setBitBE*(bytes: var openarray[byte], pos: Natural) {.inline.} =
+func setBitBE*(bytes: var openArray[byte], pos: Natural) {.inline.} =
   setBitBE(bytes[byteIndex pos], bitIndex pos)
 
-func clearBit*(bytes: var openarray[byte], pos: Natural) {.inline.} =
+func clearBit*(bytes: var openArray[byte], pos: Natural) {.inline.} =
   clearBit(bytes[byteIndex pos], bitIndex pos)
 
-template clearBitLE*(bytes: var openarray[byte], pos: Natural) =
+template clearBitLE*(bytes: var openArray[byte], pos: Natural) =
   clearBit(bytes, pos)
 
-func clearBitBE*(bytes: var openarray[byte], pos: Natural) {.inline.} =
+func clearBitBE*(bytes: var openArray[byte], pos: Natural) {.inline.} =
   clearBitBE(bytes[byteIndex pos], bitIndex pos)
 
-func toggleBit*(bytes: var openarray[byte], pos: Natural) {.inline.} =
+func toggleBit*(bytes: var openArray[byte], pos: Natural) {.inline.} =
   toggleBit(bytes[byteIndex pos], bitIndex pos)
 
-template toggleBitLE*(bytes: var openarray[byte], pos: Natural) =
+template toggleBitLE*(bytes: var openArray[byte], pos: Natural) =
   toggleBit(bytes, pos)
 
-func toggleBitBE*(bytes: var openarray[byte], pos: Natural) {.inline.} =
+func toggleBitBE*(bytes: var openArray[byte], pos: Natural) {.inline.} =
   toggleBitBE(bytes[byteIndex pos], bitIndex pos)
 
-template setBit*(x: var BitIndexable, bit: Natural, val: bool) {.deprecated: "changeBit".} =
-  changeBit(x, bit, val)
-template setBitLE*(x: var BitIndexable, bit: Natural, val: bool) {.deprecated: "changeBitLE".} =
-  changeBitLE(x, bit, val)
-template setBitBE*(x: var BitIndexable, bit: Natural, val: bool) {.deprecated: "changeBitBE".} =
-  changeBitBE(x, bit, val)
-
-template raiseBit*(x: var BitIndexable, bit: Natural) {.deprecated: "setBit".} =
-  setBit(x, bit)
-template raiseBitLE*(x: var BitIndexable, bit: Natural) {.deprecated: "setBitLE".} =
-  setBitLE(x, bit)
-template raiseBitBE*(x: var BitIndexable, bit: Natural) {.deprecated: "setBitBE".} =
-  setBitBE(x, bit)
-
-func lowerBit*(x: var BitIndexable, bit: Natural) {.inline, deprecated: "clearBit".} =
-  clearBit(x, bit)
-template lowerBitLE*(x: var BitIndexable, bit: Natural) {.deprecated: "clearBitLE".} =
-  clearBit(x, bit)
-template lowerBitBE*(x: var BitIndexable, bit: Natural) {.deprecated: "clearBitBE".} =
-  clearBitBE(x, bit)
-
-template setBit*(bytes: var openarray[byte], pos: Natural, val: bool) {.deprecated: "changeBit".} =
-  changeBit(bytes, pos, val)
-template setBitLE*(bytes: var openarray[byte], pos: Natural, val: bool) {.deprecated: "changeBitLE".} =
-  changeBitLE(bytes, pos, val)
-template setBitBE*(bytes: var openarray[byte], pos: Natural, val: bool) {.deprecated: "changeBitBE".} =
-  changeBitBE(bytes, pos, val)
-
-template raiseBit*(bytes: var openarray[byte], pos: Natural) {.deprecated: "setBit".} =
-  setBit(bytes, pos)
-template raiseBitLE*(bytes: var openarray[byte], pos: Natural) {.deprecated: "setBitLE".} =
-  setBitLE(bytes, pos)
-template raiseBitBE*(bytes: var openarray[byte], pos: Natural) {.deprecated: "setBitBE".} =
-  setBitBE(bytes, pos)
-
-template lowerBit*(bytes: var openarray[byte], pos: Natural) {.deprecated: "clearBit".} =
-  clearBit(bytes, pos)
-template lowerBitLE*(bytes: var openarray[byte], pos: Natural) {.deprecated: "clearBitLE".} =
-  clearBitLE(bytes, pos)
-template lowerBitBE*(bytes: var openarray[byte], pos: Natural) {.deprecated: "clearBitBE".} =
-  clearBitBE(bytes, pos)
-
-func getBitsBE*(data: openarray[byte], slice: HSlice, T: type[SomeUnsignedInt]): T =
+func getBitsBE*(data: openArray[byte], slice: HSlice, T: type[SomeUnsignedInt]): T =
   ## Treats `data` as an unsigned big endian integer and returns a slice of bits
   ## extracted from it, assuming 0 to be the possition of the most significant bit.
   let totalBits = data.len * 8
@@ -616,7 +573,7 @@ func getBitsBE*(data: openarray[byte], slice: HSlice, T: type[SomeUnsignedInt]):
   const resultBits = sizeof(result) * 8
   doAssert a < b and sliceLen <= resultBits and b <= totalBits
 
-  let limbs = cast[ptr UncheckedArray[T]](unsafeAddr data[0])
+  let limbs = cast[ptr UncheckedArray[T]](addr data[0])
 
   template readLimb(idx: int): auto =
     when cpuEndian == bigEndian or sizeof(result) == 1:
@@ -639,6 +596,5 @@ func getBitsBE*(data: openarray[byte], slice: HSlice, T: type[SomeUnsignedInt]):
   else:
     (firstLimb shl firstLimbUnusedBits) shr (resultBits - sliceLen)
 
-template getBitsBE*(data: openarray[byte], slice: HSlice): BiggestUInt =
+template getBitsBE*(data: openArray[byte], slice: HSlice): BiggestUInt =
   getBitsBE(data, slice, BiggestUInt)
-

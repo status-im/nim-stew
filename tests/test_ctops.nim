@@ -1,5 +1,15 @@
-import unittest
+# Copyright (c) 2020-2023 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license: http://opensource.org/licenses/MIT
+#   * Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.used.}
+
+import unittest2
 import ../stew/ctops
+
+type DefectEx = AssertionDefect
 
 suite "Constant-time operations test suite":
   test "isEqual() test":
@@ -89,17 +99,17 @@ suite "Constant-time operations test suite":
         CT.isEqual(int64Arr, uint64Arr) == true
 
     # Empty arrays
-    expect(AssertionError):
+    expect(DefectEx):
       discard CT.isEqual(emptyArray, emptyArray)
-    expect(AssertionError):
+    expect(DefectEx):
       discard CT.isEqual(emptyArray, emptyString)
-    expect(AssertionError):
+    expect(DefectEx):
       discard CT.isEqual(emptyArray, emptySeq)
 
     # Arrays, where T is different type size
-    expect(AssertionError):
+    expect(DefectEx):
       discard CT.isEqual(int8Arr, int16Arr)
-    expect(AssertionError):
+    expect(DefectEx):
       discard CT.isEqual(int16Arr, int32Arr)
-    expect(AssertionError):
+    expect(DefectEx):
       discard CT.isEqual(int8Arr, intArr)

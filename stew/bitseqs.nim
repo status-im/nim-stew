@@ -1,4 +1,4 @@
-{.push raises: [Defect].}
+{.push raises: [], gcsafe.}
 
 import
   bitops2, ptrops
@@ -29,7 +29,7 @@ type
   BitArray*[bits: static int] = object
     bytes*: array[(bits + 7) div 8, byte]
 
-func bitsLen*(bytes: openarray[byte]): int =
+func bitsLen*(bytes: openArray[byte]): int =
   let
     bytesCount = bytes.len
     lastByte = bytes[bytesCount - 1]
@@ -58,21 +58,21 @@ func add*(s: var BitSeq, value: bool) =
     s.Bytes[lastBytePos].changeBit 7, value
     s.Bytes.add byte(1)
 
-func loadLEBytes(WordType: type, bytes: openarray[byte]): WordType =
-  # TODO: this is a temporary proc until the endians API is improved
+func loadLEBytes(WordType: type, bytes: openArray[byte]): WordType =
+  # TODO: this is a temporary func until the endians API is improved
   var shift = 0
   for b in bytes:
     result = result or (WordType(b) shl shift)
     shift += 8
 
-func storeLEBytes(value: SomeUnsignedInt, dst: var openarray[byte]) =
+func storeLEBytes(value: SomeUnsignedInt, dst: var openArray[byte]) =
   when system.cpuEndian == bigEndian:
     var shift = 0
     for i in 0 ..< dst.len:
       result[i] = byte((v shr shift) and 0xff)
       shift += 8
   else:
-    copyMem(addr dst[0], unsafeAddr value, dst.len)
+    copyMem(addr dst[0], addr value, dst.len)
 
 template loopOverWords(lhs, rhs: BitSeq,
                        lhsIsVar, rhsIsVar: static bool,
@@ -138,10 +138,10 @@ template loopOverWords(lhs, rhs: BitSeq,
         let rhsEndResult = (rhsWord and mask) or markerBit
         storeLEBytes(rhsEndResult, lastWordBytes(rhs))
 
-  var lhsCurrAddr = cast[ptr WordType](unsafeAddr Bytes(lhs)[0])
+  var lhsCurrAddr = cast[ptr WordType](addr Bytes(lhs)[0])
   let lhsEndAddr = offset(lhsCurrAddr, fullWordsCount)
   when hasRhs:
-    var rhsCurrAddr = cast[ptr WordType](unsafeAddr Bytes(rhs)[0])
+    var rhsCurrAddr = cast[ptr WordType](addr Bytes(rhs)[0])
 
   while lhsCurrAddr < lhsEndAddr:
     template lhsBits: auto = lhsCurrAddr[]
@@ -212,8 +212,8 @@ template clearBit*(a: var BitArray, pos: Natural) =
 # TODO: Submit this to the standard library as `cmp`
 # At the moment, it doesn't work quite well because Nim selects
 # the generic cmp[T] from the system module instead of choosing
-# the openarray overload
-func compareArrays[T](a, b: openarray[T]): int =
+# the openArray overload
+func compareArrays[T](a, b: openArray[T]): int =
   result = cmp(a.len, b.len)
   if result != 0: return
 
@@ -252,19 +252,7 @@ func isSubsetOf*(a, b: BitSeq): bool =
       return false
   true
 
-proc isZeros*(x: BitSeq): bool =
+func isZeros*(x: BitSeq): bool =
   for w in words(x):
     if w != 0: return false
-  return true
-
-template raiseBit*(s: var BitSeq, pos: Natural) {.deprecated: "setBit".} =
-  setBit(s, pos)
-
-template lowerBit*(s: var BitSeq, pos: Natural) {.deprecated: "clearBit".} =
-  clearBit(s, pos)
-
-template raiseBit*(a: var BitArray, pos: Natural) {.deprecated: "setBit".} =
-  setBit(a, pos)
-
-template lowerBit*(a: var BitArray, pos: Natural) {.deprecated: "lowerBit".} =
-  clearBit(a, pos)
+  true

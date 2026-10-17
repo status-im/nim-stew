@@ -49,10 +49,10 @@ when defined(windows):
 else:
   proc alloca(n: int): pointer {.importc, header: "<alloca.h>".}
 
-proc raiseRangeError(s: string) =
-  raise newException(RangeError, s)
+func raiseRangeError(s: string) =
+  raise newException(RangeDefect, s)
 
-proc raiseOutOfRange =
+func raiseOutOfRange =
   raiseRangeError "index out of range"
 
 template len*(a: StackArray): int =
@@ -68,7 +68,7 @@ template `[]`*(a: StackArray, i: int): auto =
   if i < 0 or i >= a.len: raiseOutOfRange()
   a.buffer[i]
 
-proc `[]=`*(a: StackArray, i: int, val: a.T) {.inline.} =
+func `[]=`*(a: StackArray, i: int, val: a.T) {.inline.} =
   if i < 0 or i >= a.len: raiseOutOfRange()
   a.buffer[i] = val
 
@@ -76,7 +76,7 @@ template `[]`*(a: StackArray, i: BackwardsIndex): auto =
   if int(i) < 1 or int(i) > a.len: raiseOutOfRange()
   a.buffer[a.len - int(i)]
 
-proc `[]=`*(a: StackArray, i: BackwardsIndex, val: a.T) =
+func `[]=`*(a: StackArray, i: BackwardsIndex, val: a.T) =
   if int(i) < 1 or int(i) > a.len: raiseOutOfRange()
   a.buffer[a.len - int(i)] = val
 
@@ -118,10 +118,7 @@ template allocStackArrayNoInit*(T: typedesc, size: int): StackArray[T] =
   allocStackArrayAux(T, size, false)
 
 template getBuffer*(a: StackArray): untyped =
-  when (NimMajor,NimMinor,NimPatch)>=(0,19,9):
-    a.buffer
-  else:
-    a.buffer[]
+  a.buffer
 
 template toOpenArray*(a: StackArray): auto =
   toOpenArray(a.getBuffer, 0, a.high)

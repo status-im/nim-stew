@@ -1,7 +1,7 @@
-import unittest
-import ../stew/base64
+import unittest2
+import ../stew/[base64, byteutils]
 
-when defined(nimHasUsed): {.used.}
+{.used.}
 
 const TVBasePadding = [
   ["f", "Zg=="],
@@ -162,3 +162,11 @@ suite "BASE64 encoding test suite":
       decsize == 0
       Base64Url.decode("/+", decres, decsize) == Base64Status.Incorrect
       decsize == 0
+
+  test "Decode byte sequence":
+    let data = "Hello World".toBytes()
+    let base64 = Base64.encode(data).toBytes()
+    var decres = newSeq[byte](20)
+    var decsize = 0
+    check:
+      Base64.decode(base64, decres, decsize) == Base64Status.Success

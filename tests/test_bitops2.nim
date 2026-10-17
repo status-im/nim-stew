@@ -1,4 +1,12 @@
-import unittest
+# Copyright (c) 2019-2022 Status Research & Development GmbH
+# Licensed and distributed under either of
+#   * MIT license: http://opensource.org/licenses/MIT
+#   * Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0
+# at your option. This file may not be copied, modified, or distributed except according to those terms.
+
+{.used.}
+
+import unittest2
 
 import ../stew/bitops2
 
@@ -10,6 +18,10 @@ template test() =
   doAssert countOnes(0b01000100'u8) == 2
   doAssert countOnes(0b11111111'u64) == 8
   doAssert countOnes(0b11000001'u) == 3
+
+  doAssert countZeros(0b00000000'u8) == 8
+  doAssert countZeros(0b01000100'u8) == 6
+  doAssert countZeros(0b11111111'u64) == 56
 
   doAssert firstOne(0b00000000'u8) == 0
   doAssert firstOne(0b00000001'u64) == 1
@@ -98,7 +110,7 @@ template test() =
   # T(1 shl 63) raises!
   doAssert bit64 == 0b10000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000'u64
 
-proc runtimeTest =
+func runtimeTest =
   var bytes = @[byte 0b11001101, 0b10010010, 0b00000000, 0b11111111,
                      0b11000010, 0b00110110, 0b11010110, 0b00101010,
                      0b01101110, 0b11101001, 0b10101011, 0b00110010]
@@ -141,4 +153,3 @@ suite "bitops2":
   test "bitops2_test":
     test() # Cannot use unittest at compile time..
     runtimeTest()
-
