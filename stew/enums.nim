@@ -52,15 +52,15 @@ macro enumStyle*(t: typedesc[enum]): untyped =
 macro enumRangeInt64*(a: type[enum]): untyped =
   ## This macro returns an array with all the ordinal values of an enum
   let
-    values = a.getType[1][1..^1]
-    valuesOrded = values.mapIt(newCall("int64", it))
+    values = a.enumFields
+    valuesOrded = values.mapIt(newLit it.ordinal)
   newNimNode(nnkBracket).add(valuesOrded)
 
 macro enumStrValuesArrayImpl(a: type[enum]): untyped =
-  ## This macro returns an array with all the ordinal values of an enum
+  ## This macro returns an array with all the string values of an enum
   let
-    values = a.getType[1][1..^1]
-    valuesOrded = values.mapIt(newCall("$", it))
+    values = a.enumFields
+    valuesOrded = values.mapIt(newLit it.strValue)
   newNimNode(nnkBracket).add(valuesOrded)
 
 # TODO: This should be a proc returning a lent view over the
