@@ -69,12 +69,6 @@ proc storeMacroResult*(callSite: LineInfo,
     # echo macroResult.repr
     writeMacroResultsNow()
 
-proc storeMacroResult*(
-    macroResult: NimNode, writeOutputImmediately = false
-) {.deprecated, raises: [IOError].} =
-  let usageSite = callsite().lineInfoObj
-  storeMacroResult(usageSite, macroResult, writeOutputImmediately)
-
 macro dumpMacroResults*: untyped =
   try:
     writeMacroResultsNow()
@@ -131,23 +125,6 @@ func isTuple*(typ: NimNode): bool =
 
 macro isTuple*(T: type): untyped =
   newLit(isTuple(getType(T)[1]))
-
-template readPragmaImpl(
-    pragmas: NimNode, pragmaName: static string): NimNode =
-  static: discard bindSym(pragmaName)
-  let p = findPragma(pragmas, ident(pragmaName))
-  if p != nil and p.kind in nnkPragmaCallKinds and p.len == 2: p[1] else: p
-
-template readPragma*(
-    pragmas: NimNode, pragmaName: static string): NimNode {.
-    deprecated: "use readPragmaValue or hasPragma".} =
-  readPragmaImpl(pragmas, pragmaName)
-
-template readPragma*(
-    field: FieldDescription | ParamDescription,
-    pragmaName: static string): NimNode {.
-    deprecated: "use readPragmaValue or hasPragma".} =
-  readPragmaImpl(field.pragmas, pragmaName)
 
 template readPragmaValue*(
     pragmas: NimNode, pragmaName: static string): NimNode =
