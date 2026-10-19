@@ -4,6 +4,11 @@
 {.push raises: [], gcsafe.}
 {.used.}
 
+when not declared(newStringUninit):
+  # v2.2.0+
+  template newStringUninit*(len: Natural): string =
+    newString(len)
+
 # https://github.com/nim-lang/Nim/pull/24836
 # https://github.com/nim-lang/Nim/pull/25022
 # https://github.com/nim-lang/Nim/pull/25767

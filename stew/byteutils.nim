@@ -11,7 +11,8 @@
 
 import
   std/[algorithm, typetraits],
-  ./arrayops
+  ./arrayops,
+  ./shims/struninit
 
 # backwards compat
 export arrayops.`&`, arrayops.initArrayWith, arrayops.`[]=`
