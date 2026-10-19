@@ -11,7 +11,8 @@
 
 import
   std/[algorithm, typetraits],
-  ./arrayops
+  ./arrayops,
+  ./shims/struninit
 
 # backwards compat
 export arrayops.`&`, arrayops.initArrayWith, arrayops.`[]=`
@@ -234,14 +235,14 @@ func toHex*(ba: openArray[byte]): string {.inline.} =
   ## Convert a byte-array to its hex representation
   ## Output is in lowercase
   ## No "endianness" reordering is done.
-  result = newString(2 * ba.len)
+  result = newStringUninit(2 * ba.len)
   toHex(result, ba)
 
 func to0xHex*(ba: openArray[byte]): string {.inline.} =
   ## Convert a byte-array to its hex representation
   ## Output is in lowercase
   ## No "endianness" reordering is done.
-  result = newString(2 * ba.len + 2)
+  result = newStringUninit(2 * ba.len + 2)
   result[0] = '0'
   result[1] = 'x'
   toHex(toOpenArray(result, 2, result.high), ba)
