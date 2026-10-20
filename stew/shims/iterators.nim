@@ -24,10 +24,11 @@ macro fieldTypePairsLoop(loop: typed): untyped =
 func fieldTypePair(name, field, nameVar, typeVar, body: NimNode): NimNode =
   let stmts = newStmtList()
   if not eqIdent(nameVar, "_"):
-    stmts.add newConstStmt(nameVar, name)
+    stmts.add quote do:
+      const `nameVar` {.used.} = `name`
   if not eqIdent(typeVar, "_"):
     stmts.add quote do:
-      type `typeVar` = typeof(`field`)
+      type `typeVar` {.used.} = typeof(`field`)
   stmts.add body.copyNimTree
   newIfStmt((newLit(true), stmts))
 
