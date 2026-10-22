@@ -100,6 +100,17 @@ func isSink*(typ: NimNode): bool =
   typ.kind == nnkBracketExpr and typ[0].kind == nnkSym and
   eqIdent(typ[0], "sink")
 
+func skipTypeWrappers(typ: NimNode): NimNode =
+  var res = typ
+  if res.typeKind == ntyTypeDesc:
+    res = res.getTypeInst[1]
+  if res.isSink:
+    res = res[1]
+  res
+
+func isSameType*(a, b: NimNode): bool =
+  sameType(a.skipTypeWrappers, b.skipTypeWrappers)
+
 func isTuple*(typ: NimNode): bool =
   if typ.isSink:
     return isTuple(typ[1])
@@ -585,13 +596,21 @@ func enumFields*(typ: NimNode): seq[EnumFieldDescription] =
   fields
 
 func tupleTypes*(typ: NimNode): seq[NimNode] =
-  let impl = getType(typ)
-  if impl.typeKind == ntyTypeDesc or impl.isSink:
+  let impl = getTypeImpl(typ)
+  if impl.kind == nnkBracketExpr and
+      (eqIdent(impl[0], "typeDesc") or impl.isSink):
     return tupleTypes(impl[1])
-  if impl.kind != nnkBracketExpr or impl[0].kind != nnkSym or
-      not eqIdent(impl[0], "tuple"):
+  case impl.kind
+  of nnkTupleConstr:
+    impl[0 .. ^1]
+  of nnkTupleTy:
+    var res: seq[NimNode]
+    for identDefs in impl:
+      for _ in 0 ..< identDefs.len - 2:
+        res.add identDefs[^2]
+    res
+  else:
     macros.error("tuple type expected", typ)
-  impl[1 .. ^1]
 
 macro field*(obj: typed, fieldName: static string): untyped =
   var typeImpl = obj.getTypeImpl

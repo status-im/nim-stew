@@ -225,6 +225,7 @@ type
   GenericTupleAliasType = GenericTupleType[int]
   ErrorAliasType = ErrorType
   AliasTupleType = (ErrorAliasType, UnnamedTupleType)
+  GenericMemberTupleType = (GenericBaseType[int], ErrorAliasType)
 
   EmptyObject = object
   EmptyRefObject = ref object
@@ -473,6 +474,12 @@ template getTupleTypesList(T: type): untyped =
     doAssert typeTupleTypesList(sink T) == res
     doAssert typeParamTupleTypesList(sink T) == res
     res
+
+macro sameTypes(a, b: typed): untyped =
+  newLit(isSameType(a, b))
+
+macro sameTupleType(T: type, index: static int, b: typed): untyped =
+  newLit(tupleTypes(T)[index].isSameType(b))
 
 func typeDescFieldsLists(T: type): seq[string] {.compileTime.} =
   fieldDescriptions(recordFields(T))
@@ -1302,7 +1309,9 @@ static:
   doAssert getTupleTypesList(GenericTupleType[string]) == @["string"]
   doAssert getTupleTypesList(GenericTupleAliasType) == @["int"]
   doAssert getTupleTypesList(AliasTupleType) == @[
-    "ErrorType", "tuple[int, string]"]
+    "ErrorAliasType", "UnnamedTupleType"]
+  doAssert getTupleTypesList(GenericMemberTupleType) == @[
+    "GenericBaseType[int]", "ErrorAliasType"]
   doAssert getTupleTypesList(tuple[]).len == 0
   when compiles(typeParamTupleTypesList(int)):
     doAssert false
@@ -1388,6 +1397,19 @@ suite "Macros":
         macro undeclaredPragmaPresence(T: type): untyped =
           newLit recordFields(T)[0].hasPragma("undeclaredPragma")):
       check false
+
+  test "isSameType":
+    func sinkSameType(value: sink ErrorType): bool =
+      sameTypes(typeof(value), ErrorType)
+    check:
+      sameTypes(ErrorType, ErrorType)
+      sameTypes(ErrorAliasType, ErrorType)
+      sameTypes(GenericBaseType[int], GenericBaseType[int])
+      not sameTypes(GenericBaseType[int], GenericBaseType[string])
+      not sameTypes(ErrorType, int)
+      sinkSameType(ErrorType())
+      sameTupleType(GenericMemberTupleType, 0, GenericBaseType[int])
+      sameTupleType(GenericMemberTupleType, 1, ErrorType)
 
   test "readPragmaValue":
     const untypedPragmaLists = getPragmaLists:
