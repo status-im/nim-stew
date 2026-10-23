@@ -218,8 +218,10 @@ iterator to0xHex*(ba: openArray[byte]): char =
 # https://lemire.me/blog/2026/02/02/converting-data-to-hexadecimal-outputs-quickly/
 # https://github.com/nodejs/nbytes/pull/12
 {.push checks: off.}
-func toHex(dst: var openArray[char], ba: openArray[byte]) =
-  ## Faster vectorized toHex version
+func toHex*(dst: var openArray[char], ba: openArray[byte]) =
+  ## Write the lowercase hex representation of `ba` into
+  ## `dst[0 ..< 2 * ba.len]`, without allocating
+  ## No "endianness" reordering is done.
   template nibble(x: uint8): untyped =
     char(x + (if x >= 10: uint8('a') - 10 else: uint8('0')))
 
