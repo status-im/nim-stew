@@ -31,6 +31,7 @@ suite "Byte utils":
     var a: array[5, byte]
     hexToByteArray(s, a, 1, 3)
     check a == [0.byte, 0x34, 0x56, 0x78, 0]
+    expect(ValueError): hexToByteArray("0x1234", a, 1, 2)
 
   dualTest "hexToByteArray: Inplace full string":
     let s = "0xffffffff"
@@ -72,6 +73,7 @@ suite "Byte utils":
 
     expect(ValueError): discard hexToByteArray[1]("")
     expect(ValueError): discard hexToByteArray[1]("1")
+    expect(ValueError): discard hexToByteArray[1]("1g")
 
   dualTest "hexToByteArray: missing bytes":
     var buffer: array[1, byte]
@@ -119,9 +121,14 @@ suite "Byte utils":
     check hexToSeqByte("12345678") == simpleBArray
     check hexToSeqByte("00") == [byte 0]
     check hexToSeqByte("0x") == []
+    check hexToSeqByte("0xABcdEF") == [byte 0xab, 0xcd, 0xef]
     expect(ValueError): discard hexToSeqByte("1234567")
     expect(ValueError): discard hexToSeqByte("X")
     expect(ValueError): discard hexToSeqByte("0")
+    for c in char.low .. char.high:
+      if c notin {'0'..'9', 'a'..'f', 'A'..'F'}:
+        expect(ValueError): discard hexToSeqByte("1" & c)
+        expect(ValueError): discard hexToSeqByte(c & "1")
     check to0xHex(default(seq[byte])) == "0x"
     check simpleBArray.to0xHex == "0x12345678"
     check simpleBArray.iter0xHex == "0x12345678"

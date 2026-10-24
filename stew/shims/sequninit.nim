@@ -8,7 +8,10 @@ when not declared(newSeqUninit):
   # v2.2.0+
   template newSeqUninit*[T](len: Natural): seq[T] =
     when T is SomeNumber:
-      newSeqUninitialized[T](len)
+      when nimvm:
+        newSeq[T](len)
+      else:
+        newSeqUninitialized[T](len)
     else:
       newSeq[T](len)
 
