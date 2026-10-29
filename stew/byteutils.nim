@@ -12,7 +12,7 @@
 import
   std/[algorithm, typetraits],
   ./arrayops,
-  ./shims/struninit
+  ./shims/[sequninit, struninit]
 
 # backwards compat
 export arrayops.`&`, arrayops.initArrayWith, arrayops.`[]=`
@@ -39,6 +39,31 @@ template skip0xPrefix(hexStr: openArray[char]): int =
   if hexStr.len > 1 and hexStr[0] == '0' and hexStr[1] in {'x', 'X'}: 2
   else: 0
 
+{.push checks: off.}
+func fromHex(dst: var openArray[byte], src: openArray[char]) {.hexRaises.} =
+  ## Read hex-encoded data from `src` and store corresponding bytes in `dst`
+  template nibble(c: char): uint8 =
+    let
+      x = uint8(c)
+      digit = x - uint8('0')
+      letter = (x or 0x20'u8) - uint8('a')
+    if digit < 10: digit
+    elif letter < 6: letter + 10
+    else: 0xff'u8
+
+  doAssert src.len >= dst.len * 2
+  var invalid = 0'u8
+  for i, b in dst.mpairs:
+    let
+      hi = nibble(src[2 * i + 0])
+      lo = nibble(src[2 * i + 1])
+    invalid = invalid or hi or lo
+    b = (hi shl 4) or lo
+
+  if (invalid and 0xf0'u8) != 0:
+    raise (ref ValueError)(msg: "hex string contains invalid characters")
+{.pop.}
+
 func hexToByteArrayImpl(
     hexStr: openArray[char], output: var openArray[byte], fromIdx, toIdx: int):
     int {.hexRaises.} =
@@ -50,17 +75,15 @@ func hexToByteArrayImpl(
 
   let sz = toIdx + 1 - fromIdx
 
+  sIdx += fromIdx * 2
   if hexStr.len - sIdx < 2*sz:
     raise (ref ValueError)(msg: "hex string too short")
 
-  sIdx += fromIdx * 2
-  for bIdx in fromIdx ..< sz + fromIdx:
-    output[bIdx] =
-      (hexStr[sIdx].readHexChar shl 4) or
-      hexStr[sIdx + 1].readHexChar
-    inc(sIdx, 2)
+  fromHex(
+    output.toOpenArray(fromIdx, toIdx),
+    hexStr.toOpenArray(sIdx, sIdx + 2 * sz - 1))
 
-  sIdx
+  sIdx + 2 * sz
 
 func hexToByteArray*(
     hexStr: openArray[char], output: var openArray[byte], fromIdx, toIdx: int)
@@ -197,9 +220,8 @@ func hexToSeqByte*(hexStr: string): seq[byte]
   let skip = skip0xPrefix(hexStr)
   let N = (hexStr.len - skip) div 2
 
-  result = newSeq[byte](N)
-  for i in 0 ..< N:
-    result[i] = hexStr[2*i + skip].readHexChar shl 4 or hexStr[2*i + 1 + skip].readHexChar
+  result = newSeqUninit[byte](N)
+  fromHex(result, hexStr.toOpenArray(skip, hexStr.high))
 
 iterator toHex*(ba: openArray[byte]): char =
   const hexChars =
@@ -226,11 +248,9 @@ func toHex*(dst: var openArray[char], ba: openArray[byte]) =
     char(x + (if x >= 10: uint8('a') - 10 else: uint8('0')))
 
   doAssert dst.len >= ba.len * 2
-  var i = 0
-  for c in ba:
-    dst[i+0] = nibble(c shr 4)
-    dst[i+1] = nibble(c and 0x0f'u8)
-    i += 2
+  for i, c in ba:
+    dst[2 * i + 0] = nibble(c shr 4)
+    dst[2 * i + 1] = nibble(c and 0x0f'u8)
 {.pop.}
 
 func toHex*(ba: openArray[byte]): string {.inline.} =
