@@ -910,20 +910,6 @@ iterator routineParams*(n: NimNode): ParamDescription =
 
       yield param
 
-iterator baseTypes*(exceptionType: NimNode): NimNode =
-  var typ = exceptionType
-  while typ != nil:
-    let impl = getImpl(typ)
-    if impl.len != 3 or impl[2].kind != nnkObjectTy:
-      break
-
-    let objType = impl[2]
-    if objType[1].kind != nnkOfInherit:
-      break
-
-    typ = objType[1][0]
-    yield typ
-
 macro unpackArgs*(callee: untyped, args: untyped): untyped =
   const ArgKind = nnkArgList
 
