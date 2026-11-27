@@ -22,7 +22,7 @@ respective folders
 
 - `arraybuf` - `array`-based fixed-capacity dynamic-length buffer
 - `arrayops` - small helpers and operations on `array`/`openArray`
-- `assign2` - fast assignments (unlike the `=` operator in nim which is very slow)
+- `assign2` - fast assignments (unlike the `=` operator in nim which is very slow), moves without a stack temporary
 - `bitops2` - an updated version of `bitops.nim`, filling in gaps in original code
 - `byteutils` - utilities that make working with the Nim `byte` type convenient
 - `endians2` - utilities for converting to and from little / big endian integers

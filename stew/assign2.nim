@@ -1,4 +1,4 @@
-import std/typetraits, ./shims/[macros, sequninit]
+import std/[macrocache, typetraits], ./shims/[macros, sequninit]
 
 {.push raises: [], gcsafe.}
 
@@ -140,3 +140,95 @@ func assign*[T](tgt: var T, src: T) =
         unsupported T
     else:
       tgt = src
+
+func supportsMoveInPlaceImpl(typ: NimNode, depth = 0): bool =
+  const MaxDepth = 64
+  if depth > MaxDepth or typ.typeKind == ntyNone:
+    return false
+
+  let impl = typ.getTypeImpl
+  case impl.kind
+  of nnkObjectTy, nnkTupleTy, nnkTupleConstr:
+    let known = CacheSeq("stew.assign2.supportsMoveInPlace." & typ.repr)
+    for knownType in known:
+      if sameType(knownType, typ):
+        return true
+
+    # Index into fields rather than iterate across elements to work around
+    # https://github.com/nim-lang/Nim/issues/26273
+    let fields = typ.recordFields
+    for i in 0 ..< fields.len:
+      if not fields[i].typ.supportsMoveInPlaceImpl(depth + 1):
+        return false
+    known.add typ
+    true
+  of nnkDistinctTy, nnkPtrTy:
+    impl[0].supportsMoveInPlaceImpl(depth + 1)
+  of nnkBracketExpr:
+    case impl[0].typeKind
+    of ntySet, ntyRange:
+      true
+    of ntyArray, ntySequence, ntyUncheckedArray:
+      impl[^1].supportsMoveInPlaceImpl(depth + 1)
+    else:
+      false
+  else:
+    impl.typeKind in
+      {ntyBool, ntyChar, ntyEnum, ntyInt .. ntyUInt64, ntyString, ntyCString}
+
+macro supportsMoveInPlace(T: type): untyped =
+  # Whether destroying a `T` cannot free another `T`,
+  # as in `x = move(x.child[])`, where `x` owns the source.
+  # Only then can the temporary of `move` be skipped.
+  # Hooks that free other objects, e.g., via a global,
+  # are not detected; see the manual's aliasing rules:
+  # https://nim-lang.org/docs/manual_experimental.html#aliasing-restrictions-in-parameter-passing
+  let isSupported = newLit(T.getTypeImpl[1].supportsMoveInPlaceImpl)
+  quote do:
+    supportsCopyMem(`T`) or `isSupported`
+
+macro unsupportedMove(T: type): untyped =
+  error "moveAssign of type " & repr(T.getTypeInst[1]) & " unsupported"
+
+proc moveAssign*[T](tgt: var T, src: var T) =
+  ## Moves `src` into `tgt` and resets `src`, same as `tgt = move(src)`,
+  ## but without a temporary copy of the value on the stack.
+  ##
+  ## With ORC, `tgt = move(src)` first moves the value into a temporary
+  ## on the stack when `tgt` is reached through a pointer,
+  ## e.g., a `var` parameter or a dereferenced `ref`.
+  ## That overflows the stack for large values:
+  ## https://github.com/nim-lang/Nim/issues/26565
+  ##
+  ## Calls for types that might need that temporary do not compile.
+  ##
+  ## `tgt` and `src` must be different locations.
+  when not supportsMoveInPlace(T):
+    unsupportedMove T
+
+  when nimvm:
+    when (NimMajor, NimMinor) >= (2, 4):
+      tgt = move(src)
+    else:
+      # `move` does not reset `src` at compile time:
+      # https://github.com/nim-lang/Nim/issues/15975
+      # A `src` behind a `ref` is not copied either,
+      # so this leaves `tgt` empty for such a `src`:
+      # https://github.com/nim-lang/Nim/pull/26323
+      var tmp = src
+      reset(src)
+      tgt = tmp
+  else:
+    if addr(tgt) == addr(src):
+      raiseAssert "Target and source are the same location"
+
+    when not defined(gcDestructors) or supportsCopyMem(T):
+      # Under refc, and for types without hooks, `move` needs no temporary
+      tgt = move(src)
+    else:
+      # The manual's "move-optimization" rewrite rule,
+      # as destroying `tgt` cannot free `src`:
+      # https://nim-lang.org/docs/destructors.html#rewrite-rules
+      `=sink`(tgt, src)
+      {.cast(raises: []), cast(tags: []).}:  # Same as in `system.move`
+        `=wasMoved`(src)
